@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+.pytest_cache/
+.pytest-tmp/
+pytest-cache-files-*/
+*.py[cod]
+*.db
+*.db-shm
+*.db-wal
+/data/*
+!/data/.gitkeep
+.ipynb_checkpoints/
