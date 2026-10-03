@@ -2,7 +2,7 @@
 
 A learning-focused application being built incrementally from an educational movie recommender. It uses FastAPI, SQLite, and an independently implemented user-user collaborative-filtering engine, with a React frontend.
 
-**Current status: Stage 5 (frontend).** Data loading, recommendations, SQLite persistence, the REST API, and the React frontend are implemented. LensKit is not a dependency.
+**Current status: Stage 6 (Docker) complete.** Data loading, recommendations, SQLite persistence, the REST API, the React frontend, and backend Docker packaging are implemented. LensKit is not a dependency.
 
 ## Setup
 
@@ -181,7 +181,35 @@ Create an ID-only user and keep its ID, or load an existing application user ID.
 
 Recommendation scores are shown on a five-point scale. Popular and genre scores are historical averages. Personal and group scores use the genre-adjusted CF estimate below, or an explicitly labeled popularity fallback. Confidence is displayed on a 0–1 evidence-strength scale; fallback confidence is absent. A backend-derived release-decade selector applies to every recommendation tab. Changing a user clears the previous profile's views, and saving a rating or changing decades clears recommendation results so they can be requested again.
 
-To check the production bundle, run `npm run build` inside `frontend/`. The result is `frontend/dist/`. `npm run preview` previews that bundle only; the development `/api` proxy is configured for `npm run dev`. Serving the built frontend with FastAPI and containerizing the application are deferred to Stage 6.
+To check the production bundle, run `npm run build` inside `frontend/`. The result is `frontend/dist/`. `npm run preview` previews that bundle only; the development `/api` proxy is configured for `npm run dev`. The frontend remains independent of the backend Docker image. Public frontend/backend deployment configuration is deferred.
+
+## Backend Docker (Stage 6)
+
+Verified image build, API workflows, same-container restart persistence, and named-volume persistence across replacement containers. The complete Python suite passed with 187 tests and one existing deprecation warning.
+
+Install and start Docker with Linux containers enabled. First load MovieLens using the setup command above: the build requires local `data/movies.csv`, `data/ratings.csv`, and `data/README.txt` (these downloaded files are ignored by Git).
+
+From the repository root:
+
+```powershell
+docker build -t movie-recommender-backend .
+docker run -p 8000:8000 movie-recommender-backend
+```
+
+Port 8000 must be free; stop a local backend using that port before starting the container. Open `http://localhost:8000/health`, `http://localhost:8000/docs`, or `http://localhost:8000/openapi.json`. Run the React frontend separately with `npm run dev` in `frontend/`; its existing `/api` proxy can use this container on port 8000.
+
+The Python 3.14 slim image installs `requirements.txt`, copies `app/` and the two MovieLens CSVs plus upstream README, and runs Uvicorn on `0.0.0.0:8000` without reload. It contains no Node/Vite or React bundle. Startup preserves the existing CSV validation and loads historical ratings without downloading anything. Requirements and the base tag use version ranges/mutable tags; rebuilding later can resolve newer compatible versions.
+
+SQLite is created at `/backend/data/application.db`. Your local database is excluded from the build. Stopping and starting the same container preserves its users and ratings; removing the container discards them unless external storage is mounted.
+
+Optional persistence across replacement containers:
+
+```powershell
+docker volume create movie-recommender-data
+docker run --name movie-recommender-api -p 8000:8000 --mount type=volume,source=movie-recommender-data,target=/backend/data movie-recommender-backend
+```
+
+Docker populates a new empty named volume with the image's MovieLens files. SQLite then lives alongside them in that volume. After stopping and removing the container, reuse the same volume in a replacement container to retain users and ratings. A reused volume also retains its original MovieLens files even if the image is rebuilt with a newer dataset. An empty host bind mount at this path would hide the required CSVs; use the named-volume command above. This stage does not select a public host or configure production persistence.
 
 ## Recommendation quality extension
 
