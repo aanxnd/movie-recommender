@@ -135,6 +135,7 @@ The API runs at `http://127.0.0.1:8000`. Open `http://127.0.0.1:8000/docs` for i
 | GET | `/health` | Returns `{"status": "ok"}` |
 | GET | `/movies/search?q=film&limit=20` | Case-insensitive literal title search; blank or unmatched queries return `[]` |
 | GET | `/movies/{movie_id}` | Movie ID, title, and genre list |
+| GET | `/movies/decades` | Sorted catalog-derived release decades |
 | GET | `/recommendations/popular` | Historical popularity ranking |
 | GET | `/recommendations/genre/{genre}` | Whole-token genre ranking; unknown or blank genres return `[]` |
 | POST | `/users` | Creates an ID-only user, with no request body; returns 201 |
@@ -144,7 +145,7 @@ The API runs at `http://127.0.0.1:8000`. Open `http://127.0.0.1:8000/docs` for i
 | GET | `/users/{user_id}/recommendations` | Personalized recommendations with existing cold-start fallback |
 | POST | `/recommendations/group` | Combines saved profiles from `{"user_ids": [1, 2]}` |
 
-Recommendation endpoints accept `limit` (default 10, range 1–100) and `min_rating_count` (default 20, positive); the latter controls popularity eligibility, including fallback. Search limits range from 1–100. Groups require 2–100 distinct existing application user IDs. Recommendation responses contain `movie_id`, `title`, `genres`, and `score`; scores are predicted ratings for CF results or historical averages for popularity/fallback, as described above. Application users remain separate from historical users, even when their numeric IDs match.
+Recommendation endpoints accept `limit` (default 10, range 1–100), `min_rating_count` (default 20, positive), and optional `decade` (a multiple of 10 from 1800 through 2090). The minimum count controls popularity eligibility, including fallback. Search limits range from 1–100. Groups require 2–100 distinct existing application user IDs. Responses contain `movie_id`, `title`, `genres`, `score`, `confidence`, and `method`. Methods are `collaborative_filtering`, `popularity_fallback`, or `popularity`. Application users remain separate from historical users, even when their numeric IDs match.
 
 Unknown users or movies return 404; invalid bodies, IDs, or parameters return 422. Ratings accept finite JSON numbers from 0.5 through 5.0, including fractional values; strings and booleans are rejected. Database failures return a generic 500 response. API tests use synthetic CSVs and temporary SQLite files, never the real application database.
 
@@ -178,6 +179,40 @@ Open `http://127.0.0.1:5173` for the application. The API is at `http://127.0.0.
 
 Create an ID-only user and keep its ID, or load an existing application user ID. Search titles, save ratings from 0.5 through 5.0 in half-point steps, and update ratings from search or Saved ratings. Existing fractional backend ratings are displayed and can be preserved. Saved ratings get movie metadata from the existing movie lookup endpoint. Recommendation tabs provide personalized, popular, generic genre, and group requests; group IDs are separated by commas or spaces. JavaScript safely supports user IDs through `Number.MAX_SAFE_INTEGER`; larger IDs are rejected rather than rounded.
 
-Recommendation scores are shown on a five-point scale. Popular and genre scores are historical averages. Personalized and group scores may be predictions or fallback averages; the API does not identify which method produced a particular response. Changing a user clears the previous profile's views, and saving a rating clears recommendation results so they can be requested again.
+Recommendation scores are shown on a five-point scale. Popular and genre scores are historical averages. Personal and group scores use the genre-adjusted CF estimate below, or an explicitly labeled popularity fallback. Confidence is displayed on a 0–1 evidence-strength scale; fallback confidence is absent. A backend-derived release-decade selector applies to every recommendation tab. Changing a user clears the previous profile's views, and saving a rating or changing decades clears recommendation results so they can be requested again.
 
 To check the production bundle, run `npm run build` inside `frontend/`. The result is `frontend/dist/`. `npm run preview` previews that bundle only; the development `/api` proxy is configured for `npm run dev`. Serving the built frontend with FastAPI and containerizing the application are deferred to Stage 6.
+
+## Recommendation quality extension
+
+User-user collaborative filtering remains the primary algorithm. Pearson similarity, neighbor selection, and the mean-centered prediction formula above are unchanged. The API uses `recommend_details` to add a secondary genre adjustment and evidence confidence; existing Python `recommend` and `predict_ratings` retain their score-only behavior.
+
+Let `mu` be the target user's mean rating. For genre `g`, sum deviations from `mu` over the user's rated movies containing that genre, then shrink toward zero with three neutral observations:
+
+```text
+preference(g) = sum(rating(movie) - mu) / (genre_rating_count + 3)
+candidate_preference = average(preference(g) for each candidate genre)
+```
+
+Unseen genres contribute zero to the average. Duplicate genre tokens count once; `(no genres listed)` is ignored. Each rated movie contributes its deviation to each of its genres. Preferences describe relative taste: identical ratings give zero preference, and a profile containing only Sci-Fi movies cannot distinguish Sci-Fi preference from its overall rating baseline.
+
+For each candidate, contributing positive neighbors provide evidence using their similarity `s` and the number of shared target/neighbor ratings `overlap`:
+
+```text
+E = sum(s * min(overlap / 5, 1))
+confidence = E / (E + 3)
+adjustment = clip(0.20 * confidence * candidate_preference, -0.35, 0.35)
+score = clip(CF_prediction + adjustment, 0.5, 5.0)
+baseline = sum(all historical ratings) / number of historical ratings
+ranking_score = baseline + confidence * (score - baseline)
+```
+
+Named constants in `app/recommender.py` control these defaults; `recommend_details` also accepts `genre_weight`. More positive contributors, stronger similarities, and more overlap generally increase confidence. Sparse/weak evidence gets a smaller genre adjustment. Genre adjustment can favor or penalize a candidate but cannot create a CF prediction for a movie with no supporting neighbors. Confidence is a heuristic measure of CF evidence, **not a calibrated probability of liking a movie**, and does not measure neighbor agreement. Two shared movies can still produce an unreliable Pearson correlation; the overlap factor reduces, rather than eliminates, this weakness.
+
+Personal/group CF results sort by the internal `ranking_score`, while the API and frontend continue reporting the bounded final predicted `score` and unchanged `confidence`. Shrinkage toward the rating-weighted historical mean reduces uncertain high predictions without promoting confidently low predictions. The global baseline is independent of the target and decade; a high target mean would leave weak 5.0 estimates too highly ranked. At baseline 3.5, 5.0 at confidence 0.12 ranks at 3.68, 4.4 at 0.65 ranks at 4.085, and 2.0 at 0.90 ranks at 2.15. This is a ranking heuristic, not a calibrated posterior estimate.
+
+Original CF clipping before genre adjustment remains intact. Equal ranking scores are resolved by final predicted score, then the retained raw CF prediction, then movie ID. Raw extrapolations beyond the rating range only break these ties: they cannot defeat confidence shrinkage or change displayed ratings. The older score-only Python `recommend` retains its original ordering. Popularity and fallback ordering are unchanged, with no CF ranking score or invented confidence.
+
+Release years are parsed only from trailing `(YYYY)` title metadata in the range 1800–2099. `/movies/decades` derives the available decades; no catalog list is stored in React. For example, `?decade=2010` restricts candidates to 2010–2019 before ranking and limiting. Omitting the parameter means All decades, retaining eligibility for titles with unknown years. A selected decade excludes unknown-year titles. Valid decades without eligible results return `[]`.
+
+If there are no usable CF candidates within the selected decade, the API returns popularity averages from that same decade with `method="popularity_fallback"` and `confidence=null`; no genre adjustment is applied. Popular and genre endpoints use `method="popularity"` and null confidence. Short CF lists are not padded. Group recommendations use the existing combined profile, including its averaged genre preferences and shared-rating overlaps, and still exclude movies seen by any member. SQLite and rating-write behavior are unchanged.

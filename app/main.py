@@ -24,6 +24,7 @@ from app.schemas import (
 IdParameter = Annotated[int, PathParameter(gt=0, lt=2**63)]
 Limit = Annotated[int, Query(ge=1, le=100)]
 MinimumCount = Annotated[int, Query(ge=1)]
+Decade = Annotated[int | None, Query(ge=1800, le=2090, multiple_of=10)]
 
 
 def get_session(request: Request) -> Iterator[Session]:
@@ -50,11 +51,12 @@ def movie_metadata(request: Request, movie_id: int) -> MovieResponse:
 
 
 def recommendation_response(
-    request: Request, results: list[recommender.Recommendation],
+    request: Request, results: list[recommender.RecommendationResult],
 ) -> list[RecommendationResponse]:
     return [
-        RecommendationResponse(**movie_metadata(request, movie_id).model_dump(), score=score)
-        for movie_id, score in results
+        RecommendationResponse(**movie_metadata(request, row.movie_id).model_dump(),
+                               score=row.score, confidence=row.confidence, method=row.method)
+        for row in results
     ]
 
 
@@ -73,6 +75,13 @@ def create_app(
                 movie_id=int(row.movie_id), title=row.title, genres=row.genres.split("|"),
             )
             for row in movies.itertuples(index=False)
+        }
+        application.state.release_years = {
+            movie_id: recommender.release_year(movie.title)
+            for movie_id, movie in application.state.catalog.items()
+        }
+        application.state.genres = {
+            movie_id: movie.genres for movie_id, movie in application.state.catalog.items()
         }
         engine = database.create_database_engine(database_path)
         try:
@@ -116,6 +125,10 @@ def create_app(
                     break
         return matches
 
+    @application.get("/movies/decades", response_model=list[int])
+    def decades(request: Request) -> list[int]:
+        return recommender.available_decades(request.app.state.release_years)
+
     @application.get("/movies/{movie_id}", response_model=MovieResponse)
     def get_movie(request: Request, movie_id: IdParameter) -> MovieResponse:
         return movie_metadata(request, movie_id)
@@ -123,21 +136,29 @@ def create_app(
     @application.get("/recommendations/popular", response_model=list[RecommendationResponse])
     def popular(
         request: Request, limit: Limit = 10, min_rating_count: MinimumCount = 20,
+        decade: Decade = None,
     ) -> list[RecommendationResponse]:
         results = recommender.popular_recommendations(
             request.app.state.historical_users, limit=limit, min_rating_count=min_rating_count,
+            allowed_movies=recommender.movie_ids_for_decade(request.app.state.release_years, decade),
         )
-        return recommendation_response(request, results)
+        return recommendation_response(request, [recommender.RecommendationResult(
+            movie, score, None, "popularity",
+        ) for movie, score in results])
 
     @application.get("/recommendations/genre/{genre}", response_model=list[RecommendationResponse])
     def genre_recommendations(
         request: Request, genre: str, limit: Limit = 10, min_rating_count: MinimumCount = 20,
+        decade: Decade = None,
     ) -> list[RecommendationResponse]:
         results = recommender.genre_recommendations(
             genre, request.app.state.movies, request.app.state.historical_users,
             limit=limit, min_rating_count=min_rating_count,
+            allowed_movies=recommender.movie_ids_for_decade(request.app.state.release_years, decade),
         )
-        return recommendation_response(request, results)
+        return recommendation_response(request, [recommender.RecommendationResult(
+            movie, score, None, "popularity",
+        ) for movie, score in results])
 
     @application.post("/users", status_code=201, response_model=UserResponse)
     def create_user(session: DatabaseSession) -> UserResponse:
@@ -169,12 +190,15 @@ def create_app(
     def personalized(
         request: Request, user_id: IdParameter, session: DatabaseSession,
         limit: Limit = 10, min_rating_count: MinimumCount = 20,
+        decade: Decade = None,
     ) -> list[RecommendationResponse]:
         require_user(session, user_id)
         profile = database.get_user_profile(session, user_id)
-        results = recommender.recommend(
+        results = recommender.recommend_details(
             profile, request.app.state.historical_users,
             limit=limit, min_rating_count=min_rating_count,
+            genres=request.app.state.genres,
+            allowed_movies=recommender.movie_ids_for_decade(request.app.state.release_years, decade),
         )
         return recommendation_response(request, results)
 
@@ -182,14 +206,17 @@ def create_app(
     def group(
         request: Request, body: GroupRequest, session: DatabaseSession,
         limit: Limit = 10, min_rating_count: MinimumCount = 20,
+        decade: Decade = None,
     ) -> list[RecommendationResponse]:
         profiles = []
         for user_id in body.user_ids:
             require_user(session, user_id)
             profiles.append(database.get_user_profile(session, user_id))
-        results = recommender.recommend(
+        results = recommender.recommend_details(
             recommender.combine_profiles(profiles), request.app.state.historical_users,
             limit=limit, min_rating_count=min_rating_count,
+            genres=request.app.state.genres,
+            allowed_movies=recommender.movie_ids_for_decade(request.app.state.release_years, decade),
         )
         return recommendation_response(request, results)
 

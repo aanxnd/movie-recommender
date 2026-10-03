@@ -25,7 +25,7 @@ function RatingControl({ movie, savedRating, onRate, pending }) {
   </div>
 }
 
-export default function MovieList({ movies, ratings = [], onRate, userId, pendingRatings = new Set(), ranked = false, scoreLabel = 'Score' }) {
+export default function MovieList({ movies, ratings = [], onRate, userId, pendingRatings = new Set(), ranked = false, showConfidence = false, scoreLabel = 'Score' }) {
   return <ol className="divide-y divide-stone-200 border-y border-stone-200">
     {movies.map((movie, index) => {
       const savedRating = ratings.find((row) => row.movie_id === movie.movie_id)?.rating
@@ -37,10 +37,12 @@ export default function MovieList({ movies, ratings = [], onRate, userId, pendin
             <p className="mt-1 text-sm leading-relaxed text-stone-500">{movie.genres.join(' · ')}</p>
           </div>
         </div>
-        {ranked && <div className="flex items-center gap-2 text-sm sm:text-right">
+        {ranked && <div className="shrink-0 text-sm sm:text-right"><div className="flex items-center gap-2 sm:justify-end">
           <Star size={14} aria-hidden="true" className="text-amber-700" />
           <span className="font-mono font-semibold">{movie.score.toFixed(2)} <span className="font-sans font-normal text-stone-500">/ 5</span></span>
-          <span className="text-xs text-stone-500">{scoreLabel}</span>
+          <span className="text-xs text-stone-500">{movie.method === 'popularity_fallback' ? 'Average' : scoreLabel}</span>
+        </div>
+          {showConfidence && <p className="mt-1 text-xs text-stone-500">Confidence: {movie.confidence === null ? '—' : movie.confidence.toFixed(2)}{movie.method === 'popularity_fallback' ? ' · Popularity fallback' : ''}</p>}
         </div>}
         {onRate && <RatingControl key={`${movie.movie_id}-${savedRating}`} movie={movie} savedRating={savedRating} onRate={onRate} pending={pendingRatings.has(`${userId}:${movie.movie_id}`)} />}
       </li>

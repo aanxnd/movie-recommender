@@ -9,10 +9,26 @@ export default function Recommendations({ user, revision }) {
   const [mode, setMode] = useState('personal')
   const [genre, setGenre] = useState('')
   const [group, setGroup] = useState('')
+  const [decade, setDecade] = useState('')
+  const [decades, setDecades] = useState([])
+  const [decadesBusy, setDecadesBusy] = useState(true)
+  const [decadesError, setDecadesError] = useState('')
+  const [decadesReload, setDecadesReload] = useState(0)
   const [result, setResult] = useState(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const controller = useRef(null)
+
+  useEffect(() => {
+    const current = new AbortController()
+    setDecadesBusy(true)
+    setDecadesError('')
+    request('/movies/decades', { signal: current.signal })
+      .then((values) => { if (!current.signal.aborted) setDecades(values) })
+      .catch((error) => { if (!current.signal.aborted) setDecadesError(error.message) })
+      .finally(() => { if (!current.signal.aborted) setDecadesBusy(false) })
+    return () => current.abort()
+  }, [decadesReload])
 
   useEffect(() => {
     controller.current?.abort()
@@ -20,7 +36,7 @@ export default function Recommendations({ user, revision }) {
     setError('')
     setBusy(false)
     return () => controller.current?.abort()
-  }, [mode, revision])
+  }, [mode, revision, decade])
 
   async function load(event) {
     event.preventDefault()
@@ -50,6 +66,10 @@ export default function Recommendations({ user, revision }) {
         options = { method: 'POST', body: { user_ids: ids } }
         caption = `Group · Users ${ids.join(', ')}`
       }
+      if (decade) {
+        path += `?decade=${encodeURIComponent(decade)}`
+        caption += ` · ${decade}–${Number(decade) + 9}`
+      }
       setBusy(true)
       const movies = await request(path, { ...options, signal: current.signal })
       if (!current.signal.aborted) setResult({ movies, caption })
@@ -67,12 +87,18 @@ export default function Recommendations({ user, revision }) {
       {Object.entries(modes).map(([key, label]) => <button key={key} aria-pressed={mode === key} className={`tab ${mode === key ? 'tab-active' : ''}`} onClick={() => setMode(key)}>{label}</button>)}
     </div>
     <p className="mt-4 text-sm leading-relaxed text-stone-600">
-      {mode === 'personal' && 'Uses your saved ratings. When no usable predictions are available, the API returns popular movies. It does not identify which method produced a list.'}
+      {mode === 'personal' && 'Uses collaborative filtering with a modest genre preference adjustment. When no eligible predictions are available, the API returns a labeled popularity fallback.'}
       {mode === 'popular' && 'Highest historical average ratings, with at least 20 MovieLens ratings per movie.'}
       {mode === 'genre' && 'Popular movies in a genre, with at least 20 MovieLens ratings per movie.'}
       {mode === 'group' && 'Combines members’ saved ratings and excludes movies rated by any member. Shared ratings are averaged, so disagreements may be hidden.'}
     </p>
-    <form onSubmit={load} className="my-5 flex flex-col items-start gap-3 sm:flex-row sm:items-end">
+    {(mode === 'personal' || mode === 'group') && <p className="mt-2 text-xs leading-relaxed text-stone-500">Confidence measures recommendation evidence on a 0–1 scale, not the probability you’ll like a movie. With the current model defaults, the theoretical maximum is about 0.83 (83%). Values can be substantially lower because neighbors have imperfect similarity, limited shared ratings, or have not rated the recommended movie. Popularity fallback has no CF confidence.</p>}
+    {decadesError && <div className="mt-3"><p role="alert" className="error">Could not load available decades: {decadesError} All decades is still available.</p><button className="button-secondary mt-2" onClick={() => setDecadesReload((value) => value + 1)}>Retry loading decades</button></div>}
+    <form onSubmit={load} className="my-5 flex flex-col items-start gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+      <label className="text-sm font-medium">Release decade<select className="mt-2 block" value={decade} onChange={(event) => setDecade(event.target.value)} disabled={decadesBusy}>
+        <option value="">{decadesBusy ? 'Loading decades…' : 'All decades'}</option>
+        {decades.map((value) => <option key={value} value={value}>{value}–{value + 9}</option>)}
+      </select></label>
       {mode === 'genre' && <label className="w-full text-sm font-medium sm:max-w-sm">Genre<input value={genre} onChange={(event) => setGenre(event.target.value)} placeholder="e.g. Action, Drama, Sci-Fi" className="mt-2 w-full" /></label>}
       {mode === 'group' && <label className="w-full text-sm font-medium sm:max-w-sm">Application user IDs<input value={group} onChange={(event) => setGroup(event.target.value)} placeholder="e.g. 1, 2" className="mt-2 w-full" /></label>}
       <button className="button-primary" disabled={busy || (mode === 'personal' && !user)}>{busy ? 'Finding movies…' : 'Get recommendations'}<ArrowRight size={16} aria-hidden="true" /></button>
@@ -82,7 +108,7 @@ export default function Recommendations({ user, revision }) {
     {!busy && !error && !result && <p className="empty">{mode === 'personal' && !user ? 'Select a user to get recommendations.' : 'Request a shortlist to see ranked movies here.'}</p>}
     {result && <>
       <p role="status" className="mb-3 text-xs text-stone-500">{result.caption} · {result.movies.length} movies</p>
-      {result.movies.length ? <MovieList movies={result.movies} ranked scoreLabel={mode === 'popular' || mode === 'genre' ? 'Average' : 'Score'} /> : <p className="empty">No eligible movies found. {mode === 'genre' ? 'Try another MovieLens genre.' : 'Try another recommendation view or adjust your saved ratings.'}</p>}
+      {result.movies.length ? <MovieList movies={result.movies} ranked showConfidence={mode === 'personal' || mode === 'group'} scoreLabel={mode === 'popular' || mode === 'genre' ? 'Average' : 'Predicted'} /> : <p className="empty">No eligible movies found. {decade ? 'Try another decade or All decades.' : mode === 'genre' ? 'Try another MovieLens genre.' : 'Try another recommendation view or adjust your saved ratings.'}</p>}
     </>}
   </section>
 }

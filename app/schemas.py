@@ -1,6 +1,6 @@
 """Explicit JSON contracts for the REST API."""
 
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -20,6 +20,8 @@ class MovieResponse(BaseModel):
 
 class RecommendationResponse(MovieResponse):
     score: float
+    confidence: float | None = Field(default=None, ge=0, le=1)
+    method: Literal["collaborative_filtering", "popularity_fallback", "popularity"]
 
 
 class UserResponse(BaseModel):
