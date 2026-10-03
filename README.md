@@ -2,7 +2,7 @@
 
 A learning-focused Python application being built incrementally from an educational movie recommender. The intended application will use FastAPI, SQLite, and an independently implemented user-user collaborative-filtering engine, with a small HTML/JavaScript frontend.
 
-**Current status: Stage 3 (database).** Data loading, the recommendation engine, and SQLite persistence are implemented. API and website stages are still pending. LensKit is not a dependency.
+**Current status: Stage 4 (API).** Data loading, the recommendation engine, SQLite persistence, and the REST API are implemented. The website stage is still pending. LensKit is not a dependency.
 
 ## Setup
 
@@ -120,6 +120,34 @@ Run schema creation and catalog registration at initialization; both are safe to
 
 Writes belong inside `session.begin()`: successful blocks commit and failed blocks roll back. Keep the returned user ID to retrieve the same user's ratings in a later session. Tests use temporary SQLite files and never the default database.
 
+## REST API
+
+Install the updated requirements (FastAPI, Pydantic, Uvicorn, and HTTPX for API tests), and load MovieLens using the setup commands above. Start the API from the repository root:
+
+```powershell
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
+```
+
+The API runs at `http://127.0.0.1:8000`. Open `http://127.0.0.1:8000/docs` for interactive Swagger documentation, or `/redoc` for reference documentation. FastAPI routes HTTP requests; Pydantic validates JSON and describes response schemas; Uvicorn runs the server. Startup loads the validated CSVs, prepares historical profiles once, creates the SQLite schema, and registers MovieLens IDs. Each database request uses a session and transaction. No dataset download happens at API startup.
+
+| Method | Endpoint | Behavior |
+| --- | --- | --- |
+| GET | `/health` | Returns `{"status": "ok"}` |
+| GET | `/movies/search?q=film&limit=20` | Case-insensitive literal title search; blank or unmatched queries return `[]` |
+| GET | `/movies/{movie_id}` | Movie ID, title, and genre list |
+| GET | `/recommendations/popular` | Historical popularity ranking |
+| GET | `/recommendations/genre/{genre}` | Whole-token genre ranking; unknown or blank genres return `[]` |
+| POST | `/users` | Creates an ID-only user, with no request body; returns 201 |
+| GET | `/users/{user_id}` | Retrieves an application user |
+| PUT | `/users/{user_id}/ratings/{movie_id}` | Saves or updates `{"rating": 4.5}`; returns 200 |
+| GET | `/users/{user_id}/ratings` | Saved ratings ordered by movie ID |
+| GET | `/users/{user_id}/recommendations` | Personalized recommendations with existing cold-start fallback |
+| POST | `/recommendations/group` | Combines saved profiles from `{"user_ids": [1, 2]}` |
+
+Recommendation endpoints accept `limit` (default 10, range 1–100) and `min_rating_count` (default 20, positive); the latter controls popularity eligibility, including fallback. Search limits range from 1–100. Groups require 2–100 distinct existing application user IDs. Recommendation responses contain `movie_id`, `title`, `genres`, and `score`; scores are predicted ratings for CF results or historical averages for popularity/fallback, as described above. Application users remain separate from historical users, even when their numeric IDs match.
+
+Unknown users or movies return 404; invalid bodies, IDs, or parameters return 422. Ratings accept finite JSON numbers from 0.5 through 5.0, including fractional values; strings and booleans are rejected. Database failures return a generic 500 response. API tests use synthetic CSVs and temporary SQLite files, never the real application database.
+
 ## Next stage
 
-Stage 4 will add the FastAPI layer. No endpoints or website are implemented yet.
+Stage 5 will add the small frontend. The current application exposes JSON and generated API documentation.
