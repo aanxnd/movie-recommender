@@ -1,0 +1,23 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Segoe UI", system-ui, sans-serif;
+}
+
+@layer base {
+  button, input, select { font: inherit; }
+  button { cursor: pointer; }
+  button:disabled { cursor: default; opacity: .5; }
+  input, select { @apply rounded border border-stone-300 bg-white px-3 py-2.5 text-sm text-stone-900; }
+  :focus-visible { outline: 2px solid #347766; outline-offset: 3px; }
+}
+
+@layer components {
+  .button-primary { @apply inline-flex items-center justify-center gap-2 rounded bg-[#24584b] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#183e34] disabled:hover:bg-[#24584b]; }
+  .button-secondary { @apply inline-flex items-center justify-center rounded border border-stone-300 bg-white px-3 py-2.5 text-sm font-medium text-stone-700 hover:bg-stone-100; }
+  .tab { @apply border-b-2 border-transparent py-3 text-sm font-medium text-stone-500 hover:text-stone-900; }
+  .tab-active { @apply border-[#24584b] text-[#24584b]; }
+  .eyebrow { @apply text-[11px] font-semibold uppercase tracking-[.16em] text-[#24584b]; }
+  .empty { @apply border-l-2 border-stone-200 py-4 pl-5 text-sm leading-relaxed text-stone-500; }
+  .error { @apply border-l-2 border-red-500 bg-red-50 px-4 py-3 text-sm text-red-800; }
+}

@@ -1,8 +1,8 @@
 # Movie Recommender
 
-A learning-focused Python application being built incrementally from an educational movie recommender. The intended application will use FastAPI, SQLite, and an independently implemented user-user collaborative-filtering engine, with a small HTML/JavaScript frontend.
+A learning-focused application being built incrementally from an educational movie recommender. It uses FastAPI, SQLite, and an independently implemented user-user collaborative-filtering engine, with a React frontend.
 
-**Current status: Stage 4 (API).** Data loading, the recommendation engine, SQLite persistence, and the REST API are implemented. The website stage is still pending. LensKit is not a dependency.
+**Current status: Stage 5 (frontend).** Data loading, recommendations, SQLite persistence, the REST API, and the React frontend are implemented. LensKit is not a dependency.
 
 ## Setup
 
@@ -148,6 +148,36 @@ Recommendation endpoints accept `limit` (default 10, range 1–100) and `min_rat
 
 Unknown users or movies return 404; invalid bodies, IDs, or parameters return 422. Ratings accept finite JSON numbers from 0.5 through 5.0, including fractional values; strings and booleans are rejected. Database failures return a generic 500 response. API tests use synthetic CSVs and temporary SQLite files, never the real application database.
 
-## Next stage
+## React frontend (Stage 5)
 
-Stage 5 will add the small frontend. The current application exposes JSON and generated API documentation.
+The JavaScript frontend in `frontend/` uses React for user/search/rating/recommendation state, Vite for development and builds, Tailwind CSS through its Vite plugin for styling, and Lucide React for a few interface icons. Native `fetch()` sends HTTP/JSON requests to the existing FastAPI REST API. All recommendation calculations and persistence remain in Python.
+
+Install Node.js 22.12 or newer (a supported LTS release is recommended), then install frontend dependencies from the repository root:
+
+```powershell
+cd frontend
+npm ci
+```
+
+With Python dependencies installed and MovieLens loaded as described above, run these in separate terminals.
+
+Backend, from the repository root:
+
+```powershell
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
+```
+
+Frontend, from the repository root:
+
+```powershell
+cd frontend
+npm run dev
+```
+
+Open `http://127.0.0.1:5173` for the application. The API is at `http://127.0.0.1:8000`, and interactive documentation remains at `http://127.0.0.1:8000/docs`. Vite forwards `/api/*` to FastAPI on port 8000 and removes the `/api` prefix. This keeps browser requests on the same origin during development without changing the backend or adding CORS configuration. The proxy target lives in `frontend/vite.config.js`.
+
+Create an ID-only user and keep its ID, or load an existing application user ID. Search titles, save ratings from 0.5 through 5.0 in half-point steps, and update ratings from search or Saved ratings. Existing fractional backend ratings are displayed and can be preserved. Saved ratings get movie metadata from the existing movie lookup endpoint. Recommendation tabs provide personalized, popular, generic genre, and group requests; group IDs are separated by commas or spaces. JavaScript safely supports user IDs through `Number.MAX_SAFE_INTEGER`; larger IDs are rejected rather than rounded.
+
+Recommendation scores are shown on a five-point scale. Popular and genre scores are historical averages. Personalized and group scores may be predictions or fallback averages; the API does not identify which method produced a particular response. Changing a user clears the previous profile's views, and saving a rating clears recommendation results so they can be requested again.
+
+To check the production bundle, run `npm run build` inside `frontend/`. The result is `frontend/dist/`. `npm run preview` previews that bundle only; the development `/api` proxy is configured for `npm run dev`. Serving the built frontend with FastAPI and containerizing the application are deferred to Stage 6.
