@@ -30,7 +30,7 @@ If Python reports a certificate trust error, download the ZIP from the official 
 
 The loader validates required columns, nonempty data, missing values, positive integer IDs, unique movie IDs, unique user/movie rating pairs, rating bounds, and movie references. Extra source columns, such as timestamps, are omitted explicitly. MovieLens IDs are preserved.
 
-Historical MovieLens users and ratings are reference data for the future engine. Application users and their submitted ratings are stored separately in SQLite. Downloaded data, local databases, and the virtual environment are ignored by Git.
+Historical MovieLens users and ratings are reference data for the future engine. Application users and their submitted ratings are stored separately in SQLite. The required MovieLens reference snapshot (`data/movies.csv`, `data/ratings.csv`, and `data/README.txt`) is tracked so fresh clones and CI have the required offline dataset. Generated/local application data, downloaded archives, and the virtual environment remain ignored by Git.
 
 pandas handles CSV tables; NumPy supports numeric validation. pytest checks the loader against small datasets with known expected results. Backend dependencies will be added when their stages begin.
 
@@ -187,7 +187,7 @@ To check the production bundle, run `npm run build` inside `frontend/`. The resu
 
 Verified image build, API workflows, same-container restart persistence, and named-volume persistence across replacement containers. The complete Python suite passed with 187 tests and one existing deprecation warning.
 
-Install and start Docker with Linux containers enabled. First load MovieLens using the setup command above: the build requires local `data/movies.csv`, `data/ratings.csv`, and `data/README.txt` (these downloaded files are ignored by Git).
+Install and start Docker with Linux containers enabled. The build requires `data/movies.csv`, `data/ratings.csv`, and `data/README.txt`, now included in the repository for offline CI verification. The setup command above can validate or refresh these files.
 
 From the repository root:
 

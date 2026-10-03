@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+      - name: Install Python dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Validate repository MovieLens data offline
+        run: python -c "from app.data import load_movielens; movies, ratings = load_movielens(); print(f'{len(movies)} movies, {len(ratings)} ratings')"
+      - name: Run complete pytest suite
+        run: python -m pytest -q -p no:cacheprovider
+
+  frontend:
+    name: Frontend build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Install locked frontend dependencies
+        run: npm ci
+      - name: Build production frontend
+        run: npm run build

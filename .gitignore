@@ -9,6 +9,9 @@ pytest-cache-files-*/
 *.db-wal
 /data/*
 !/data/.gitkeep
+!/data/movies.csv
+!/data/ratings.csv
+!/data/README.txt
 .ipynb_checkpoints/
 frontend/node_modules/
 frontend/dist/
