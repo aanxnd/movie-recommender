@@ -1,10 +1,18 @@
 import pytest
+from app import recommender
 
 from app.recommender import (
     Prediction, available_decades, genre_adjusted_score, genre_preferences,
     movie_ids_for_decade, predict_ratings_with_confidence, recommend_details,
     release_year, popular_recommendations, confidence_ranking_score, recommend,
 )
+
+
+@pytest.fixture(autouse=True)
+def unshrunk_control(monkeypatch):
+    """Keep genre/confidence/ranking controls isolated from deviation shrinkage."""
+    monkeypatch.setattr(recommender, "PEARSON_SHRINKAGE", 0.)
+    monkeypatch.setattr(recommender, "PREDICTION_SHRINKAGE", 0.)
 
 
 @pytest.mark.parametrize("title, expected", [

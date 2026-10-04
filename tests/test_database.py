@@ -70,7 +70,9 @@ def test_rating_update_multiple_ratings_and_user_isolation(engine):
         assert get_user_profile(session, first) == {10: 4.0, 20: 5.0}
         assert get_user_profile(session, second) == {10: 2.0}
         # Application ID 1 does not exclude historical MovieLens user 1.
-        assert recommend(get_user_profile(session, first), {1: {10: 4, 20: 5, 30: 3}}) == [(30, 3.5)]
+        # Target mean 4.5; deviation -1; two-overlap evidence 1/15 gives
+        # prediction weight 1/76 under the accepted model.
+        assert recommend(get_user_profile(session, first), {1: {10: 4, 20: 5, 30: 3}}) == [(30, 4.5 - 1 / 76)]
 
 
 @pytest.mark.parametrize("rating", [0, 0.49, 5.01, float("nan"), float("inf"), -float("inf"), True, "4", 10**1000])

@@ -1,5 +1,6 @@
 import pandas as pd
 import pytest
+from app import recommender
 
 from app.recommender import (
     build_user_ratings,
@@ -11,6 +12,13 @@ from app.recommender import (
     predict_ratings,
     recommend,
 )
+
+
+@pytest.fixture(autouse=True)
+def unshrunk_control(monkeypatch):
+    """Isolate core CF controls; accepted defaults have separate model tests."""
+    monkeypatch.setattr(recommender, "PEARSON_SHRINKAGE", 0.)
+    monkeypatch.setattr(recommender, "PREDICTION_SHRINKAGE", 0.)
 
 
 def test_sparse_conversion_matches_loader_columns():

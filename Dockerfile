@@ -1,7 +1,8 @@
 FROM python:3.14-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    MOVIELENS_PREPARED_DIR=/backend/reference
 
 WORKDIR /backend
 
@@ -9,7 +10,6 @@ COPY requirements.txt .
 RUN python -m pip install --no-cache-dir -r requirements.txt
 
 COPY app/ ./app/
-COPY data/movies.csv data/ratings.csv data/README.txt ./data/
 
 EXPOSE 8000
 

@@ -20,8 +20,20 @@ jobs:
           python-version: '3.14'
       - name: Install Python dependencies
         run: python -m pip install -r requirements.txt
-      - name: Validate repository MovieLens data offline
-        run: python -c "from app.data import load_movielens; movies, ratings = load_movielens(); print(f'{len(movies)} movies, {len(ratings)} ratings')"
+      - name: Prepare repository MovieLens Small offline
+        run: python scripts/prepare_movielens.py --source data --output data/prepared/latest-small-v1
+      - name: Verify prepared application startup
+        env:
+          MOVIELENS_PREPARED_DIR: data/prepared/latest-small-v1
+        run: |
+          python - <<'PY'
+          from fastapi.testclient import TestClient
+          from app.main import app
+          from app.historical import PreparedHistoricalData
+          with TestClient(app) as client:
+              assert isinstance(app.state.historical_users, PreparedHistoricalData)
+              assert client.get('/health').json() == {'status': 'ok'}
+          PY
       - name: Run complete pytest suite
         run: python -m pytest -q -p no:cacheprovider
 

@@ -24,7 +24,4 @@ scripts/
 CODEX_CONTEXT.md
 README.md
 pytest.ini
-data/*
-!data/movies.csv
-!data/ratings.csv
-!data/README.txt
+data/

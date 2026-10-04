@@ -1,18 +1,17 @@
-"""Readable user-user collaborative filtering over validated MovieLens data."""
+"""Independent scalar oracle for the accepted Stage 10 mathematics.
+
+Includes the validated overlap/evidence shrinkage; imports no runtime mathematics.
+"""
 
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from math import sqrt
-import re
 
 import pandas as pd
-import numpy as np
-
-from app.historical import PreparedHistoricalData
 
 
 Profile = Mapping[int, float]
-UserRatings = Mapping[int, Profile] | PreparedHistoricalData
+UserRatings = Mapping[int, Profile]
 Neighbor = tuple[int, float]
 Recommendation = tuple[int, float]
 GENRE_WEIGHT = 0.20
@@ -43,26 +42,6 @@ class RecommendationResult:
 def confidence_ranking_score(score: float, confidence: float, baseline: float) -> float:
     """Shrink a bounded final prediction toward the historical rating mean."""
     return baseline + confidence * (score - baseline)
-
-
-def release_year(title: str) -> int | None:
-    """Use only a trailing MovieLens (YYYY), not numbers inside a title."""
-    match = re.search(r"\((\d{4})\)\s*$", title)
-    if match and 1800 <= int(match[1]) <= 2099:
-        return int(match[1])
-    return None
-
-
-def available_decades(years: Mapping[int, int | None]) -> list[int]:
-    return sorted({year // 10 * 10 for year in years.values() if year is not None})
-
-
-def movie_ids_for_decade(years: Mapping[int, int | None], decade: int | None) -> set[int] | None:
-    if decade is None:
-        return None
-    if isinstance(decade, bool) or not isinstance(decade, int) or not 1800 <= decade <= 2090 or decade % 10:
-        raise ValueError("decade must be a multiple of 10 between 1800 and 2090")
-    return {movie for movie, year in years.items() if year is not None and decade <= year < decade + 10}
 
 
 def genre_preferences(target: Profile, genres: Mapping[int, list[str]]) -> dict[str, float]:
@@ -130,15 +109,15 @@ def nearest_neighbors(
     min_overlap: int = 2,
     exclude_user_id: int | None = None,
 ) -> list[Neighbor]:
-    """Rank positive correlations weighted by overlap, then by user ID.
+    """Rank positive Pearson correlations weighted by overlap/(overlap+10).
+
+    Sort adjusted similarities descending, with user ID breaking ties.
 
     Pass exclude_user_id when the target is itself a historical MovieLens user.
     Application user IDs belong to a separate namespace and need no exclusion.
     """
     if k < 1 or min_overlap < 2:
         raise ValueError("k must be positive and min_overlap must be at least 2")
-    if isinstance(users, PreparedHistoricalData):
-        return indexed_neighbors(target, users, k, min_overlap, exclude_user_id)
     neighbors = []
     for user_id, profile in users.items():
         if user_id == exclude_user_id:
@@ -152,104 +131,6 @@ def nearest_neighbors(
     return neighbors[:k]
 
 
-def indexed_overlap_counts(
-    target: Profile, users: PreparedHistoricalData, exclude_user_id: int | None = None,
-) -> dict[int, int]:
-    """Count exact overlap only for users reached through target movie postings."""
-    _, indices = _mapped_target(target, users)
-    arrays = {name: np.asarray(array) for name, array in users.arrays.items()}
-    counts = _dense_overlap_counts(indices, arrays, exclude_user_id)
-    return {int(user): int(counts[user]) for user in np.flatnonzero(counts)}
-
-
-def _mapped_target(target: Profile, users: PreparedHistoricalData) -> tuple[list[int], np.ndarray]:
-    mapped = [(movie, users.movie_index(movie)) for movie in sorted(target)]
-    known = [(movie, index) for movie, index in mapped if index is not None]
-    return [movie for movie, _ in known], np.array([index for _, index in known], dtype=np.uint32)
-
-
-def _dense_overlap_counts(indices: np.ndarray, arrays: dict[str, np.ndarray], excluded: int | None) -> np.ndarray:
-    counts = np.zeros(len(arrays["user_ids"]), dtype=np.uint64)
-    offsets = arrays["movie_offsets"]
-    for movie in indices:
-        start, end = int(offsets[movie]), int(offsets[int(movie) + 1])
-        posting = arrays["posting_user_indices"][start:end]
-        # Each movie posting contains each user once, so indexed += is exact.
-        counts[posting] += 1
-    if excluded is not None:
-        ids = arrays["user_ids"]
-        user = int(np.searchsorted(ids, excluded))
-        if user < len(ids) and int(ids[user]) == excluded:
-            counts[user] = 0
-    return counts
-
-
-def _shared_ratings(mapped: list[int], indices: np.ndarray, arrays: dict[str, np.ndarray], user: int) -> dict[int, float]:
-    offsets = arrays["user_offsets"]
-    start, end = int(offsets[user]), int(offsets[user + 1])
-    movies = arrays["profile_movie_indices"][start:end]
-    ratings = arrays["profile_ratings"][start:end]
-    positions = np.searchsorted(movies, indices)
-    # Benchmarks favor Python filtering for small profiles and NumPy for larger
-    # ones; the crossover was around 36-50 mapped movies. Use 50 conservatively.
-    if len(indices) < 50:
-        return {movie: float(ratings[position]) for movie, index, position in zip(mapped, indices, positions)
-                if position < len(movies) and movies[position] == index}
-    valid = np.flatnonzero(positions < len(movies))
-    matched = valid[movies[positions[valid]] == indices[valid]]
-    shared_ratings = ratings[positions[matched]].tolist()
-    return dict(zip((mapped[int(index)] for index in matched), shared_ratings))
-
-
-def shared_profile(target: Profile, users: PreparedHistoricalData, user_index: int) -> dict[int, float]:
-    movies, ratings = users.profile(user_index)
-    shared = {}
-    for movie in sorted(target):
-        movie_index = users.movie_index(movie)
-        if movie_index is None:
-            continue
-        position = int(np.searchsorted(movies, movie_index))
-        if position < len(movies) and int(movies[position]) == movie_index:
-            shared[movie] = float(ratings[position])
-    return shared
-
-
-def indexed_neighbors(
-    target: Profile, users: PreparedHistoricalData, k: int = 15,
-    min_overlap: int = 2, exclude_user_id: int | None = None,
-) -> list[Neighbor]:
-    """Exact Pearson search without scanning unrelated historical profiles."""
-    if k < 1 or min_overlap < 2:
-        raise ValueError("k must be positive and min_overlap must be at least 2")
-    if len(target) < min_overlap:
-        return []
-    mapped, indices = _mapped_target(target, users)
-    # ndarray views share the read-only mappings without memmap slice dispatch.
-    arrays = {name: np.asarray(array) for name, array in users.arrays.items()}
-    counts = _dense_overlap_counts(indices, arrays, exclude_user_id)
-    neighbors = []
-    for user in np.flatnonzero(counts >= min_overlap):
-        similarity = pearson_similarity(target, _shared_ratings(mapped, indices, arrays, int(user)), min_overlap)
-        if similarity > 0:
-            overlap = int(counts[user])
-            similarity = similarity * overlap / (overlap + PEARSON_SHRINKAGE)
-            neighbors.append((int(arrays["user_ids"][user]), similarity))
-    neighbors.sort(key=lambda neighbor: (-neighbor[1], neighbor[0]))
-    return neighbors[:k]
-
-
-def predict_ratings(
-    target: Profile,
-    users: UserRatings,
-    neighbors: Iterable[Neighbor],
-    min_neighbors: int = 1,
-) -> dict[int, float]:
-    """Preserve the original score-only interface for Python callers."""
-    return {movie: prediction.score for movie, prediction in predict_ratings_with_confidence(
-        target, users, neighbors, min_neighbors,
-    ).items()}
-
-
 def predict_ratings_with_confidence(
     target: Profile,
     users: UserRatings,
@@ -257,14 +138,13 @@ def predict_ratings_with_confidence(
     min_neighbors: int = 1,
     allowed_movies: Iterable[int] | None = None,
 ) -> dict[int, Prediction]:
-    """Shrink the weighted CF deviation toward the target mean using evidence.
+    """Shrink unseen-movie deviations toward the target mean using evidence.
 
     Deviations use each neighbor's mean over all their ratings. Only positive
     neighbors who rated a candidate contribute; unsupported movies are omitted.
     Repeated user IDs contribute once, using their first positive similarity.
-    Neighbor similarities already include Pearson overlap shrinkage. Candidate
-    evidence E gives a deviation weight E/(E+5), before score clipping. The
-    separate confidence E/(E+3) remains an evidence heuristic.
+    Similarities include overlap shrinkage. Candidate evidence E scales the
+    weighted deviation by E/(E+5) before clipping; confidence is E/(E+3).
     """
     if min_neighbors < 1:
         raise ValueError("min_neighbors must be positive")
@@ -281,22 +161,13 @@ def predict_ratings_with_confidence(
         if similarity <= 0 or user_id in seen_neighbors:
             continue
         seen_neighbors.add(user_id)
-        if isinstance(users, PreparedHistoricalData):
-            user_index = users.user_index(user_id)
-            movies, ratings = users.profile(user_index)
-            neighbor_mean = float(users.arrays["user_means"][user_index])
-            overlap = len(shared_profile(target, users, user_index))
-            profile_items = ((int(users.arrays["movie_ids"][int(movie)]), float(rating))
-                             for movie, rating in zip(movies, ratings))
-        else:
-            profile = users[user_id]
-            if not profile:
-                continue
-            neighbor_mean = sum(profile.values()) / len(profile)
-            overlap = len(target.keys() & profile.keys())
-            profile_items = profile.items()
+        profile = users[user_id]
+        if not profile:
+            continue
+        neighbor_mean = sum(profile.values()) / len(profile)
+        overlap = len(target.keys() & profile.keys())
         evidence = min(1.0, similarity) * min(overlap / CONFIDENCE_OVERLAP_TARGET, 1.0)
-        for movie_id, rating in profile_items:
+        for movie_id, rating in profile.items():
             if movie_id in target or (allowed is not None and movie_id not in allowed):
                 continue
             weighted_deviations[movie_id] = (
@@ -310,8 +181,7 @@ def predict_ratings_with_confidence(
     for movie_id, deviation in weighted_deviations.items():
         if counts[movie_id] >= min_neighbors:
             evidence = evidence_sums[movie_id]
-            support_weight = evidence / (evidence + PREDICTION_SHRINKAGE)
-            prediction = target_mean + support_weight * (deviation / similarity_sums[movie_id])
+            prediction = target_mean + (evidence / (evidence + PREDICTION_SHRINKAGE)) * (deviation / similarity_sums[movie_id])
             confidence = evidence / (evidence + CONFIDENCE_SUPPORT_SCALE)
             predictions[movie_id] = Prediction(max(0.5, min(5.0, prediction)), confidence, prediction)
     return predictions
@@ -329,17 +199,6 @@ def popular_recommendations(
         raise ValueError("limit must be nonnegative and min_rating_count positive")
     excluded = set(exclude_movies)
     allowed = None if allowed_movies is None else set(allowed_movies)
-    if isinstance(users, PreparedHistoricalData):
-        results = []
-        for index in users.arrays["popularity_order"]:
-            index = int(index)
-            movie = int(users.arrays["movie_ids"][index])
-            if int(users.arrays["movie_counts"][index]) < min_rating_count or movie in excluded or (allowed is not None and movie not in allowed):
-                continue
-            if len(results) == limit:
-                break
-            results.append((movie, float(users.arrays["movie_averages"][index])))
-        return results
     totals: dict[int, float] = {}
     counts: dict[int, int] = {}
     for profile in users.values():
@@ -359,7 +218,7 @@ def popular_recommendations(
 
 def genre_recommendations(
     genre: str,
-    movies: pd.DataFrame | None,
+    movies: pd.DataFrame,
     users: UserRatings,
     limit: int = 10,
     min_rating_count: int = 20,
@@ -370,34 +229,10 @@ def genre_recommendations(
     requested = genre.strip().casefold()
     allowed = []
     candidates = None if allowed_movies is None else set(allowed_movies)
-    if isinstance(users, PreparedHistoricalData):
-        allowed = users.catalog["genre_movies"].get(requested, [])
-        if candidates is not None:
-            allowed = [movie for movie in allowed if movie in candidates]
-        return popular_recommendations(users, limit, min_rating_count, exclude_movies, allowed)
-    else:
-        catalog = ((int(row.movie_id), row.genres.split("|")) for row in movies.itertuples(index=False))
-    for movie, tokens in catalog:
-        if requested in {token.casefold() for token in tokens} and (candidates is None or movie in candidates):
-            allowed.append(movie)
+    for row in movies.itertuples(index=False):
+        if requested in {token.casefold() for token in row.genres.split("|")} and (candidates is None or int(row.movie_id) in candidates):
+            allowed.append(int(row.movie_id))
     return popular_recommendations(users, limit, min_rating_count, exclude_movies, allowed)
-
-
-def recommend(
-    target: Profile,
-    users: UserRatings,
-    limit: int = 10,
-    k: int = 15,
-    min_overlap: int = 2,
-    min_neighbors: int = 1,
-    min_rating_count: int = 20,
-    exclude_user_id: int | None = None,
-) -> list[Recommendation]:
-    """Preserve the original tuple interface and unadjusted Python behavior."""
-    return [(row.movie_id, row.score) for row in recommend_details(
-        target, users, limit, k, min_overlap, min_neighbors, min_rating_count, exclude_user_id,
-        rank_by_confidence=False,
-    )]
 
 
 def recommend_details(
@@ -433,8 +268,7 @@ def recommend_details(
     preferences = genre_preferences(target, genres or {})
     # CF candidates imply nonempty historical ratings. Use every historical
     # rating equally; the baseline is independent of the target and decade.
-    baseline = (users.manifest["global_mean"] if isinstance(users, PreparedHistoricalData) else
-                sum(sum(profile.values()) for profile in users.values()) / sum(len(profile) for profile in users.values()))
+    baseline = sum(sum(profile.values()) for profile in users.values()) / sum(len(profile) for profile in users.values())
     results = []
     for movie, prediction in predictions.items():
         score = genre_adjusted_score(prediction, (genres or {}).get(movie, []), preferences, genre_weight)

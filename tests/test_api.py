@@ -7,6 +7,8 @@ from sqlalchemy.exc import OperationalError
 
 from app import database
 from app.main import create_app
+from app.historical import PreparedHistoricalData
+from scripts.prepare_movielens import prepare_movielens
 
 
 @pytest.fixture
@@ -23,7 +25,8 @@ def api_paths(tmp_path: Path) -> tuple[Path, Path]:
         (1, 1, 1), (1, 2, 5), (1, 3, 5), (1, 4, 3), (1, 5, 5),
         (2, 1, 5), (2, 2, 1), (2, 3, 4),
     ], columns=["userId", "movieId", "rating"]).to_csv(tmp_path / "ratings.csv", index=False)
-    return tmp_path, tmp_path / "api.db"
+    (tmp_path / "README.txt").write_text("Synthetic API fixture", encoding="utf-8")
+    return prepare_movielens(tmp_path, tmp_path / "prepared"), tmp_path / "api.db"
 
 
 @pytest.fixture
@@ -131,9 +134,15 @@ def test_personalized_scores_and_seen_exclusion(client):
     assert response.status_code == 200
     rows = response.json()
     # Genre deviations: Action -0.5, Drama +0.5; one neighbor with two shared movies.
-    confidence = 0.4 / 3.4
+    evidence = (2 / 12) * .4
+    confidence = evidence / (evidence + 3)
+    weight = evidence / (evidence + 5)
     assert [row["movie_id"] for row in rows] == [5, 3, 4]
-    assert [row["score"] for row in rows] == pytest.approx([4.2, 4.2 - .2 * confidence * .5, 2.2 + .2 * confidence * .5])
+    assert [row["score"] for row in rows] == pytest.approx([
+        3 + weight * 1.2,
+        3 + weight * 1.2 - .2 * confidence * .5,
+        3 - weight * .8 + .2 * confidence * .5,
+    ])
     assert all(row["confidence"] == pytest.approx(confidence) and row["method"] == "collaborative_filtering" for row in rows)
     assert client.get(f"/users/{user_id}/recommendations?limit=1").json() == rows[:1]
 
@@ -157,8 +166,11 @@ def test_group_combines_saved_profiles_and_excludes_union(client):
     rows = response.json()
     assert [row["movie_id"] for row in rows] == [5, 4]
     # Combined mean 3, Drama preference (4 - 3) / (1 + 3); overlap is three.
-    assert [row["score"] for row in rows] == pytest.approx([4.2, 2.2 + .2 * (.6 / 3.6) * .25])
-    assert all(row["confidence"] == pytest.approx(.6 / 3.6) for row in rows)
+    evidence = (3 / 13) * .6
+    confidence = evidence / (evidence + 3)
+    weight = evidence / (evidence + 5)
+    assert [row["score"] for row in rows] == pytest.approx([3 + weight * 1.2, 3 - weight * .8 + .2 * confidence * .25])
+    assert all(row["confidence"] == pytest.approx(confidence) for row in rows)
 
 
 def test_group_cold_start_and_missing_member(client):
@@ -255,12 +267,14 @@ def test_nonfinite_numeric_rating_returns_422_without_persisting(client, numeric
 
 @pytest.fixture
 def dated_client(api_paths):
-    movies = pd.read_csv(api_paths[0] / "movies.csv")
+    source = api_paths[0].parent
+    movies = pd.read_csv(source / "movies.csv")
     movies["title"] = ["First Film (1999)", "Second Film (2000)", "Third Film (1990)",
                        "Fourth Film (2009)", "Fifth Film"]
     movies.loc[len(movies)] = [6, "Unrated Film (1901)", "Drama"]
-    movies.to_csv(api_paths[0] / "movies.csv", index=False)
-    with TestClient(create_app(*api_paths)) as client:
+    movies.to_csv(source / "movies.csv", index=False)
+    prepared = prepare_movielens(source, source / "dated-prepared")
+    with TestClient(create_app(prepared, api_paths[1])) as client:
         yield client
 
 
@@ -294,8 +308,8 @@ def test_decade_constrains_popular_genre_personalized_and_fallback(dated_client)
     rate(client, user, 2, 5)
     rows = client.get(f'/users/{user}/recommendations?decade=2000').json()
     assert [row['movie_id'] for row in rows] == [4]
-    assert rows[0]['score'] == pytest.approx(2.2 + .2 * (.4 / 3.4) * .5)
-    assert rows[0]['confidence'] == pytest.approx(.4 / 3.4)
+    assert rows[0]['score'] == pytest.approx(3 - .8 / 76 + .2 * (1 / 46) * .5)
+    assert rows[0]['confidence'] == pytest.approx(1 / 46)
     assert rows[0]['method'] == 'collaborative_filtering'
     # No-year movies remain eligible with the decade omitted.
     assert 5 in [row['movie_id'] for row in client.get(f'/users/{user}/recommendations').json()]
@@ -319,8 +333,8 @@ def test_group_decade_confidence_genres_and_union_exclusion(dated_client):
     rows = client.post('/recommendations/group?decade=2000', json={'user_ids': [first, second]}).json()
     assert [row['movie_id'] for row in rows] == [4]
     assert rows[0]['genres'] == ['Drama']
-    assert rows[0]['confidence'] == pytest.approx(.6 / 3.6)
-    assert rows[0]['score'] == pytest.approx(2.2 + .2 * (.6 / 3.6) * .25)
+    assert rows[0]['confidence'] == pytest.approx(3 / 68)
+    assert rows[0]['score'] == pytest.approx(3 - .8 * (9 / 334) + .2 * (3 / 68) * .25)
     assert rows[0]['method'] == 'collaborative_filtering'
     assert client.post('/recommendations/group?decade=1900', json={'user_ids': [first, second]}).json() == []
 
@@ -334,7 +348,9 @@ def test_http_recommendations_rank_unequal_confidence_before_display_score(tmp_p
         (1, 1, 1), (1, 2, 2), (1, 3, 5), (1, 4, 2),
         (2, 1, 1), (2, 2, 2), (2, 4, 2),
     ], columns=["userId", "movieId", "rating"]).to_csv(tmp_path / "ratings.csv", index=False)
-    with TestClient(create_app(tmp_path, tmp_path / "ranking.db")) as client:
+    (tmp_path / "README.txt").write_text("Synthetic API fixture", encoding="utf-8")
+    prepared = prepare_movielens(tmp_path, tmp_path / "prepared")
+    with TestClient(create_app(prepared, tmp_path / "ranking.db")) as client:
         user = new_user(client)
         rate(client, user, 1, 4)
         rate(client, user, 2, 5)
@@ -347,13 +363,11 @@ def test_http_recommendations_rank_unequal_confidence_before_display_score(tmp_p
 
     assert response.status_code == 200
     rows = response.json()
-    # Both Pearson similarities are 1 with overlap 2; neighbor means are 5/2
-    # and 5/3. Target mean is 9/2, and the shared Drama preference is zero.
-    # Movie 3 has one contributor: raw CF 7 clips to 5, E=2/5, C=2/17.
-    # Movie 4 has two: CF 9/2 + ((-1/2)+(1/3))/2 = 53/12,
-    # E=4/5, C=4/19. Historical baseline is 15/7 across seven ratings.
-    scores = [53 / 12, 5]
-    confidences = [4 / 19, 2 / 17]
+    # Raw Pearson 1 becomes 1/6 for overlap 2. Each contributor supplies
+    # E=1/15. Movie 4's deviation is -1/12, shrunk by 2/77; movie 3's
+    # +2.5 deviation is shrunk by 1/76. Historical baseline is 15/7.
+    scores = [4.5 - (1 / 12) * (2 / 77), 4.5 + 2.5 / 76]
+    confidences = [2 / 47, 1 / 46]
     baseline = 15 / 7
     ranking_scores = [baseline + confidence * (score - baseline)
                       for score, confidence in zip(scores, confidences)]
@@ -363,3 +377,59 @@ def test_http_recommendations_rank_unequal_confidence_before_display_score(tmp_p
     assert [row["score"] for row in rows] == pytest.approx(scores)
     assert [row["confidence"] for row in rows] == pytest.approx(confidences)
     assert all(row["method"] == "collaborative_filtering" and "ranking_score" not in row for row in rows)
+
+
+def test_prepared_startup_without_source_csvs_and_indexed_http(api_paths, monkeypatch):
+    from app import recommender
+    for filename in ("movies.csv", "ratings.csv"):
+        (api_paths[0].parent / filename).unlink()
+    calls = []
+    original = recommender.indexed_neighbors
+
+    def indexed(*args, **kwargs):
+        calls.append(True)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(recommender, "indexed_neighbors", indexed)
+    monkeypatch.setenv("MOVIELENS_PREPARED_DIR", str(api_paths[0]))
+    application = create_app(database_path=api_paths[1])
+    with TestClient(application) as client:
+        assert isinstance(application.state.historical_users, PreparedHistoricalData)
+        mappings = list(application.state.historical_users.arrays.values())
+        assert all(not array.flags.writeable for array in mappings)
+        user = new_user(client)
+        rate(client, user, 1, 1)
+        rate(client, user, 2, 5)
+        assert client.get(f"/users/{user}/recommendations").json()[0]["method"] == "collaborative_filtering"
+        assert calls
+    assert all(array._mmap.closed for array in mappings)
+
+
+@pytest.mark.parametrize("broken", ["missing", "version", "shape"])
+def test_actionable_prepared_startup_error(api_paths, broken):
+    import json
+    prepared, database_path = api_paths
+    if broken == "missing":
+        prepared = prepared / "absent"
+    else:
+        path = prepared / "manifest.json"
+        manifest = json.loads(path.read_text())
+        if broken == "version":
+            manifest["format_version"] = 999
+        else:
+            manifest["arrays"]["user_ids"]["shape"] = [999]
+        path.write_text(json.dumps(manifest))
+    with pytest.raises(RuntimeError, match="scripts/prepare_movielens.py") as failure:
+        with TestClient(create_app(prepared, database_path)):
+            pass
+    assert "scripts/load_movielens.py --dataset ml-32m --download" in str(failure.value)
+    assert not database_path.exists()
+
+
+def test_catalog_source_order_survives_preparation(api_paths):
+    source = api_paths[0].parent
+    movies = pd.read_csv(source / "movies.csv").iloc[::-1]
+    movies.to_csv(source / "movies.csv", index=False)
+    prepared = prepare_movielens(source, source / "reordered-prepared")
+    with TestClient(create_app(prepared, api_paths[1])) as client:
+        assert [row["movie_id"] for row in client.get("/movies/search?q=film&limit=2").json()] == [5, 4]

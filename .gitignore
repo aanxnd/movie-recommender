@@ -8,6 +8,9 @@ pytest-cache-files-*/
 *.db-shm
 *.db-wal
 /data/*
+/data/raw/
+/data/prepared/
+/data/.staging-*/
 !/data/movies.csv
 !/data/ratings.csv
 !/data/README.txt

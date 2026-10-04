@@ -3,6 +3,7 @@
 from collections.abc import Iterator
 from contextlib import asynccontextmanager
 from math import isfinite
+import os
 from pathlib import Path
 from typing import Annotated
 
@@ -14,7 +15,8 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app import database, recommender
-from app.data import DEFAULT_DATA_DIR, load_movielens
+from app.data import DEFAULT_DATA_DIR
+from app.historical import load_prepared
 from app.schemas import (
     GroupRequest, HealthResponse, MovieResponse, RatingRequest, RatingResponse,
     RecommendationResponse, UserResponse,
@@ -61,37 +63,44 @@ def recommendation_response(
 
 
 def create_app(
-    data_dir: Path = DEFAULT_DATA_DIR,
+    prepared_dir: Path | None = None,
     database_path: Path = database.DEFAULT_DATABASE_PATH,
 ) -> FastAPI:
-    """Allow tests to supply isolated CSVs and a temporary SQLite file."""
+    """Load explicitly prepared reference data; keep application SQLite separate."""
+    prepared_dir = Path(prepared_dir) if prepared_dir is not None else Path(
+        os.environ.get("MOVIELENS_PREPARED_DIR", str(DEFAULT_DATA_DIR / "prepared" / "ml-32m-v1"))
+    )
     @asynccontextmanager
     async def lifespan(application: FastAPI):
-        movies, ratings = load_movielens(data_dir)
-        application.state.movies = movies
-        application.state.historical_users = recommender.build_user_ratings(ratings)
-        application.state.catalog = {
-            int(row.movie_id): MovieResponse(
-                movie_id=int(row.movie_id), title=row.title, genres=row.genres.split("|"),
-            )
-            for row in movies.itertuples(index=False)
-        }
-        application.state.release_years = {
-            movie_id: recommender.release_year(movie.title)
-            for movie_id, movie in application.state.catalog.items()
-        }
-        application.state.genres = {
-            movie_id: movie.genres for movie_id, movie in application.state.catalog.items()
-        }
-        engine = database.create_database_engine(database_path)
         try:
+            historical = load_prepared(prepared_dir)
+        except (OSError, ValueError, KeyError, TypeError, IndexError) as error:
+            raise RuntimeError(
+                f"Cannot load prepared MovieLens data from {prepared_dir}: {error}. "
+                "Acquire 32M with python scripts/load_movielens.py --dataset ml-32m --download; "
+                "then run python scripts/prepare_movielens.py --source data/raw/ml-32m --output "
+                "data/prepared/ml-32m-v1 --dataset ml-32m, or set MOVIELENS_PREPARED_DIR to a compatible prepared directory."
+            ) from error
+        engine = None
+        try:
+            application.state.historical_users = historical
+            application.state.catalog = {
+                row["movie_id"]: MovieResponse(
+                    movie_id=row["movie_id"], title=row["title"], genres=row["genres"],
+                ) for row in historical.catalog["movies"]
+            }
+            application.state.release_years = historical.release_years
+            application.state.genres = historical.genres
+            engine = database.create_database_engine(database_path)
             database.create_schema(engine)
             with Session(engine) as session, session.begin():
                 database.register_movies(session, application.state.catalog)
             application.state.engine = engine
             yield
         finally:
-            engine.dispose()
+            if engine is not None:
+                engine.dispose()
+            historical.close()
 
     application = FastAPI(title="Movie Recommender API", lifespan=lifespan)
 
@@ -127,7 +136,7 @@ def create_app(
 
     @application.get("/movies/decades", response_model=list[int])
     def decades(request: Request) -> list[int]:
-        return recommender.available_decades(request.app.state.release_years)
+        return request.app.state.historical_users.catalog["decades"]
 
     @application.get("/movies/{movie_id}", response_model=MovieResponse)
     def get_movie(request: Request, movie_id: IdParameter) -> MovieResponse:
@@ -152,7 +161,7 @@ def create_app(
         decade: Decade = None,
     ) -> list[RecommendationResponse]:
         results = recommender.genre_recommendations(
-            genre, request.app.state.movies, request.app.state.historical_users,
+            genre, None, request.app.state.historical_users,
             limit=limit, min_rating_count=min_rating_count,
             allowed_movies=recommender.movie_ids_for_decade(request.app.state.release_years, decade),
         )
