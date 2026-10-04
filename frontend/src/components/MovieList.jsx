@@ -42,7 +42,7 @@ export default function MovieList({ movies, ratings = [], onRate, userId, pendin
           <span className="font-mono font-semibold">{movie.score.toFixed(2)} <span className="font-sans font-normal text-stone-500">/ 5</span></span>
           <span className="text-xs text-stone-500">{movie.method === 'popularity_fallback' ? 'Average' : scoreLabel}</span>
         </div>
-          {showConfidence && <p className="mt-1 text-xs text-stone-500">Confidence: {movie.confidence === null ? '—' : movie.confidence.toFixed(2)}{movie.method === 'popularity_fallback' ? ' · Popularity fallback' : ''}</p>}
+          {showConfidence && <p className="mt-1 text-xs text-stone-500">Confidence: {movie.confidence === null ? 'N/A' : movie.confidence.toFixed(2)}{movie.method === 'popularity_fallback' ? ' · Popularity fallback' : ''}</p>}
         </div>}
         {onRate && <RatingControl key={`${movie.movie_id}-${savedRating}`} movie={movie} savedRating={savedRating} onRate={onRate} pending={pendingRatings.has(`${userId}:${movie.movie_id}`)} />}
       </li>

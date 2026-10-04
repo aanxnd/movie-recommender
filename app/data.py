@@ -38,7 +38,7 @@ def load_movielens(data_dir: Path = DEFAULT_DATA_DIR) -> tuple[pd.DataFrame, pd.
     """Return movies and ratings with normalized, explicit column names.
 
     MovieLens IDs remain unchanged. Historical user IDs belong to MovieLens,
-    not to the application's future SQLite users table.
+    not to the application's SQLite users table.
     """
     movies = _read_csv(Path(data_dir) / "movies.csv", ["movieId", "title", "genres"])
     ratings = _read_csv(Path(data_dir) / "ratings.csv", ["userId", "movieId", "rating"])

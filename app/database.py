@@ -103,5 +103,5 @@ def get_user_ratings(session: Session, user_id: int) -> list[UserRating]:
 
 
 def get_user_profile(session: Session, user_id: int) -> dict[int, float]:
-    """Return the sparse profile consumed directly by Stage 2 recommend()."""
+    """Return application ratings as a sparse recommendation profile."""
     return {row.movie_id: row.rating for row in get_user_ratings(session, user_id)}
