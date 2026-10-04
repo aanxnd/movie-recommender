@@ -53,3 +53,5 @@ jobs:
         run: npm ci
       - name: Build production frontend
         run: npm run build
+      - name: Test frontend API routing
+        run: npm test

@@ -1,7 +1,11 @@
+export function apiUrl(path, base = import.meta.env?.VITE_API_BASE_URL) {
+  return `${(base || '/api').replace(/\/+$/, '')}${path}`
+}
+
 export async function request(path, { body, ...options } = {}) {
   let response
   try {
-    response = await fetch(`/api${path}`, {
+    response = await fetch(apiUrl(path), {
       ...options,
       ...(body === undefined ? {} : {
         headers: { 'Content-Type': 'application/json' },

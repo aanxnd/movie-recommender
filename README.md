@@ -123,10 +123,45 @@ Run with separate reference and application-data mounts. On Windows PowerShell:
 
 ```powershell
 docker volume create movie-recommender-data
-docker run --name movie-recommender-api -p 8000:8000 --mount "type=bind,source=$((Resolve-Path data/prepared/ml-32m-v1).Path),target=/backend/reference,readonly" --mount type=volume,source=movie-recommender-data,target=/backend/data movie-recommender-backend
+docker run --name movie-recommender-api -p 8000:8000 -e MOVIELENS_PREPARED_DIR=/backend/reference --mount "type=bind,source=$((Resolve-Path data/prepared/ml-32m-v1).Path),target=/backend/reference,readonly" --mount type=volume,source=movie-recommender-data,target=/backend/data movie-recommender-backend
 ```
 
 On macOS/Linux, use `source="$(pwd)/data/prepared/ml-32m-v1"` in the bind mount. API documentation is available at **[http://localhost:8000/docs](http://localhost:8000/docs)**. `/backend/reference` contains immutable prepared 32M data; `/backend/data/application.db` is writable SQLite. The image contains no dataset and has no Small fallback. Reuse the named volume for replacement containers. Omitting that volume loses application data when the container is removed.
+
+The container runs as UID 10001. Existing application-data volumes must be writable by that user; reference mounts only need read access. New named volumes inherit the image's application-data directory ownership.
+
+## Production deployment readiness
+
+No backend provider has been selected or verified. The frontend can remain on Vercel; the backend supports PostgreSQL through SQLAlchemy/Psycopg while local development continues to use SQLite. With no configuration, `python -m uvicorn app.main:app --reload` retains the existing prepared-data/SQLite workflow and never downloads data. Explicit database paths passed by tests or local callers override `DATABASE_URL`. The frontend still uses `/api` through Vite's development proxy when its API base is unset.
+
+Configure these variables on the relevant service:
+
+| Variable | Service | Purpose |
+|---|---|---|
+| `VITE_API_BASE_URL` | Frontend build | Public HTTPS backend origin, without `/api`; trailing slashes are normalized. Rebuild the frontend after changing it. |
+| `DATABASE_URL` | Backend secret | PostgreSQL connection string, including TLS parameters. Plain PostgreSQL URLs are normalized to `postgresql+psycopg`. Never put this in a `VITE_*` variable or commit it. |
+| `CORS_ALLOWED_ORIGINS` | Backend | Exact comma-separated frontend origins, without trailing paths/slashes; no wildcard fallback. GET/POST/PUT and Content-Type are allowed, without credentials. |
+| `MOVIELENS_PREPARED_DIR` | Backend | Prepared directory on disk-backed storage. Docker defaults to `/backend/data/reference/ml-32m-v1`; set `/backend/reference` for an external reference mount. |
+| `MOVIELENS_ARCHIVE_URL` | Backend | Opt-in trusted GitHub Release download URL; omit when supplying prepared data locally. |
+| `MOVIELENS_ARCHIVE_SHA256` | Backend | Required pinned SHA-256 when archive downloading is enabled. |
+| `PORT` | Backend | Listening port; defaults to 8000. |
+
+For the published prepared release, use:
+
+```text
+MOVIELENS_ARCHIVE_URL=https://github.com/aanxnd/movie-recommender/releases/download/data-v1/ml-32m-v1.tar.gz
+MOVIELENS_ARCHIVE_SHA256=1e7fc9d6c664cff0f697438996e31ed6cf40cd7570aee43e31b814f0e505c303
+```
+
+Start the deployment runtime with `python -m app.runtime`. It verifies existing prepared artifacts or downloads the configured archive, verifies SHA-256, inspects a bounded file inventory, safely extracts into staging, and atomically publishes the directory. OS locking coordinates concurrent startup attempts. A verification marker outside the dataset allows unchanged files to be reused without rehashing; administrator-supplied files are checked against their manifest and distinguished from a verified downloaded archive. The compressed archive is removed after publication. Downloading is streamed, limited to 200 MiB, with three transport attempts and 30-second socket timeouts; extraction is limited to 600 MiB. Only HTTPS release URLs for this repository and trusted GitHub asset redirects are accepted. Full semantic verification/preprocessing is not performed at startup.
+
+The runtime binds `0.0.0.0`, uses **one Uvicorn worker**, and disables reload. Personal and group recommendation routes share a nonblocking capacity guard: **one expensive computation per process**; overload returns HTTP 503 with Retry-After. Popular/genre/search/health routes remain available. `/health` is cheap liveness; `/ready` checks initialized reference data and a bounded database query, returning a sanitized 503 when unavailable. Readiness uses one disposable probe process at a time with a three-second total budget, including cleanup; a stalled probe is terminated rather than leaving blocked threads. Its fresh database connection bypasses the application's pool. PostgreSQL application requests retain the two-connection pool with no overflow and bounded connection/pool waits.
+
+Plan for at least approximately **1 GiB RAM**, with **1–1.5 GiB preferred and 2 GiB safer**; 512 MiB is below measured workload requirements. These are planning estimates, requiring Linux/host verification. Allow approximately **1 GiB writable ephemeral disk minimum, 2 GiB preferred**, excluding image storage; archive and extraction briefly coexist. Use disk-backed storage rather than tmpfs. Allow several minutes for first startup and at least 60 seconds for requests. Persistent backend disk is unnecessary when PostgreSQL stores application ratings, but fresh ephemeral instances may redownload the archive. Keep normal portfolio usage within a verified $0/no-card host's limits.
+
+This remains an unauthenticated public demo: IDs are not access-control secrets. Do not store sensitive ratings/profile information. Configure exact CORS origins and keep database credentials in backend secret settings. No deployment, cloud configuration, authentication, or recommendation tuning is included in this readiness stage.
+
+Run `npm test` in `frontend/` for dependency-free API URL tests. Backend CI uses synthetic bootstrap archives and tracked Small data; it never downloads 32M or requires Neon. Optional PostgreSQL integration uses `POSTGRES_TEST_URL` pointing **only to a disposable localhost PostgreSQL container**, then `python -m pytest tests/test_postgresql.py -q`; without that variable, the test is skipped. It creates/removes an isolated temporary schema, not application tables in the default schema.
 
 ## Data
 

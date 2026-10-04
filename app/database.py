@@ -1,4 +1,4 @@
-"""Explicit SQLite setup and application-user operations.
+"""SQLite/PostgreSQL setup and application-user operations.
 
 Writes flush within the caller's transaction. Use Session.begin() to commit
 on success and roll back on failure; reads do not commit.
@@ -6,10 +6,13 @@ on success and roll back on failure; reads do not commit.
 
 from collections.abc import Iterable
 from math import isfinite
+import os
 from pathlib import Path
 
 from sqlalchemy import Engine, URL, create_engine, event, select
-from sqlalchemy.dialects.sqlite import insert
+from sqlalchemy.engine import make_url
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.orm import Session
 
 from app.models import Base, Movie, User, UserRating
@@ -18,11 +21,31 @@ from app.models import Base, Movie, User, UserRating
 DEFAULT_DATABASE_PATH = Path(__file__).resolve().parents[1] / "data" / "application.db"
 
 
-def create_database_engine(path: Path = DEFAULT_DATABASE_PATH) -> Engine:
-    """Create an engine; the default path is anchored to the repository."""
-    path = Path(path).resolve()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    engine = create_engine(URL.create("sqlite", database=str(path)))
+def create_database_engine(path: Path | None = None, *, database_url: str | None = None) -> Engine:
+    """Explicit path > explicit URL > DATABASE_URL > repository SQLite path."""
+    if path is not None:
+        url = URL.create("sqlite", database=str(Path(path).resolve()))
+    else:
+        configured = database_url if database_url is not None else os.environ.get("DATABASE_URL")
+        try:
+            url = make_url(configured) if configured else URL.create("sqlite", database=str(DEFAULT_DATABASE_PATH))
+        except Exception:
+            raise ValueError("Invalid database configuration") from None
+    backend = url.get_backend_name()
+    if backend == "postgresql":
+        url = url.set(drivername="postgresql+psycopg")
+        return create_engine(
+            url, pool_pre_ping=True, pool_size=2, max_overflow=0, pool_timeout=3,
+            connect_args={"connect_timeout": 5, "prepare_threshold": None},
+            hide_parameters=True,
+        )
+    if backend != "sqlite" or url.drivername not in {"sqlite", "sqlite+pysqlite"}:
+        raise ValueError("Only SQLite and PostgreSQL databases are supported")
+    if url.database and url.database != ":memory:":
+        file_path = Path(url.database).resolve()
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        url = url.set(database=str(file_path))
+    engine = create_engine(url, connect_args={"timeout": 3}, hide_parameters=True)
 
     @event.listens_for(engine, "connect")
     def enable_foreign_keys(connection, connection_record) -> None:
@@ -31,6 +54,15 @@ def create_database_engine(path: Path = DEFAULT_DATABASE_PATH) -> Engine:
         cursor.close()
 
     return engine
+
+
+def conflict_insert(model, dialect: str):
+    """Use each database's native atomic ON CONFLICT implementation."""
+    if dialect == "sqlite":
+        return sqlite_insert(model)
+    if dialect == "postgresql":
+        return postgresql_insert(model)
+    raise ValueError("Unsupported database dialect")
 
 
 def create_schema(engine: Engine) -> None:
@@ -42,10 +74,16 @@ def register_movies(session: Session, movie_ids: Iterable[int]) -> None:
     ids = sorted(set(movie_ids))
     for movie_id in ids:
         _validate_id(movie_id, "movie_id")
-    if ids:
+    dialect = session.get_bind().dialect.name
+    for start in range(0, len(ids), 1000):
+        batch = [{"movie_id": movie_id} for movie_id in ids[start:start + 1000]]
+        statement = conflict_insert(Movie, dialect)
+        if dialect == "postgresql":
+            statement = statement.values(batch).on_conflict_do_nothing(index_elements=["movie_id"])
+            session.execute(statement)
+            continue
         session.execute(
-            insert(Movie).on_conflict_do_nothing(index_elements=["movie_id"]),
-            [{"movie_id": movie_id} for movie_id in ids],
+            statement.on_conflict_do_nothing(index_elements=["movie_id"]), batch,
         )
 
 
@@ -81,7 +119,7 @@ def save_rating(session: Session, user_id: int, movie_id: int, rating: float) ->
     if session.get(Movie, movie_id) is None:
         raise ValueError(f"Unknown MovieLens movie: {movie_id}")
     session.execute(
-        insert(UserRating).values(user_id=user_id, movie_id=movie_id, rating=float(rating))
+        conflict_insert(UserRating, session.get_bind().dialect.name).values(user_id=user_id, movie_id=movie_id, rating=float(rating))
         .on_conflict_do_update(
             index_elements=["user_id", "movie_id"], set_={"rating": float(rating)}
         )

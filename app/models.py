@@ -1,6 +1,6 @@
-"""SQLite models for application data, separate from MovieLens users."""
+"""Application database models, separate from MovieLens reference users."""
 
-from sqlalchemy import CheckConstraint, Float, ForeignKey, Integer
+from sqlalchemy import BigInteger, CheckConstraint, Float, ForeignKey, Integer
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -8,11 +8,14 @@ class Base(DeclarativeBase):
     pass
 
 
+ID_TYPE = BigInteger().with_variant(Integer(), "sqlite")
+
+
 class User(Base):
     __tablename__ = "users"
     __table_args__ = {"sqlite_autoincrement": True}
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True)
 
 
 class Movie(Base):
@@ -21,7 +24,7 @@ class Movie(Base):
     __tablename__ = "movies"
     __table_args__ = (CheckConstraint("movie_id > 0"),)
 
-    movie_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
+    movie_id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, autoincrement=False)
 
 
 class UserRating(Base):

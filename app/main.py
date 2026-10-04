@@ -1,20 +1,23 @@
-"""HTTP boundary connecting MovieLens, recommendations, and SQLite."""
+"""HTTP boundary connecting prepared MovieLens, recommendations, and persistence."""
 
 from collections.abc import Iterator
 from contextlib import asynccontextmanager
 from math import isfinite
 import os
 from pathlib import Path
+from threading import BoundedSemaphore
 from typing import Annotated
+from urllib.parse import urlsplit
 
 from fastapi import Depends, FastAPI, HTTPException, Path as PathParameter, Query, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app import database, recommender
+from app import database, readiness, recommender
 from app.data import DEFAULT_DATA_DIR
 from app.historical import load_prepared
 from app.schemas import (
@@ -27,6 +30,7 @@ IdParameter = Annotated[int, PathParameter(gt=0, lt=2**63)]
 Limit = Annotated[int, Query(ge=1, le=100)]
 MinimumCount = Annotated[int, Query(ge=1)]
 Decade = Annotated[int | None, Query(ge=1800, le=2090, multiple_of=10)]
+RECOMMENDATION_GATE = BoundedSemaphore(1)
 
 
 def get_session(request: Request) -> Iterator[Session]:
@@ -36,6 +40,35 @@ def get_session(request: Request) -> Iterator[Session]:
 
 
 DatabaseSession = Annotated[Session, Depends(get_session, scope="function")]
+
+
+def expensive_request(request: Request) -> Iterator[None]:
+    """Reject overload immediately; synchronous handlers share this process gate."""
+    gate = request.app.state.recommendation_gate
+    if not gate.acquire(blocking=False):
+        raise HTTPException(503, "Recommendation capacity busy; retry shortly", headers={"Retry-After": "2"})
+    try:
+        yield
+    finally:
+        gate.release()
+
+
+RecommendationSlot = Annotated[None, Depends(expensive_request, scope="function")]
+
+
+def cors_origins() -> list[str]:
+    origins = []
+    for origin in os.environ.get("CORS_ALLOWED_ORIGINS", "").split(","):
+        origin = origin.strip()
+        if not origin:
+            continue
+        parsed = urlsplit(origin)
+        if (parsed.scheme not in {"http", "https"} or not parsed.hostname or
+                parsed.username or parsed.password or parsed.path or parsed.query or
+                parsed.fragment or "*" in origin):
+            raise ValueError("CORS_ALLOWED_ORIGINS must contain exact HTTP(S) origins")
+        origins.append(origin)
+    return list(dict.fromkeys(origins))
 
 
 def require_user(session: Session, user_id: int) -> UserResponse:
@@ -64,9 +97,10 @@ def recommendation_response(
 
 def create_app(
     prepared_dir: Path | None = None,
-    database_path: Path = database.DEFAULT_DATABASE_PATH,
+    database_path: Path | None = None,
+    *, database_url: str | None = None,
 ) -> FastAPI:
-    """Load explicitly prepared reference data; keep application SQLite separate."""
+    """Explicit database arguments override environment production configuration."""
     prepared_dir = Path(prepared_dir) if prepared_dir is not None else Path(
         os.environ.get("MOVIELENS_PREPARED_DIR", str(DEFAULT_DATA_DIR / "prepared" / "ml-32m-v1"))
     )
@@ -91,18 +125,28 @@ def create_app(
             }
             application.state.release_years = historical.release_years
             application.state.genres = historical.genres
-            engine = database.create_database_engine(database_path)
+            engine = database.create_database_engine(database_path, database_url=database_url)
             database.create_schema(engine)
             with Session(engine) as session, session.begin():
                 database.register_movies(session, application.state.catalog)
             application.state.engine = engine
+            application.state.initialized = True
             yield
+        except (SQLAlchemyError, ValueError):
+            raise RuntimeError("Application database initialization failed") from None
         finally:
+            application.state.initialized = False
             if engine is not None:
                 engine.dispose()
             historical.close()
 
     application = FastAPI(title="Movie Recommender API", lifespan=lifespan)
+    application.state.initialized = False
+    application.state.recommendation_gate = RECOMMENDATION_GATE
+    application.add_middleware(
+        CORSMiddleware, allow_origins=cors_origins(), allow_credentials=False,
+        allow_methods=["GET", "POST", "PUT"], allow_headers=["Content-Type"],
+    )
 
     @application.exception_handler(RequestValidationError)
     async def validation_error(request: Request, error: RequestValidationError) -> JSONResponse:
@@ -119,6 +163,14 @@ def create_app(
 
     @application.get("/health", response_model=HealthResponse)
     def health() -> HealthResponse:
+        return HealthResponse(status="ok")
+
+    @application.get("/ready", response_model=HealthResponse)
+    def ready(request: Request) -> HealthResponse:
+        if not request.app.state.initialized or not hasattr(request.app.state, "historical_users"):
+            raise HTTPException(503, "Application not ready")
+        if not readiness.database_ready(request.app.state.engine):
+            raise HTTPException(503, "Application not ready")
         return HealthResponse(status="ok")
 
     @application.get("/movies/search", response_model=list[MovieResponse])
@@ -197,7 +249,7 @@ def create_app(
 
     @application.get("/users/{user_id}/recommendations", response_model=list[RecommendationResponse])
     def personalized(
-        request: Request, user_id: IdParameter, session: DatabaseSession,
+        request: Request, user_id: IdParameter, slot: RecommendationSlot, session: DatabaseSession,
         limit: Limit = 10, min_rating_count: MinimumCount = 20,
         decade: Decade = None,
     ) -> list[RecommendationResponse]:
@@ -213,7 +265,7 @@ def create_app(
 
     @application.post("/recommendations/group", response_model=list[RecommendationResponse])
     def group(
-        request: Request, body: GroupRequest, session: DatabaseSession,
+        request: Request, body: GroupRequest, slot: RecommendationSlot, session: DatabaseSession,
         limit: Limit = 10, min_rating_count: MinimumCount = 20,
         decade: Decade = None,
     ) -> list[RecommendationResponse]:

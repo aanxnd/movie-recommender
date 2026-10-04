@@ -55,6 +55,98 @@ def test_health_and_documented_endpoints(client):
     assert "RatingRequest" in schema["components"]["schemas"]
 
 
+@pytest.mark.parametrize("method", ["GET", "POST", "PUT"])
+def test_configured_cors_and_write_preflight(api_paths, monkeypatch, method):
+    monkeypatch.setenv("CORS_ALLOWED_ORIGINS", "https://portfolio.example, https://preview.example")
+    with TestClient(create_app(*api_paths)) as client:
+        origin = "https://portfolio.example"
+        response = client.options("/users", headers={
+            "Origin": origin, "Access-Control-Request-Method": method,
+            "Access-Control-Request-Headers": "Content-Type",
+        })
+        assert response.status_code == 200
+        assert response.headers["access-control-allow-origin"] == origin
+        assert "access-control-allow-credentials" not in response.headers
+        assert client.get("/health", headers={"Origin": origin}).headers["access-control-allow-origin"] == origin
+        rejected = client.options("/users", headers={"Origin": "https://other.example", "Access-Control-Request-Method": method})
+        assert rejected.status_code == 400 and "access-control-allow-origin" not in rejected.headers
+
+
+@pytest.mark.parametrize("origin", ["*", "https://*.vercel.app", "https://example.com/path", "https://user:password@example.com"])
+def test_cors_rejects_non_origins(api_paths, monkeypatch, origin):
+    monkeypatch.setenv("CORS_ALLOWED_ORIGINS", origin)
+    with pytest.raises(ValueError, match="exact HTTP"):
+        create_app(*api_paths)
+
+
+def test_unconfigured_cors_is_not_wildcard(api_paths, monkeypatch):
+    monkeypatch.delenv("CORS_ALLOWED_ORIGINS", raising=False)
+    with TestClient(create_app(*api_paths)) as client:
+        assert "access-control-allow-origin" not in client.get("/health", headers={"Origin": "https://other.example"}).headers
+
+
+def test_readiness_is_bounded_and_sanitized(client, monkeypatch):
+    assert client.get("/ready").json() == {"status": "ok"}
+    client.app.state.initialized = False
+    assert client.get("/ready").status_code == 503
+    assert client.get("/health").status_code == 200
+    client.app.state.initialized = True
+    from app import readiness
+    monkeypatch.setattr(readiness, "database_ready", lambda engine: False)
+    response = client.get("/ready")
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Application not ready"}
+
+
+def test_explicit_api_sqlite_path_ignores_production_environment(api_paths, monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "postgresql://unused.invalid/production")
+    with TestClient(create_app(*api_paths)) as client:
+        assert client.app.state.engine.dialect.name == "sqlite"
+        assert new_user(client) == 1
+
+
+def test_personal_and_group_share_nonblocking_admission(client, monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Event
+    from app import recommender
+    first, second = new_user(client), new_user(client)
+    entered, release = Event(), Event()
+    original = recommender.recommend_details
+    def blocked(*args, **kwargs):
+        entered.set()
+        assert release.wait(5)
+        return original(*args, **kwargs)
+    monkeypatch.setattr(recommender, "recommend_details", blocked)
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        active = pool.submit(client.get, f"/users/{first}/recommendations")
+        try:
+            assert entered.wait(5)
+            for response in (
+                client.get(f"/users/{second}/recommendations"),
+                client.post("/recommendations/group", json={"user_ids": [first, second]}),
+            ):
+                assert response.status_code == 503 and response.headers["retry-after"] == "2"
+            assert client.get("/health").status_code == 200
+            assert client.get("/recommendations/popular").status_code == 200
+        finally:
+            release.set()
+        assert active.result(timeout=5).status_code == 200
+    assert client.post("/recommendations/group", json={"user_ids": [first, second]}).status_code == 200
+
+
+def test_admission_releases_after_errors(client, monkeypatch):
+    from app import recommender
+    first = new_user(client)
+    def fail(*args, **kwargs): raise ValueError("synthetic computation failure")
+    with monkeypatch.context() as patch:
+        patch.setattr(recommender, "recommend_details", fail)
+        with pytest.raises(ValueError, match="synthetic"):
+            client.get(f"/users/{first}/recommendations")
+    assert client.get(f"/users/{first}/recommendations").status_code == 200
+    assert client.get("/users/999/recommendations").status_code == 404
+    assert client.get(f"/users/{first}/recommendations").status_code == 200
+
+
 def test_search_and_lookup(client):
     expected = {"movie_id": 1, "title": "First Film", "genres": ["Action", "Sci-Fi"]}
     response = client.get("/movies/search", params={"q": " FIRST "})

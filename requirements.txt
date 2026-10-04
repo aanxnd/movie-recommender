@@ -2,6 +2,7 @@ pandas>=2.2,<4
 numpy>=2,<3
 pytest>=8,<10
 SQLAlchemy>=2.0,<3
+psycopg[binary]>=3.3,<4
 fastapi>=0.121,<1
 pydantic>=2.10,<3
 uvicorn>=0.30,<1
