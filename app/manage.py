@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app import database, security
 from app.migrations import migrate
 from app.models import Credential
+from app import config
 
 
 def main():
@@ -18,6 +19,10 @@ def main():
     parser.add_argument("--user-id", type=int)
     parser.add_argument("--output", type=Path, help="New private file for recovered credential; never stdout")
     args = parser.parse_args()
+    try:
+        config.validate()
+    except ValueError as error:
+        raise SystemExit(str(error)) from None
     engine = database.create_database_engine()
     try:
         if args.command == "migrate":

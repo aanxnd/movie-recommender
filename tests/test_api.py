@@ -123,6 +123,7 @@ def test_readiness_is_bounded_and_sanitized(client, monkeypatch):
     client.app.state.initialized = True
     from app import readiness
     monkeypatch.setattr(readiness, "database_ready", lambda engine: False)
+    client.app.state.readiness.checked_at = 0
     response = client.get("/ready")
     assert response.status_code == 503
     assert response.json() == {"detail": "Application not ready"}

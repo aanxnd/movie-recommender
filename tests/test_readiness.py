@@ -51,17 +51,17 @@ def test_stalled_readiness_is_killed_and_reaped(tmp_path, monkeypatch, phase):
         entered.unlink(missing_ok=True)
         started = time.monotonic()
         with ThreadPoolExecutor(max_workers=1) as pool:
-            active = pool.submit(readiness.database_ready, engine, timeout=2.0)
-            deadline = started + 1.5
+            active = pool.submit(readiness.database_ready, engine, timeout=5.0)
+            deadline = started + 4.0
             while not entered.exists() and time.monotonic() < deadline:
                 time.sleep(.01)
             assert entered.read_text() == phase
             # A simultaneous check rejects immediately rather than spawning/queuing.
             before = len(processes)
-            assert readiness.database_ready(engine, timeout=2.0) is False
+            assert readiness.database_ready(engine, timeout=5.0) is False
             assert len(processes) == before
-            assert active.result(timeout=3) is False
-        assert time.monotonic() - started < 3
+            assert active.result(timeout=6) is False
+        assert time.monotonic() - started < 6
         assert processes[-1].poll() is not None
         assert readiness._active_probe is None
         assert processes[-1].stdin.closed

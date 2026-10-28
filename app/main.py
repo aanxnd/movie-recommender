@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 from app import budget, config, database, limits, readiness, recommender, security
 from app.data import DEFAULT_DATA_DIR
 from app.historical import load_prepared
+from app.bootstrap import verify_local
 from app.schemas import (
     GroupRequest, HealthResponse, MovieResponse, RatingRequest, RatingResponse,
     RecommendationResponse, UserResponse, CredentialResponse, InvitationResponse,
@@ -114,8 +115,9 @@ def create_app(
     async def lifespan(application: FastAPI):
         config.validate(database_url, database_path)
         try:
+            verify_local(prepared_dir)
             historical = load_prepared(prepared_dir)
-        except (OSError, ValueError, KeyError, TypeError, IndexError) as error:
+        except (OSError, ValueError, KeyError, TypeError, IndexError, RuntimeError) as error:
             raise RuntimeError(
                 f"Cannot load prepared MovieLens data from {prepared_dir}: {error}. "
                 "Acquire 32M with python scripts/load_movielens.py --dataset ml-32m --download; "
@@ -141,6 +143,7 @@ def create_app(
             with Session(engine) as session, session.begin():
                 database.register_movies(session, application.state.catalog)
             application.state.engine = engine
+            application.state.readiness = readiness.CachedReadiness(engine)
             application.state.initialized = True
             yield
         except (SQLAlchemyError, ValueError):
@@ -194,7 +197,7 @@ def create_app(
     def ready(request: Request) -> HealthResponse:
         if not request.app.state.initialized or not hasattr(request.app.state, "historical_users"):
             raise HTTPException(503, "Application not ready")
-        if not readiness.database_ready(request.app.state.engine):
+        if not request.app.state.readiness.check():
             raise HTTPException(503, "Application not ready")
         return HealthResponse(status="ok")
 
@@ -299,15 +302,16 @@ def create_app(
 
     @application.get("/users/{user_id}/recommendations", response_model=list[RecommendationResponse])
     def personalized(
-        request: Request, user_id: IdParameter, slot: RecommendationSlot, session: DatabaseSession,
+        request: Request, user_id: IdParameter, slot: RecommendationSlot,
         limit: Limit = 10, min_rating_count: MinimumCount = 20,
         decade: Decade = None,
         authorization: Authorization = None,
     ) -> list[RecommendationResponse]:
-        security.require_owner(session, user_id, authorization)
-        require_user(session, user_id)
-        limits.owner_admission(session.get_bind(), user_id, 'recommend', 6)
-        profile = database.bounded_profile(session, user_id, limits.MAX_PROFILE_RATINGS)
+        with Session(request.app.state.engine) as session, session.begin():
+            security.require_owner(session, user_id, authorization)
+            require_user(session, user_id)
+            limits.owner_admission(session.get_bind(), user_id, 'recommend', 6)
+            profile = database.bounded_profile(session, user_id, limits.MAX_PROFILE_RATINGS)
         results = compute_recommendations(
             profile, request.app.state.historical_users,
             limit=limit, min_rating_count=min_rating_count,
@@ -318,17 +322,18 @@ def create_app(
 
     @application.post("/recommendations/group", response_model=list[RecommendationResponse])
     def group(
-        request: Request, body: GroupRequest, slot: RecommendationSlot, session: DatabaseSession,
+        request: Request, body: GroupRequest, slot: RecommendationSlot,
         limit: Limit = 10, min_rating_count: MinimumCount = 20,
         decade: Decade = None,
         authorization: Authorization = None,
     ) -> list[RecommendationResponse]:
-        owner = security.authorize_group(session, body.user_ids, body.invitations, authorization)
-        limits.owner_admission(session.get_bind(), owner, 'recommend', 6)
-        profiles = []
-        for user_id in body.user_ids:
-            require_user(session, user_id)
-            profiles.append(database.bounded_profile(session, user_id, limits.MAX_PROFILE_RATINGS))
+        with Session(request.app.state.engine) as session, session.begin():
+            owner = security.authorize_group(session, body.user_ids, body.invitations, authorization)
+            limits.owner_admission(session.get_bind(), owner, 'recommend', 6)
+            profiles = []
+            for user_id in body.user_ids:
+                require_user(session, user_id)
+                profiles.append(database.bounded_profile(session, user_id, limits.MAX_PROFILE_RATINGS))
         combined = recommender.combine_profiles(profiles)
         if len(combined) > limits.MAX_GROUP_RATINGS:
             raise HTTPException(422, 'Group has too many distinct rated movies (maximum 200)')

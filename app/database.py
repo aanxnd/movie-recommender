@@ -7,6 +7,7 @@ on success and roll back on failure; reads do not commit.
 from collections.abc import Iterable
 from math import isfinite
 import os
+import time
 from pathlib import Path
 
 from sqlalchemy import Engine, URL, create_engine, event, select, func, update
@@ -14,6 +15,7 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import TimeoutError as DatabaseTimeout
 
 from app.models import Base, Movie, User, UserRating
 
@@ -34,11 +36,26 @@ def create_database_engine(path: Path | None = None, *, database_url: str | None
     backend = url.get_backend_name()
     if backend == "postgresql":
         url = url.set(drivername="postgresql+psycopg")
-        return create_engine(
+        engine = create_engine(
             url, pool_pre_ping=True, pool_size=2, max_overflow=0, pool_timeout=3,
             connect_args={"connect_timeout": 5, "prepare_threshold": None},
             hide_parameters=True,
         )
+        # SET LOCAL is transaction-scoped and compatible with transaction pooling.
+        @event.listens_for(engine, 'begin')
+        def postgresql_timeouts(connection):
+            connection.info['transaction_deadline'] = time.monotonic() + 10
+            connection.exec_driver_sql("SET LOCAL statement_timeout = '5s'")
+            connection.exec_driver_sql("SET LOCAL lock_timeout = '2s'")
+            connection.exec_driver_sql("SET LOCAL idle_in_transaction_session_timeout = '10s'")
+            if connection.dialect.server_version_info >= (17,):
+                connection.exec_driver_sql("SET LOCAL transaction_timeout = '10s'")
+
+        @event.listens_for(engine, 'before_cursor_execute')
+        def transaction_budget(connection, *args):
+            if time.monotonic() >= connection.info.get('transaction_deadline', float('inf')):
+                raise DatabaseTimeout('Database transaction time budget exceeded')
+        return engine
     if backend != "sqlite" or url.drivername not in {"sqlite", "sqlite+pysqlite"}:
         raise ValueError("Only SQLite and PostgreSQL databases are supported")
     if url.database and url.database != ":memory:":
@@ -52,6 +69,11 @@ def create_database_engine(path: Path | None = None, *, database_url: str | None
         cursor = connection.cursor()
         cursor.execute("PRAGMA foreign_keys=ON")
         cursor.close()
+
+    @event.listens_for(engine, 'before_cursor_execute')
+    def sqlite_statement_budget(connection, *args):
+        deadline = time.monotonic() + 5
+        connection.connection.driver_connection.set_progress_handler(lambda: time.monotonic() >= deadline, 10000)
 
     return engine
 

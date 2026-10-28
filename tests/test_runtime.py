@@ -14,7 +14,7 @@ def test_bootstrap_precedes_single_worker_launch(monkeypatch,tmp_path,configured
     monkeypatch.setattr(runtime.uvicorn,'run',lambda *args,**kwargs:calls.append(('run',kwargs)))
     runtime.main()
     assert calls[0][0]=='bootstrap' and calls[0][1][1:]==(None,None)
-    assert calls[1]==('run',{'host':'0.0.0.0','port':port,'workers':1,'reload':False})
+    assert calls[1]==('run',{'host':'0.0.0.0','port':port,'workers':1,'reload':False,'limit_concurrency':64,'timeout_graceful_shutdown':30,'forwarded_allow_ips':''})
 
 
 @pytest.mark.parametrize('port',['0','65536','bad'])

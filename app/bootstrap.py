@@ -130,18 +130,28 @@ def reusable(destination: Path, digest: str | None, *, cache: bool = False) -> b
     if not destination.exists():
         return False
     validate_prepared(destination)
+    marker = {}
     try:
         marker = json.loads(marker_path(destination).read_text())
-        if marker.get("expected_archive_sha256") == digest and marker.get("files") == file_state(destination):
+        if (marker.get("expected_archive_sha256") == digest and marker.get("files") == file_state(destination)
+                and (digest is None or marker.get('verification') == 'pinned archive')):
             return True
     except (OSError, ValueError, TypeError, AttributeError):
         pass
+    if digest is not None:
+        # Never relabel administrator-supplied or different-release data as pinned.
+        raise BootstrapError('Existing data does not match pinned archive; use a fresh versioned prepared directory')
     # Existing administrator-supplied data is verified against its manifest,
     # without the expensive semantic profile/posting scan.
     validate_prepared(destination, verify_hashes=True)
     if cache:
         write_marker(destination, digest)
     return True
+
+
+def verify_local(destination: Path) -> None:
+    """Shared ASGI/runtime checksum policy; semantic scans remain offline."""
+    validate_prepared(destination, verify_hashes=True)
 
 
 def download_archive(url: str, digest: str, parent: Path) -> Path:

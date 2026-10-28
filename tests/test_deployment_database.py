@@ -18,6 +18,7 @@ def test_explicit_sqlite_path_overrides_url_and_environment(tmp_path, monkeypatc
 
 
 def test_postgresql_url_and_bounded_configuration(monkeypatch):
+    monkeypatch.setattr(database.event, "listens_for", lambda *args: lambda function: function)
     captured = {}
     def create(url, **kwargs):
         captured.update(url=url, **kwargs)
