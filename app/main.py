@@ -17,7 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app import database, readiness, recommender, security
+from app import budget, database, limits, readiness, recommender, security
 from app.data import DEFAULT_DATA_DIR
 from app.historical import load_prepared
 from app.schemas import (
@@ -28,7 +28,7 @@ from app.schemas import (
 
 IdParameter = Annotated[int, PathParameter(gt=0, lt=2**63)]
 Limit = Annotated[int, Query(ge=1, le=100)]
-MinimumCount = Annotated[int, Query(ge=1)]
+MinimumCount = Annotated[int, Query(ge=1, le=1_000_000)]
 Decade = Annotated[int | None, Query(ge=1800, le=2090, multiple_of=10)]
 Authorization = Annotated[str | None, Header(max_length=100)]
 RECOMMENDATION_GATE = BoundedSemaphore(1)
@@ -96,6 +96,11 @@ def recommendation_response(
     ]
 
 
+def compute_recommendations(*args, **kwargs):
+    with budget.computation():
+        return recommender.recommend_details(*args, **kwargs)
+
+
 def create_app(
     prepared_dir: Path | None = None,
     database_path: Path | None = None,
@@ -144,6 +149,7 @@ def create_app(
     application = FastAPI(title="Movie Recommender API", lifespan=lifespan)
     application.state.initialized = False
     application.state.recommendation_gate = RECOMMENDATION_GATE
+    application.add_middleware(limits.RequestLimits)
     application.add_middleware(
         CORSMiddleware, allow_origins=cors_origins(), allow_credentials=False,
         allow_methods=["GET", "POST", "PUT", "DELETE"], allow_headers=["Content-Type", "Authorization"],
@@ -171,6 +177,10 @@ def create_app(
     async def database_error(request: Request, error: SQLAlchemyError) -> JSONResponse:
         return JSONResponse(status_code=500, content={"detail": "Database operation failed"})
 
+    @application.exception_handler(budget.WorkloadTimeout)
+    async def workload_timeout(request: Request, error):
+        return JSONResponse(status_code=503, content={"detail": "Recommendation workload exceeded time budget; try fewer ratings"})
+
     @application.get("/health", response_model=HealthResponse)
     def health() -> HealthResponse:
         return HealthResponse(status="ok")
@@ -184,7 +194,7 @@ def create_app(
         return HealthResponse(status="ok")
 
     @application.get("/movies/search", response_model=list[MovieResponse])
-    def search_movies(request: Request, q: str = "", limit: Limit = 20) -> list[MovieResponse]:
+    def search_movies(request: Request, q: Annotated[str, Query(max_length=120)] = "", limit: Limit = 20) -> list[MovieResponse]:
         query = q.strip().casefold()
         if not query:
             return []
@@ -219,7 +229,7 @@ def create_app(
 
     @application.get("/recommendations/genre/{genre}", response_model=list[RecommendationResponse])
     def genre_recommendations(
-        request: Request, genre: str, limit: Limit = 10, min_rating_count: MinimumCount = 20,
+        request: Request, genre: Annotated[str, PathParameter(max_length=40)], limit: Limit = 10, min_rating_count: MinimumCount = 20,
         decade: Decade = None,
     ) -> list[RecommendationResponse]:
         results = recommender.genre_recommendations(
@@ -249,6 +259,7 @@ def create_app(
     @application.post("/users/{user_id}/group-invitation", response_model=InvitationResponse)
     def invitation(user_id: IdParameter, session: DatabaseSession, authorization: Authorization = None):
         security.require_owner(session, user_id, authorization)
+        limits.owner_admission(session.get_bind(), user_id, 'invitation', 10)
         token, expires = security.issue_invitation(session, user_id)
         return InvitationResponse(code=f"{user_id}:{token}", expires_at=expires)
 
@@ -267,6 +278,8 @@ def create_app(
         security.require_owner(session, user_id, authorization)
         require_user(session, user_id)
         movie_metadata(request, movie_id)
+        limits.owner_admission(session.get_bind(), user_id, 'write', 60)
+        database.enforce_rating_quota(session, user_id, movie_id, limits.MAX_PROFILE_RATINGS)
         row = database.save_rating(session, user_id, movie_id, body.rating)
         return RatingResponse(user_id=row.user_id, movie_id=row.movie_id, rating=row.rating)
 
@@ -288,8 +301,9 @@ def create_app(
     ) -> list[RecommendationResponse]:
         security.require_owner(session, user_id, authorization)
         require_user(session, user_id)
-        profile = database.get_user_profile(session, user_id)
-        results = recommender.recommend_details(
+        limits.owner_admission(session.get_bind(), user_id, 'recommend', 6)
+        profile = database.bounded_profile(session, user_id, limits.MAX_PROFILE_RATINGS)
+        results = compute_recommendations(
             profile, request.app.state.historical_users,
             limit=limit, min_rating_count=min_rating_count,
             genres=request.app.state.genres,
@@ -304,13 +318,17 @@ def create_app(
         decade: Decade = None,
         authorization: Authorization = None,
     ) -> list[RecommendationResponse]:
-        security.authorize_group(session, body.user_ids, body.invitations, authorization)
+        owner = security.authorize_group(session, body.user_ids, body.invitations, authorization)
+        limits.owner_admission(session.get_bind(), owner, 'recommend', 6)
         profiles = []
         for user_id in body.user_ids:
             require_user(session, user_id)
-            profiles.append(database.get_user_profile(session, user_id))
-        results = recommender.recommend_details(
-            recommender.combine_profiles(profiles), request.app.state.historical_users,
+            profiles.append(database.bounded_profile(session, user_id, limits.MAX_PROFILE_RATINGS))
+        combined = recommender.combine_profiles(profiles)
+        if len(combined) > limits.MAX_GROUP_RATINGS:
+            raise HTTPException(422, 'Group has too many distinct rated movies (maximum 200)')
+        results = compute_recommendations(
+            combined, request.app.state.historical_users,
             limit=limit, min_rating_count=min_rating_count,
             genres=request.app.state.genres,
             allowed_movies=recommender.movie_ids_for_decade(request.app.state.release_years, decade),

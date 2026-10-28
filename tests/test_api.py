@@ -341,6 +341,10 @@ def test_database_error_is_sanitized_and_write_rolled_back(client, monkeypatch):
 
 @pytest.mark.parametrize("write_kind", ["user", "rating"])
 def test_commit_failure_returns_error_and_rolls_back(client, monkeypatch, write_kind):
+    from app import limits
+    # Isolate the endpoint COMMIT; admission has its own committed transaction.
+    monkeypatch.setattr(limits, 'public_admission', lambda *args: None)
+    monkeypatch.setattr(limits, 'owner_admission', lambda *args: None)
     user_id = new_user(client)
     rate(client, user_id, 1, 4)
     engine = client.app.state.engine

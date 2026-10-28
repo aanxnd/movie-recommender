@@ -9,6 +9,7 @@ import pandas as pd
 import numpy as np
 
 from app.historical import PreparedHistoricalData
+from app import budget
 
 
 Profile = Mapping[int, float]
@@ -172,6 +173,7 @@ def _dense_overlap_counts(indices: np.ndarray, arrays: dict[str, np.ndarray], ex
     counts = np.zeros(len(arrays["user_ids"]), dtype=np.uint64)
     offsets = arrays["movie_offsets"]
     for movie in indices:
+        budget.check()
         start, end = int(offsets[movie]), int(offsets[int(movie) + 1])
         posting = arrays["posting_user_indices"][start:end]
         # Each movie posting contains each user once, so indexed += is exact.
@@ -229,6 +231,7 @@ def indexed_neighbors(
     counts = _dense_overlap_counts(indices, arrays, exclude_user_id)
     neighbors = []
     for user in np.flatnonzero(counts >= min_overlap):
+        budget.check()
         similarity = pearson_similarity(target, _shared_ratings(mapped, indices, arrays, int(user)), min_overlap)
         if similarity > 0:
             overlap = int(counts[user])
@@ -278,6 +281,7 @@ def predict_ratings_with_confidence(
     allowed = None if allowed_movies is None else set(allowed_movies)
     seen_neighbors: set[int] = set()
     for user_id, similarity in neighbors:
+        budget.check()
         if similarity <= 0 or user_id in seen_neighbors:
             continue
         seen_neighbors.add(user_id)
@@ -297,6 +301,7 @@ def predict_ratings_with_confidence(
             profile_items = profile.items()
         evidence = min(1.0, similarity) * min(overlap / CONFIDENCE_OVERLAP_TARGET, 1.0)
         for movie_id, rating in profile_items:
+            budget.check()
             if movie_id in target or (allowed is not None and movie_id not in allowed):
                 continue
             weighted_deviations[movie_id] = (
@@ -330,6 +335,8 @@ def popular_recommendations(
     excluded = set(exclude_movies)
     allowed = None if allowed_movies is None else set(allowed_movies)
     if isinstance(users, PreparedHistoricalData):
+        if allowed == set() or min_rating_count > int(np.max(users.arrays['movie_counts'])):
+            return []
         results = []
         for index in users.arrays["popularity_order"]:
             index = int(index)

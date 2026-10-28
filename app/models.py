@@ -54,3 +54,11 @@ class GroupInvitation(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True)
     token_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     expires_at: Mapped[int] = mapped_column(BigInteger, nullable=False)
+
+
+class RateBucket(Base):
+    __tablename__ = "rate_buckets"
+    key: Mapped[str] = mapped_column(String(100), primary_key=True)
+    window: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    count: Mapped[int] = mapped_column(Integer, nullable=False)
+    expires_at: Mapped[int] = mapped_column(BigInteger, index=True, nullable=False)

@@ -9,7 +9,7 @@ from math import isfinite
 import os
 from pathlib import Path
 
-from sqlalchemy import Engine, URL, create_engine, event, select
+from sqlalchemy import Engine, URL, create_engine, event, select, func, update
 from sqlalchemy.engine import make_url
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
@@ -144,3 +144,21 @@ def get_user_ratings(session: Session, user_id: int) -> list[UserRating]:
 def get_user_profile(session: Session, user_id: int) -> dict[int, float]:
     """Return application ratings as a sparse recommendation profile."""
     return {row.movie_id: row.rating for row in get_user_ratings(session, user_id)}
+
+
+def enforce_rating_quota(session: Session, user_id: int, movie_id: int, maximum: int):
+    from fastapi import HTTPException
+    # A row write serializes count+insert in SQLite and PostgreSQL alike.
+    session.execute(update(User).where(User.id == user_id).values(id=User.id))
+    if session.get(UserRating, (user_id, movie_id)) is None:
+        count = session.scalar(select(func.count()).select_from(UserRating).where(UserRating.user_id == user_id))
+        if count >= maximum:
+            raise HTTPException(422, f'Profile rating quota reached (maximum {maximum}); existing ratings can still be updated')
+
+
+def bounded_profile(session: Session, user_id: int, maximum: int) -> dict[int, float]:
+    from fastapi import HTTPException
+    rows = list(session.scalars(select(UserRating).where(UserRating.user_id == user_id).order_by(UserRating.movie_id).limit(maximum + 1)))
+    if len(rows) > maximum:
+        raise HTTPException(422, 'Legacy profile exceeds personalization limit; saved ratings are preserved')
+    return {row.movie_id: row.rating for row in rows}

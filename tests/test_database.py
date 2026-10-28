@@ -25,7 +25,7 @@ def engine(tmp_path: Path):
 
 def test_schema_and_id_only_catalog(engine):
     create_schema(engine)
-    assert set(inspect(engine).get_table_names()) == {"users", "movies", "user_ratings", "profile_credentials", "group_invitations", "schema_version"}
+    assert set(inspect(engine).get_table_names()) == {"users", "movies", "user_ratings", "profile_credentials", "group_invitations", "schema_version", "rate_buckets"}
     with Session(engine) as session, session.begin():
         register_movies(session, [10, 20])
         assert list(session.scalars(select(Movie.movie_id).order_by(Movie.movie_id))) == [10, 20, 30]

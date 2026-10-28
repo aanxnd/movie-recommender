@@ -2,10 +2,10 @@
 
 from sqlalchemy import select, text
 
-from app.models import Base, SchemaVersion
+from app.models import Base, RateBucket, SchemaVersion
 
 
-VERSION = 1
+VERSION = 2
 LOCK_ID = 698217431
 
 
@@ -27,6 +27,9 @@ def migrate(engine) -> None:
                 # Version 1 only adds tables. Original users/movies/ratings stay intact.
                 Base.metadata.create_all(connection)
                 connection.execute(SchemaVersion.__table__.insert().values(id=1, version=VERSION))
+            elif current < 2:
+                RateBucket.__table__.create(connection, checkfirst=True)
+                connection.execute(SchemaVersion.__table__.update().where(SchemaVersion.id == 1).values(version=2))
             connection.commit()
         except Exception:
             connection.rollback()

@@ -62,7 +62,7 @@ export default function Recommendations({ user, revision }) {
         if (!user) throw new Error('Select your profile first.')
         const members = group.trim().split(/[\s,]+/).filter(Boolean).map(parseRecoveryCode)
         const ids = [user.id, ...members.map((member) => member.id)]
-        if (ids.length < 2 || ids.length > 100 || new Set(ids).size !== ids.length) throw new Error('Enter distinct invitation codes from other group members.')
+        if (ids.length < 2 || ids.length > 5 || new Set(ids).size !== ids.length) throw new Error('Enter distinct invitation codes from other group members.')
         path = '/recommendations/group'
         options = { method: 'POST', body: { user_ids: ids, invitations: Object.fromEntries(members.map((member) => [member.id, member.token])) } }
         caption = `Group ? ${ids.length} profiles`
