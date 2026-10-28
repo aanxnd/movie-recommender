@@ -1,0 +1,275 @@
+{
+  "dataset": "ml-32m",
+  "ratings": 32000204,
+  "profile": [
+    {
+      "movie_id": 166461,
+      "title": "Moana (2016)",
+      "rating": 4.0
+    },
+    {
+      "movie_id": 77427,
+      "title": "Human Centipede, The (First Sequence) (2009)",
+      "rating": 5.0
+    },
+    {
+      "movie_id": 5971,
+      "title": "My Neighbor Totoro (Tonari no Totoro) (1988)",
+      "rating": 1.0
+    },
+    {
+      "movie_id": 7024,
+      "title": "Salo, or The 120 Days of Sodom (Salò o le 120 giornate di Sodoma) (1976)",
+      "rating": 2.0
+    },
+    {
+      "movie_id": 55768,
+      "title": "Bee Movie (2007)",
+      "rating": 5.0
+    },
+    {
+      "movie_id": 79251,
+      "title": "Serbian Film, A (Srpski film) (2010)",
+      "rating": 3.0
+    },
+    {
+      "movie_id": 178827,
+      "title": "Paddington 2 (2017)",
+      "rating": 1.0
+    },
+    {
+      "movie_id": 8906,
+      "title": "Cannibal Holocaust (1980)",
+      "rating": 4.0
+    }
+  ],
+  "target_mean": 3.125,
+  "neighbors": [
+    {
+      "reference_user": 190209,
+      "overlap": 4,
+      "pearson": 0.9801960588196068,
+      "adjusted_similarity": 0.28005601680560194,
+      "candidate_evidence_per_supported_movie": 0.22404481344448157,
+      "neighbor_mean": 3.4453828828828827
+    },
+    {
+      "reference_user": 196676,
+      "overlap": 4,
+      "pearson": 0.9486832980505138,
+      "adjusted_similarity": 0.27105237087157535,
+      "candidate_evidence_per_supported_movie": 0.21684189669726028,
+      "neighbor_mean": 2.953883495145631
+    },
+    {
+      "reference_user": 113165,
+      "overlap": 5,
+      "pearson": 0.8040302522073696,
+      "adjusted_similarity": 0.2680100840691232,
+      "candidate_evidence_per_supported_movie": 0.2680100840691232,
+      "neighbor_mean": 4.21883608815427
+    },
+    {
+      "reference_user": 180557,
+      "overlap": 4,
+      "pearson": 0.8944271909999159,
+      "adjusted_similarity": 0.25555062599997597,
+      "candidate_evidence_per_supported_movie": 0.20444050079998077,
+      "neighbor_mean": 3.535820895522388
+    },
+    {
+      "reference_user": 13287,
+      "overlap": 4,
+      "pearson": 0.8892972917998876,
+      "adjusted_similarity": 0.2540849405142536,
+      "candidate_evidence_per_supported_movie": 0.2032679524114029,
+      "neighbor_mean": 2.731719876416066
+    },
+    {
+      "reference_user": 64656,
+      "overlap": 4,
+      "pearson": 0.8892972917998876,
+      "adjusted_similarity": 0.2540849405142536,
+      "candidate_evidence_per_supported_movie": 0.2032679524114029,
+      "neighbor_mean": 3.2618025751072963
+    },
+    {
+      "reference_user": 101466,
+      "overlap": 4,
+      "pearson": 0.8677218312746247,
+      "adjusted_similarity": 0.24792052322132133,
+      "candidate_evidence_per_supported_movie": 0.19833641857705708,
+      "neighbor_mean": 2.3858313817330212
+    },
+    {
+      "reference_user": 59709,
+      "overlap": 4,
+      "pearson": 0.848528137423857,
+      "adjusted_similarity": 0.24243661069253059,
+      "candidate_evidence_per_supported_movie": 0.1939492885540245,
+      "neighbor_mean": 4.1980519480519485
+    },
+    {
+      "reference_user": 26701,
+      "overlap": 4,
+      "pearson": 0.835400486236258,
+      "adjusted_similarity": 0.23868585321035943,
+      "candidate_evidence_per_supported_movie": 0.19094868256828756,
+      "neighbor_mean": 3.576766304347826
+    },
+    {
+      "reference_user": 95481,
+      "overlap": 4,
+      "pearson": 0.8140915784106943,
+      "adjusted_similarity": 0.23259759383162695,
+      "candidate_evidence_per_supported_movie": 0.18607807506530158,
+      "neighbor_mean": 2.8053107882829247
+    },
+    {
+      "reference_user": 9826,
+      "overlap": 3,
+      "pearson": 1.0,
+      "adjusted_similarity": 0.23076923076923078,
+      "candidate_evidence_per_supported_movie": 0.13846153846153847,
+      "neighbor_mean": 4.250819672131148
+    },
+    {
+      "reference_user": 46608,
+      "overlap": 3,
+      "pearson": 1.0,
+      "adjusted_similarity": 0.23076923076923078,
+      "candidate_evidence_per_supported_movie": 0.13846153846153847,
+      "neighbor_mean": 3.204767726161369
+    },
+    {
+      "reference_user": 54315,
+      "overlap": 3,
+      "pearson": 1.0,
+      "adjusted_similarity": 0.23076923076923078,
+      "candidate_evidence_per_supported_movie": 0.13846153846153847,
+      "neighbor_mean": 3.1814396192742413
+    },
+    {
+      "reference_user": 83153,
+      "overlap": 3,
+      "pearson": 1.0,
+      "adjusted_similarity": 0.23076923076923078,
+      "candidate_evidence_per_supported_movie": 0.13846153846153847,
+      "neighbor_mean": 4.1664244186046515
+    },
+    {
+      "reference_user": 90026,
+      "overlap": 3,
+      "pearson": 1.0,
+      "adjusted_similarity": 0.23076923076923078,
+      "candidate_evidence_per_supported_movie": 0.13846153846153847,
+      "neighbor_mean": 4.025
+    }
+  ],
+  "top10": [
+    {
+      "movie_id": 1147,
+      "score": 3.1740031240315325,
+      "confidence": 0.04411764705882353,
+      "method": "collaborative_filtering",
+      "ranking_score": 3.524231272638201,
+      "title": "When We Were Kings (1996)",
+      "raw_score": 3.1740031240315325,
+      "evidence": 0.13846153846153847
+    },
+    {
+      "movie_id": 193950,
+      "score": 3.1740031240315325,
+      "confidence": 0.04411764705882353,
+      "method": "collaborative_filtering",
+      "ranking_score": 3.524231272638201,
+      "title": "Free Solo (2018)",
+      "raw_score": 3.1740031240315325,
+      "evidence": 0.13846153846153847
+    },
+    {
+      "movie_id": 7013,
+      "score": 3.1719994475609443,
+      "confidence": 0.04411764705882353,
+      "method": "collaborative_filtering",
+      "ranking_score": 3.5241428751468513,
+      "title": "Night of the Hunter, The (1955)",
+      "raw_score": 3.1740031240315325,
+      "evidence": 0.13846153846153847
+    },
+    {
+      "movie_id": 6818,
+      "score": 3.171135476972709,
+      "confidence": 0.04411764705882353,
+      "method": "collaborative_filtering",
+      "ranking_score": 3.52410475879737,
+      "title": "Come and See (Idi i smotri) (1985)",
+      "raw_score": 3.1740031240315325,
+      "evidence": 0.13846153846153847
+    },
+    {
+      "movie_id": 7300,
+      "score": 3.171135476972709,
+      "confidence": 0.04411764705882353,
+      "method": "collaborative_filtering",
+      "ranking_score": 3.52410475879737,
+      "title": "Vanishing Point (1971)",
+      "raw_score": 3.1740031240315325,
+      "evidence": 0.13846153846153847
+    },
+    {
+      "movie_id": 126426,
+      "score": 3.171135476972709,
+      "confidence": 0.04411764705882353,
+      "method": "collaborative_filtering",
+      "ranking_score": 3.52410475879737,
+      "title": "Solyaris (1968)",
+      "raw_score": 3.1740031240315325,
+      "evidence": 0.13846153846153847
+    },
+    {
+      "movie_id": 287699,
+      "score": 3.1682678299138853,
+      "confidence": 0.04411764705882353,
+      "method": "collaborative_filtering",
+      "ranking_score": 3.52397824495654,
+      "title": "Oppenheimer (2023)",
+      "raw_score": 3.1740031240315325,
+      "evidence": 0.13846153846153847
+    },
+    {
+      "movie_id": 183159,
+      "score": 3.1605300701393166,
+      "confidence": 0.04411764705882353,
+      "method": "collaborative_filtering",
+      "ranking_score": 3.5236368732017795,
+      "title": "Sweet Country (2017)",
+      "raw_score": 3.1605300701393166,
+      "evidence": 0.13846153846153847
+    },
+    {
+      "movie_id": 7926,
+      "score": 3.1590273127863755,
+      "confidence": 0.04411764705882353,
+      "method": "collaborative_filtering",
+      "ranking_score": 3.5235705750832675,
+      "title": "High and Low (Tengoku to jigoku) (1963)",
+      "raw_score": 3.1605300701393166,
+      "evidence": 0.13846153846153847
+    },
+    {
+      "movie_id": 77201,
+      "score": 3.1586183054334342,
+      "confidence": 0.04411764705882353,
+      "method": "collaborative_filtering",
+      "ranking_score": 3.5235525306412256,
+      "title": "Valhalla Rising (2009)",
+      "raw_score": 3.1605300701393166,
+      "evidence": 0.13846153846153847
+    }
+  ],
+  "top10_below_0_1": 10,
+  "threshold_policy": "0.1 is a display warning only; no prediction, selection, confidence, ranking or fallback mathematics changed",
+  "trace_seconds": 2.220289499964565,
+  "manifest_sha256": "2afcd65695fb1dfa16aeb604caa212bdedfb352027e145ac1ec810e5c13199ef"
+}

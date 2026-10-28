@@ -3,6 +3,7 @@ import { ArrowRight } from 'lucide-react'
 import { request } from '../api.js'
 import { parseRecoveryCode } from '../identity.js'
 import MovieList from './MovieList.jsx'
+import { evidenceMessage } from '../evidence.js'
 
 const modes = { personal: 'For you', popular: 'Popular', genre: 'By genre', group: 'For a group' }
 
@@ -111,6 +112,7 @@ export default function Recommendations({ user, revision }) {
     {busy && <p className="empty" role="status">Finding your next movies…</p>}
     {!busy && !error && !result && <p className="empty">{mode === 'personal' && !user ? 'Select a user to get recommendations.' : 'Request a shortlist to see ranked movies here.'}</p>}
     {result && <>
+      {evidenceMessage(result.movies) && <p role="status" className="mb-4 border-l-2 border-amber-500 bg-amber-50 px-4 py-3 text-sm">{evidenceMessage(result.movies)}</p>}
       <p role="status" className="mb-3 text-xs text-stone-500">{result.caption} · {result.movies.length} movies</p>
       {result.movies.length ? <MovieList movies={result.movies} ranked showConfidence={mode === 'personal' || mode === 'group'} scoreLabel={mode === 'popular' || mode === 'genre' ? 'Average' : 'Predicted'} /> : <p className="empty">No eligible movies found. {decade ? 'Try another decade or All decades.' : mode === 'genre' ? 'Try another MovieLens genre.' : 'Try another recommendation view or adjust your saved ratings.'}</p>}
     </>}
