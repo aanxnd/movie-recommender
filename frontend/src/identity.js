@@ -6,23 +6,23 @@ export function parseIdentity(value) {
   return { id: value.id, token: value.token }
 }
 
-export function readIdentity(storage = globalThis.localStorage) {
-  try { current = parseIdentity(JSON.parse(storage.getItem(KEY))); return current } catch { return null }
+export function readIdentity(storage) {
+  try { current = parseIdentity(JSON.parse((storage ?? globalThis.localStorage).getItem(KEY))); return current } catch { current = null; return null }
 }
 
-export function saveIdentity(value, storage = globalThis.localStorage) {
+export function saveIdentity(value, storage) {
   current = parseIdentity(value)
   if (!current) throw new Error('Invalid profile credential.')
-  try { storage.setItem(KEY, JSON.stringify(current)) } catch {
+  try { (storage ?? globalThis.localStorage).setItem(KEY, JSON.stringify(current)) } catch {
     throw new Error('Browser storage is unavailable. Keep your recovery code before closing this page.')
   }
   return current
 }
 
 export function identityToken() { return current?.token }
-export function clearIdentity(storage = globalThis.localStorage) {
+export function clearIdentity(storage) {
   current = null
-  try { storage.removeItem(KEY) } catch { /* In-memory identity still cleared. */ }
+  try { (storage ?? globalThis.localStorage).removeItem(KEY) } catch { /* In-memory identity still cleared. */ }
 }
 
 export function parseRecoveryCode(code) {

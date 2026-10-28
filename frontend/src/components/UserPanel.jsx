@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { UserRound, Plus } from 'lucide-react'
 import { request } from '../api.js'
-import { parseRecoveryCode, saveIdentity } from '../identity.js'
+import { identityToken, parseRecoveryCode, saveIdentity } from '../identity.js'
 
 export default function UserPanel({ user, onSelect }) {
   const [input, setInput] = useState('')
@@ -9,6 +9,11 @@ export default function UserPanel({ user, onSelect }) {
   const [error, setError] = useState('')
   const [code, setCode] = useState('')
   const [invitation, setInvitation] = useState('')
+  useEffect(() => {
+    if (user && identityToken()) setCode(`${user.id}:${identityToken()}`)
+    else setCode('')
+    setInvitation('')
+  }, [user?.id])
 
   async function select(create) {
     if (busy) return

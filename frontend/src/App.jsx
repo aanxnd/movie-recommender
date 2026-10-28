@@ -10,6 +10,9 @@ export default function App() {
   const [user, setUser] = useState(null)
   const [ratings, setRatings] = useState([])
   const [ratingsBusy, setRatingsBusy] = useState(false)
+  const [nextAfter, setNextAfter] = useState(null)
+  const [ratingsTotal, setRatingsTotal] = useState(0)
+  const ratingsController = useRef(null)
   const [ratingsError, setRatingsError] = useState('')
   const [reload, setReload] = useState(0)
   const [revision, setRevision] = useState(0)
@@ -19,13 +22,17 @@ export default function App() {
   const [ratingErrors, setRatingErrors] = useState({})
   const pendingWrites = useRef(new Set())
   const activeId = useRef(null)
+  const identityRevision = useRef(0)
 
   function selectUser(next) {
+    identityRevision.current++
     saveIdentity(next)
     activeId.current = next.id
     setNotice('')
     setUser(next)
     setRatings([])
+    setNextAfter(null)
+    setRatingsTotal(0)
     setRatingsError('')
     setRatingsBusy(true)
     setReload((value) => value + 1)
@@ -34,27 +41,39 @@ export default function App() {
   }
 
   useEffect(() => {
-    const stored = readIdentity()
-    if (!stored) return
-    const controller = new AbortController()
-    request(`/users/${stored.id}`, { token: stored.token, signal: controller.signal })
-      .then(() => { if (!controller.signal.aborted) selectUser(stored) })
-      .catch((error) => { if (!controller.signal.aborted) setNotice(`Could not restore profile: ${error.message}`) })
-    return () => controller.abort()
+    let controller
+    function restore() {
+      const revision = ++identityRevision.current
+      controller?.abort()
+      ratingsController.current?.abort()
+      activeId.current = null
+      setUser(null)
+      setRatings([])
+      setSelection((value) => value + 1)
+      const stored = readIdentity()
+      if (!stored) return
+      controller = new AbortController()
+      const current = controller
+      request(`/users/${stored.id}`, { token: stored.token, signal: current.signal })
+        .then(() => { if (!current.signal.aborted && identityRevision.current === revision) selectUser(stored) })
+        .catch((error) => { if (!current.signal.aborted && identityRevision.current === revision) setNotice(`Could not restore profile: ${error.message}`) })
+    }
+    restore()
+    function storageChanged(event) { if (event.key === 'movelle.identity.v1' || event.key === null) restore() }
+    window.addEventListener('storage', storageChanged)
+    return () => { controller?.abort(); window.removeEventListener('storage', storageChanged) }
   }, [])
 
   useEffect(() => {
     if (!user) return
     const controller = new AbortController()
+    ratingsController.current = controller
     async function loadRatings() {
       setRatingsBusy(true)
       setRatingsError('')
       try {
-        const rows = await request(`/users/${user.id}/ratings`, { signal: controller.signal })
-        const movies = await Promise.all(rows.map(async (row) => ({
-          ...await request(`/movies/${row.movie_id}`, { signal: controller.signal }), ...row,
-        })))
-        if (!controller.signal.aborted) setRatings(movies)
+        const page = await request(`/users/${user.id}/ratings/details`, { signal: controller.signal })
+        if (!controller.signal.aborted) { setRatings(page.items); setNextAfter(page.next_after); setRatingsTotal(page.total) }
       } catch (error) {
         if (!controller.signal.aborted) setRatingsError(error.message)
       } finally {
@@ -80,16 +99,37 @@ export default function App() {
     try {
       const row = await request(`/users/${userId}/ratings/${movie.movie_id}`, { method: 'PUT', body: { rating } })
       if (activeId.current !== userId) return
+      ratingsController.current?.abort()
+      setRatingsBusy(false)
       setNotice(`Saved ${row.rating} / 5 for ${movie.title}.`)
       setRatings((previous) => [...previous.filter((item) => item.movie_id !== movie.movie_id), { ...movie, ...row }].sort((a, b) => a.movie_id - b.movie_id))
       setRevision((value) => value + 1)
-      setReload((value) => value + 1)
+      if (movie.rating === undefined && !ratings.some((item) => item.movie_id === movie.movie_id)) setRatingsTotal((value) => value + 1)
     } catch (error) {
+      if (activeId.current !== userId) return
       setRatingErrors((previous) => ({ ...previous, [key]: `Could not save ${movie.title}: ${error.message} Retry using Save or Update.` }))
     } finally {
       pendingWrites.current.delete(key)
       setPendingRatings(new Set(pendingWrites.current))
     }
+  }
+
+  async function loadMore() {
+    if (nextAfter === null || ratingsBusy || !user) return
+    const userId = user.id
+    const current = new AbortController()
+    ratingsController.current?.abort()
+    ratingsController.current = current
+    setRatingsBusy(true)
+    try {
+      const page = await request(`/users/${userId}/ratings/details?after=${nextAfter}`, { signal: current.signal })
+      if (!current.signal.aborted && activeId.current === userId) {
+        setRatings((previous) => [...new Map([...previous, ...page.items].map((row) => [row.movie_id, row])).values()])
+        setNextAfter(page.next_after)
+        setRatingsTotal(page.total)
+      }
+    } catch (error) { if (!current.signal.aborted && activeId.current === userId) setRatingsError(error.message) }
+    finally { if (!current.signal.aborted && activeId.current === userId) setRatingsBusy(false) }
   }
 
   return <div className="min-h-screen bg-[#faf9f6] text-stone-800">
@@ -104,10 +144,10 @@ export default function App() {
       <main className="min-w-0 px-6 py-9 sm:px-8 lg:px-12">
         {notice && <p role="status" className="mb-5 border-l-2 border-emerald-600 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">{notice}</p>}
         {Object.entries(ratingErrors).filter(([key]) => key.startsWith(`${user?.id}:`)).map(([key, message]) => <p key={key} role="alert" className="error mb-5">{message}</p>)}
-        <Library key={`library-${selection}`} user={user} ratings={ratings} pendingRatings={pendingRatings} ratingsBusy={ratingsBusy} ratingsError={ratingsError} onReload={() => setReload((value) => value + 1)} onRate={rateMovie} />
+        <Library key={`library-${selection}`} user={user} ratings={ratings} pendingRatings={pendingRatings} ratingsBusy={ratingsBusy} ratingsError={ratingsError} onReload={() => setReload((value) => value + 1)} onMore={loadMore} nextAfter={nextAfter} ratingsTotal={ratingsTotal} onRate={rateMovie} />
         <Recommendations key={`recommendations-${selection}`} user={user} revision={revision} />
       </main>
     </div>
-    <footer className="border-t border-stone-200 px-6 py-4 text-center text-xs text-stone-500">MovieLens metadata · Ratings saved locally in SQLite</footer>
+    <footer className="border-t border-stone-200 px-6 py-4 text-center text-xs text-stone-500">MovieLens metadata · Ratings saved to your private profile</footer>
   </div>
 }

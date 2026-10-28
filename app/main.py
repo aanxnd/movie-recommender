@@ -15,7 +15,9 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
+from app.models import UserRating
 
 from app import budget, config, database, limits, readiness, recommender, security
 from app.data import DEFAULT_DATA_DIR
@@ -23,7 +25,7 @@ from app.historical import load_prepared
 from app.bootstrap import verify_local
 from app.schemas import (
     GroupRequest, HealthResponse, MovieResponse, RatingRequest, RatingResponse,
-    RecommendationResponse, UserResponse, CredentialResponse, InvitationResponse,
+    RecommendationResponse, UserResponse, CredentialResponse, InvitationResponse, RatingsPage, SavedMovie, RatingLookup,
 )
 
 
@@ -85,6 +87,13 @@ def movie_metadata(request: Request, movie_id: int) -> MovieResponse:
     if movie is None:
         raise HTTPException(404, "Movie not found")
     return movie
+
+
+def saved_movie(request, row):
+    movie = request.app.state.catalog.get(row.movie_id)
+    return SavedMovie(user_id=row.user_id, movie_id=row.movie_id, rating=row.rating,
+                      title=movie.title if movie else f'Unavailable movie #{row.movie_id}',
+                      genres=movie.genres if movie else [], available=movie is not None)
 
 
 def recommendation_response(
@@ -292,13 +301,31 @@ def create_app(
         return RatingResponse(user_id=row.user_id, movie_id=row.movie_id, rating=row.rating)
 
     @application.get("/users/{user_id}/ratings", response_model=list[RatingResponse])
-    def user_ratings(user_id: IdParameter, session: DatabaseSession, authorization: Authorization = None) -> list[RatingResponse]:
+    def user_ratings(user_id: IdParameter, session: DatabaseSession, authorization: Authorization = None,
+                     limit: Limit = 100, after: Annotated[int, Query(ge=0, lt=2**63)] = 0) -> list[RatingResponse]:
         security.require_owner(session, user_id, authorization)
         require_user(session, user_id)
         return [
             RatingResponse(user_id=row.user_id, movie_id=row.movie_id, rating=row.rating)
-            for row in database.get_user_ratings(session, user_id)
+            for row in session.scalars(select(UserRating).where(UserRating.user_id == user_id, UserRating.movie_id > after).order_by(UserRating.movie_id).limit(limit))
         ]
+
+    @application.get('/users/{user_id}/ratings/details', response_model=RatingsPage)
+    def rating_details(request: Request, user_id: IdParameter, session: DatabaseSession,
+                       authorization: Authorization = None, limit: Limit = 100,
+                       after: Annotated[int, Query(ge=0, lt=2**63)] = 0):
+        security.require_owner(session, user_id, authorization)
+        rows = list(session.scalars(select(UserRating).where(UserRating.user_id == user_id, UserRating.movie_id > after).order_by(UserRating.movie_id).limit(limit + 1)))
+        total = session.scalar(select(func.count()).select_from(UserRating).where(UserRating.user_id == user_id))
+        return RatingsPage(items=[saved_movie(request, row) for row in rows[:limit]],
+                           next_after=rows[limit - 1].movie_id if len(rows) > limit else None, total=total)
+
+    @application.post('/users/{user_id}/ratings/lookup', response_model=list[SavedMovie])
+    def rating_lookup(request: Request, user_id: IdParameter, body: RatingLookup, session: DatabaseSession,
+                      authorization: Authorization = None):
+        security.require_owner(session, user_id, authorization)
+        rows = session.scalars(select(UserRating).where(UserRating.user_id == user_id, UserRating.movie_id.in_(body.movie_ids)).order_by(UserRating.movie_id))
+        return [saved_movie(request, row) for row in rows]
 
     @application.get("/users/{user_id}/recommendations", response_model=list[RecommendationResponse])
     def personalized(

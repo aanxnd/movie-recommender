@@ -3,7 +3,7 @@ import { Search } from 'lucide-react'
 import { request } from '../api.js'
 import MovieList from './MovieList.jsx'
 
-export default function Library({ user, ratings, pendingRatings, ratingsBusy, ratingsError, onReload, onRate }) {
+export default function Library({ user, ratings, pendingRatings, ratingsBusy, ratingsError, onReload, onMore, nextAfter, ratingsTotal, onRate }) {
   const [view, setView] = useState('search')
   const [query, setQuery] = useState('')
   const [result, setResult] = useState(null)
@@ -22,7 +22,12 @@ export default function Library({ user, ratings, pendingRatings, ratingsBusy, ra
     controller.current = current
     setBusy(true)
     try {
-      const movies = await request(`/movies/search?q=${encodeURIComponent(query.trim())}&limit=30`, { signal: current.signal })
+      let movies = await request(`/movies/search?q=${encodeURIComponent(query.trim())}&limit=30`, { signal: current.signal })
+      if (user && movies.length) {
+        const saved = await request(`/users/${user.id}/ratings/lookup`, { method: 'POST', body: { movie_ids: movies.map((movie) => movie.movie_id) }, signal: current.signal })
+        const byId = new Map(saved.map((row) => [row.movie_id, row]))
+        movies = movies.map((movie) => ({ ...movie, ...byId.get(movie.movie_id) }))
+      }
       if (!current.signal.aborted) setResult({ query: query.trim(), movies })
     } catch (error) {
       if (!current.signal.aborted) setError(error.message)
@@ -37,12 +42,12 @@ export default function Library({ user, ratings, pendingRatings, ratingsBusy, ra
     <p className="mt-3 text-sm text-stone-600">Search the MovieLens catalog and build your taste profile.</p>
     <div className="mt-7 flex gap-6 border-b border-stone-200">
       <button className={`tab ${view === 'search' ? 'tab-active' : ''}`} onClick={() => setView('search')} aria-pressed={view === 'search'}>Movie search</button>
-      <button className={`tab ${view === 'ratings' ? 'tab-active' : ''}`} onClick={() => setView('ratings')} aria-pressed={view === 'ratings'}>Saved ratings {user && !ratingsBusy && !ratingsError && <span className="ml-1 font-mono text-xs">({ratings.length})</span>}</button>
+      <button className={`tab ${view === 'ratings' ? 'tab-active' : ''}`} onClick={() => setView('ratings')} aria-pressed={view === 'ratings'}>Saved ratings {user && !ratingsBusy && !ratingsError && <span className="ml-1 font-mono text-xs">({ratingsTotal})</span>}</button>
     </div>
     {view === 'search' ? <>
       <form className="my-6 flex gap-2" onSubmit={search}>
         <label htmlFor="movie-search" className="sr-only">Movie title</label>
-        <input id="movie-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search by movie title…" className="min-w-0 flex-1" />
+        <input id="movie-search" value={query} maxLength={120} onChange={(event) => setQuery(event.target.value)} placeholder="Search by movie title…" className="min-w-0 flex-1" />
         <button className="button-primary" disabled={busy}><Search size={16} aria-hidden="true" /><span>{busy ? 'Searching…' : 'Search'}</span></button>
       </form>
       {error && <p className="error" role="alert">{error}</p>}
@@ -56,7 +61,9 @@ export default function Library({ user, ratings, pendingRatings, ratingsBusy, ra
         {result.movies.length ? <MovieList movies={result.movies} ratings={ratings} userId={user?.id} pendingRatings={pendingRatings} onRate={user && !ratingsBusy && !ratingsError ? onRate : undefined} /> : <p className="empty">No movies found. Try a shorter title or another spelling.</p>}
       </>}
     </> : <div className="mt-6">
+      {user && <button className="button-secondary mb-4" disabled={ratingsBusy} onClick={onReload}>Reload saved ratings</button>}
       {!user ? <p className="empty">Select a user to see their saved ratings.</p> : ratingsBusy ? <p className="empty" role="status">Loading saved ratings…</p> : ratingsError ? <div><p role="alert" className="error">{ratingsError}</p><button className="button-secondary mt-3" onClick={onReload}>Retry loading ratings</button></div> : ratings.length ? <MovieList movies={ratings} ratings={ratings} userId={user.id} pendingRatings={pendingRatings} onRate={onRate} /> : <p className="empty">No ratings yet. Search for a movie and save your first rating.</p>}
+      {nextAfter !== null && <button className="button-secondary mt-4" disabled={ratingsBusy} onClick={onMore}>Load more saved ratings</button>}
     </div>}
   </section>
 }

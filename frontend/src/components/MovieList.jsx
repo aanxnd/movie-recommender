@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Star } from 'lucide-react'
 
 function RatingControl({ movie, savedRating, onRate, pending }) {
@@ -17,7 +17,7 @@ function RatingControl({ movie, savedRating, onRate, pending }) {
     <form onSubmit={save} className="flex items-end gap-2">
       <label className="flex-1 text-xs text-stone-600">{savedRating === undefined ? 'Your rating' : `Saved: ${savedRating} / 5`}
         <select aria-label={`Rating for ${movie.title}`} value={value} onChange={(event) => setValue(event.target.value)} disabled={pending} className="mt-1 w-full">
-          {values.map((rating) => <option key={rating} value={rating}>{rating.toFixed(1)}</option>)}
+          {values.map((rating) => <option key={rating} value={rating}>{String(rating)}</option>)}
         </select>
       </label>
       <button className="button-secondary" disabled={pending}>{pending ? 'Saving…' : savedRating === undefined ? 'Save' : 'Update'}</button>
@@ -26,9 +26,10 @@ function RatingControl({ movie, savedRating, onRate, pending }) {
 }
 
 export default function MovieList({ movies, ratings = [], onRate, userId, pendingRatings = new Set(), ranked = false, showConfidence = false, scoreLabel = 'Score' }) {
+  const ratingMap = useMemo(() => new Map(ratings.map((row) => [row.movie_id, row.rating])), [ratings])
   return <ol className="divide-y divide-stone-200 border-y border-stone-200">
     {movies.map((movie, index) => {
-      const savedRating = ratings.find((row) => row.movie_id === movie.movie_id)?.rating
+      const savedRating = ratingMap.get(movie.movie_id) ?? movie.rating
       return <li key={movie.movie_id} className="flex flex-col gap-4 py-5 sm:flex-row sm:items-center">
         <div className="flex min-w-0 flex-1 gap-4">
           {ranked && <span className="w-7 shrink-0 pt-1 font-mono text-sm text-stone-400">{String(index + 1).padStart(2, '0')}</span>}
@@ -44,7 +45,7 @@ export default function MovieList({ movies, ratings = [], onRate, userId, pendin
         </div>
           {showConfidence && <p className="mt-1 text-xs text-stone-500">Confidence: {movie.confidence === null ? 'N/A' : movie.confidence.toFixed(2)}{movie.method === 'popularity_fallback' ? ' · Popularity fallback' : ''}</p>}
         </div>}
-        {onRate && <RatingControl key={`${movie.movie_id}-${savedRating}`} movie={movie} savedRating={savedRating} onRate={onRate} pending={pendingRatings.has(`${userId}:${movie.movie_id}`)} />}
+        {onRate && movie.available !== false && <RatingControl key={`${movie.movie_id}-${savedRating}`} movie={movie} savedRating={savedRating} onRate={onRate} pending={pendingRatings.has(`${userId}:${movie.movie_id}`)} />}
       </li>
     })}
   </ol>
