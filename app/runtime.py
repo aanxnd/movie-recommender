@@ -4,12 +4,17 @@ import os
 from pathlib import Path
 
 import uvicorn
+from app import config
 
 from app.bootstrap import BootstrapError, ensure_prepared
 from app.data import DEFAULT_DATA_DIR
 
 
 def main() -> None:
+    try:
+        config.validate()
+    except ValueError as error:
+        raise SystemExit(str(error)) from None
     try:
         port = int(os.environ.get("PORT", "8000"))
         if not 1 <= port <= 65535:

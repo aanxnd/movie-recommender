@@ -1,7 +1,8 @@
-FROM python:3.14-slim
+FROM python:3.14-slim@sha256:cd89c30eda26ee911a4611b18680086e0ea42e6f5f8cbe653d07fa7958c9cec8
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
+    APP_ENV=production \
     MOVIELENS_PREPARED_DIR=/backend/data/reference/ml-32m-v1
 
 WORKDIR /backend

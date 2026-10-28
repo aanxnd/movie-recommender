@@ -17,7 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app import budget, database, limits, readiness, recommender, security
+from app import budget, config, database, limits, readiness, recommender, security
 from app.data import DEFAULT_DATA_DIR
 from app.historical import load_prepared
 from app.schemas import (
@@ -112,6 +112,7 @@ def create_app(
     )
     @asynccontextmanager
     async def lifespan(application: FastAPI):
+        config.validate(database_url, database_path)
         try:
             historical = load_prepared(prepared_dir)
         except (OSError, ValueError, KeyError, TypeError, IndexError) as error:
@@ -132,7 +133,11 @@ def create_app(
             application.state.release_years = historical.release_years
             application.state.genres = historical.genres
             engine = database.create_database_engine(database_path, database_url=database_url)
-            database.create_schema(engine)
+            if config.production():
+                from app.migrations import check_schema
+                check_schema(engine)
+            else:
+                database.create_schema(engine)
             with Session(engine) as session, session.begin():
                 database.register_movies(session, application.state.catalog)
             application.state.engine = engine
