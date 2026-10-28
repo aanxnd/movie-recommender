@@ -9,7 +9,7 @@ from threading import BoundedSemaphore
 from typing import Annotated
 from urllib.parse import urlsplit
 
-from fastapi import Depends, FastAPI, HTTPException, Path as PathParameter, Query, Request
+from fastapi import Depends, FastAPI, Header, HTTPException, Path as PathParameter, Query, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -17,12 +17,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app import database, readiness, recommender
+from app import database, readiness, recommender, security
 from app.data import DEFAULT_DATA_DIR
 from app.historical import load_prepared
 from app.schemas import (
     GroupRequest, HealthResponse, MovieResponse, RatingRequest, RatingResponse,
-    RecommendationResponse, UserResponse,
+    RecommendationResponse, UserResponse, CredentialResponse, InvitationResponse,
 )
 
 
@@ -30,6 +30,7 @@ IdParameter = Annotated[int, PathParameter(gt=0, lt=2**63)]
 Limit = Annotated[int, Query(ge=1, le=100)]
 MinimumCount = Annotated[int, Query(ge=1)]
 Decade = Annotated[int | None, Query(ge=1800, le=2090, multiple_of=10)]
+Authorization = Annotated[str | None, Header(max_length=100)]
 RECOMMENDATION_GATE = BoundedSemaphore(1)
 
 
@@ -145,8 +146,17 @@ def create_app(
     application.state.recommendation_gate = RECOMMENDATION_GATE
     application.add_middleware(
         CORSMiddleware, allow_origins=cors_origins(), allow_credentials=False,
-        allow_methods=["GET", "POST", "PUT"], allow_headers=["Content-Type"],
+        allow_methods=["GET", "POST", "PUT", "DELETE"], allow_headers=["Content-Type", "Authorization"],
+        expose_headers=["Retry-After"],
     )
+
+    @application.middleware("http")
+    async def private_responses(request: Request, call_next):
+        response = await call_next(request)
+        if request.url.path.startswith("/users") or request.url.path == "/recommendations/group":
+            response.headers["Cache-Control"] = "no-store"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        return response
 
     @application.exception_handler(RequestValidationError)
     async def validation_error(request: Request, error: RequestValidationError) -> JSONResponse:
@@ -221,26 +231,48 @@ def create_app(
             movie, score, None, "popularity",
         ) for movie, score in results])
 
-    @application.post("/users", status_code=201, response_model=UserResponse)
-    def create_user(session: DatabaseSession) -> UserResponse:
-        return UserResponse(id=database.create_user(session).id)
+    @application.post("/users", status_code=201, response_model=CredentialResponse)
+    def create_user(session: DatabaseSession) -> CredentialResponse:
+        user_id = database.create_user(session).id
+        token, expires = security.issue_credential(session, user_id)
+        return CredentialResponse(id=user_id, token=token, expires_at=expires)
+
+    @application.get("/users/me", response_model=UserResponse)
+    def current_user(session: DatabaseSession, authorization: Authorization = None) -> UserResponse:
+        return UserResponse(id=security.authenticate(session, authorization))
 
     @application.get("/users/{user_id}", response_model=UserResponse)
-    def get_user(user_id: IdParameter, session: DatabaseSession) -> UserResponse:
+    def get_user(user_id: IdParameter, session: DatabaseSession, authorization: Authorization = None) -> UserResponse:
+        security.require_owner(session, user_id, authorization)
         return require_user(session, user_id)
+
+    @application.post("/users/{user_id}/group-invitation", response_model=InvitationResponse)
+    def invitation(user_id: IdParameter, session: DatabaseSession, authorization: Authorization = None):
+        security.require_owner(session, user_id, authorization)
+        token, expires = security.issue_invitation(session, user_id)
+        return InvitationResponse(code=f"{user_id}:{token}", expires_at=expires)
+
+    @application.delete("/users/{user_id}/group-invitation", status_code=204)
+    def revoke_invitation(user_id: IdParameter, session: DatabaseSession, authorization: Authorization = None):
+        from sqlalchemy import delete
+        from app.models import GroupInvitation
+        security.require_owner(session, user_id, authorization)
+        session.execute(delete(GroupInvitation).where(GroupInvitation.user_id == user_id))
 
     @application.put("/users/{user_id}/ratings/{movie_id}", response_model=RatingResponse)
     def save_rating(
         request: Request, user_id: IdParameter, movie_id: IdParameter,
-        body: RatingRequest, session: DatabaseSession,
+        body: RatingRequest, session: DatabaseSession, authorization: Authorization = None,
     ) -> RatingResponse:
+        security.require_owner(session, user_id, authorization)
         require_user(session, user_id)
         movie_metadata(request, movie_id)
         row = database.save_rating(session, user_id, movie_id, body.rating)
         return RatingResponse(user_id=row.user_id, movie_id=row.movie_id, rating=row.rating)
 
     @application.get("/users/{user_id}/ratings", response_model=list[RatingResponse])
-    def user_ratings(user_id: IdParameter, session: DatabaseSession) -> list[RatingResponse]:
+    def user_ratings(user_id: IdParameter, session: DatabaseSession, authorization: Authorization = None) -> list[RatingResponse]:
+        security.require_owner(session, user_id, authorization)
         require_user(session, user_id)
         return [
             RatingResponse(user_id=row.user_id, movie_id=row.movie_id, rating=row.rating)
@@ -252,7 +284,9 @@ def create_app(
         request: Request, user_id: IdParameter, slot: RecommendationSlot, session: DatabaseSession,
         limit: Limit = 10, min_rating_count: MinimumCount = 20,
         decade: Decade = None,
+        authorization: Authorization = None,
     ) -> list[RecommendationResponse]:
+        security.require_owner(session, user_id, authorization)
         require_user(session, user_id)
         profile = database.get_user_profile(session, user_id)
         results = recommender.recommend_details(
@@ -268,7 +302,9 @@ def create_app(
         request: Request, body: GroupRequest, slot: RecommendationSlot, session: DatabaseSession,
         limit: Limit = 10, min_rating_count: MinimumCount = 20,
         decade: Decade = None,
+        authorization: Authorization = None,
     ) -> list[RecommendationResponse]:
+        security.authorize_group(session, body.user_ids, body.invitations, authorization)
         profiles = []
         for user_id in body.user_ids:
             require_user(session, user_id)

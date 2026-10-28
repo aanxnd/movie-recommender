@@ -4,6 +4,7 @@ import { request } from './api.js'
 import UserPanel from './components/UserPanel.jsx'
 import Library from './components/Library.jsx'
 import Recommendations from './components/Recommendations.jsx'
+import { readIdentity, saveIdentity } from './identity.js'
 
 export default function App() {
   const [user, setUser] = useState(null)
@@ -20,6 +21,7 @@ export default function App() {
   const activeId = useRef(null)
 
   function selectUser(next) {
+    saveIdentity(next)
     activeId.current = next.id
     setNotice('')
     setUser(next)
@@ -30,6 +32,16 @@ export default function App() {
     setRevision((value) => value + 1)
     setSelection((value) => value + 1)
   }
+
+  useEffect(() => {
+    const stored = readIdentity()
+    if (!stored) return
+    const controller = new AbortController()
+    request(`/users/${stored.id}`, { token: stored.token, signal: controller.signal })
+      .then(() => { if (!controller.signal.aborted) selectUser(stored) })
+      .catch((error) => { if (!controller.signal.aborted) setNotice(`Could not restore profile: ${error.message}`) })
+    return () => controller.abort()
+  }, [])
 
   useEffect(() => {
     if (!user) return

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ArrowRight } from 'lucide-react'
-import { parseUserId, request } from '../api.js'
+import { request } from '../api.js'
+import { parseRecoveryCode } from '../identity.js'
 import MovieList from './MovieList.jsx'
 
 const modes = { personal: 'For you', popular: 'Popular', genre: 'By genre', group: 'For a group' }
@@ -58,13 +59,13 @@ export default function Recommendations({ user, revision }) {
         path = `/recommendations/genre/${encodeURIComponent(genre.trim())}`
         caption = `${genre.trim()} recommendations`
       } else {
-        const parts = group.trim().split(/[\s,]+/).filter(Boolean)
-        if (parts.length < 2 || parts.length > 100) throw new Error('Enter between 2 and 100 user IDs, separated by commas or spaces.')
-        const ids = parts.map(parseUserId)
-        if (new Set(ids).size !== ids.length) throw new Error('Each group member must have a different user ID. Remove duplicate IDs.')
+        if (!user) throw new Error('Select your profile first.')
+        const members = group.trim().split(/[\s,]+/).filter(Boolean).map(parseRecoveryCode)
+        const ids = [user.id, ...members.map((member) => member.id)]
+        if (ids.length < 2 || ids.length > 100 || new Set(ids).size !== ids.length) throw new Error('Enter distinct invitation codes from other group members.')
         path = '/recommendations/group'
-        options = { method: 'POST', body: { user_ids: ids } }
-        caption = `Group · Users ${ids.join(', ')}`
+        options = { method: 'POST', body: { user_ids: ids, invitations: Object.fromEntries(members.map((member) => [member.id, member.token])) } }
+        caption = `Group ? ${ids.length} profiles`
       }
       if (decade) {
         path += `?decade=${encodeURIComponent(decade)}`
@@ -100,7 +101,7 @@ export default function Recommendations({ user, revision }) {
         {decades.map((value) => <option key={value} value={value}>{value}–{value + 9}</option>)}
       </select></label>
       {mode === 'genre' && <label className="w-full text-sm font-medium sm:max-w-sm">Genre<input value={genre} onChange={(event) => setGenre(event.target.value)} placeholder="e.g. Action, Drama, Sci-Fi" className="mt-2 w-full" /></label>}
-      {mode === 'group' && <label className="w-full text-sm font-medium sm:max-w-sm">Application user IDs<input value={group} onChange={(event) => setGroup(event.target.value)} placeholder="e.g. 1, 2" className="mt-2 w-full" /></label>}
+      {mode === 'group' && <label className="w-full text-sm font-medium sm:max-w-sm">Other members? group invitation codes<input value={group} onChange={(event) => setGroup(event.target.value)} placeholder="ID:invitation, ID:invitation" className="mt-2 w-full" /></label>}
       <button className="button-primary" disabled={busy || (mode === 'personal' && !user)}>{busy ? 'Finding movies…' : 'Get recommendations'}<ArrowRight size={16} aria-hidden="true" /></button>
     </form>
     {error && <p className="error" role="alert">{error}</p>}

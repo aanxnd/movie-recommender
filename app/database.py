@@ -66,7 +66,8 @@ def conflict_insert(model, dialect: str):
 
 
 def create_schema(engine: Engine) -> None:
-    Base.metadata.create_all(engine)
+    from app.migrations import migrate
+    migrate(engine)
 
 
 def register_movies(session: Session, movie_ids: Iterable[int]) -> None:

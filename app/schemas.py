@@ -28,6 +28,16 @@ class UserResponse(BaseModel):
     id: int
 
 
+class CredentialResponse(UserResponse):
+    token: str
+    expires_at: int
+
+
+class InvitationResponse(BaseModel):
+    code: str
+    expires_at: int
+
+
 class RatingRequest(BaseModel):
     rating: float = Field(strict=True, ge=0.5, le=5.0, allow_inf_nan=False)
 
@@ -40,6 +50,7 @@ class RatingResponse(BaseModel):
 
 class GroupRequest(BaseModel):
     user_ids: list[UserId] = Field(min_length=2, max_length=100)
+    invitations: dict[Annotated[int, Field(gt=0, lt=2**63)], Annotated[str, Field(min_length=43, max_length=43)]] = Field(default_factory=dict, max_length=99)
 
     @field_validator("user_ids")
     @classmethod

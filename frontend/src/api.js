@@ -1,14 +1,16 @@
+import { identityToken } from './identity.js'
+
 export function apiUrl(path, base = import.meta.env?.VITE_API_BASE_URL) {
   return `${(base || '/api').replace(/\/+$/, '')}${path}`
 }
 
-export async function request(path, { body, ...options } = {}) {
+export async function request(path, { body, token = identityToken(), headers = {}, ...options } = {}) {
   let response
   try {
     response = await fetch(apiUrl(path), {
       ...options,
+      headers: { ...headers, ...(token && (path.startsWith('/users/') || path === '/recommendations/group') ? { Authorization: `Bearer ${token}` } : {}), ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) },
       ...(body === undefined ? {} : {
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       }),
     })
@@ -18,6 +20,7 @@ export async function request(path, { body, ...options } = {}) {
   }
   const data = await response.json().catch(() => null)
   if (!response.ok) {
+    if (response.status === 401 || response.status === 403) throw new Error('This profile credential is missing, invalid, expired, or does not authorize this request. Restore your private recovery code.')
     if (response.status >= 500) throw new Error('The API could not complete this request. Please try again.')
     if (response.status === 404) {
       throw new Error(data?.detail === 'Movie not found' ? 'Movie not found.' : 'User not found. Check the application user ID.')
