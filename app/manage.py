@@ -3,13 +3,15 @@
 import argparse
 import json
 import os
+import time
 from pathlib import Path
 
 from sqlalchemy.orm import Session
+from sqlalchemy import delete, update
 
 from app import database, security
 from app.migrations import migrate
-from app.models import Credential
+from app.models import Credential, GroupInvitation, User
 from app import config
 
 
@@ -35,8 +37,14 @@ def main():
             fd = os.open(args.output, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
             with os.fdopen(fd, "w", encoding="utf-8") as output:
                 with Session(engine) as session, session.begin():
-                    if database.get_user(session, args.user_id) is None or session.get(Credential, args.user_id) is not None:
-                        raise ValueError("Only an existing unclaimed legacy profile may be recovered")
+                    session.execute(update(User).where(User.id == args.user_id).values(id=User.id))
+                    credential = session.get(Credential, args.user_id)
+                    if database.get_user(session, args.user_id) is None or (credential is not None and credential.expires_at > int(time.time())):
+                        raise ValueError("Only an unclaimed or expired profile may be recovered")
+                    if credential is not None:
+                        session.delete(credential)
+                        session.flush()
+                    session.execute(delete(GroupInvitation).where(GroupInvitation.user_id == args.user_id))
                     token, expires = security.issue_credential(session, args.user_id)
                     json.dump({"id": args.user_id, "token": token, "expires_at": expires}, output)
                     output.flush()

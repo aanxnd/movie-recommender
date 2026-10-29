@@ -40,7 +40,7 @@ export default function Recommendations({ user, revision }) {
     setError('')
     setBusy(false)
     return () => controller.current?.abort()
-  }, [mode, revision, decade, user?.id])
+  }, [mode, revision, decade, user?.id, genre, group])
 
   async function load(event) {
     event.preventDefault()
@@ -68,7 +68,7 @@ export default function Recommendations({ user, revision }) {
         if (ids.length < 2 || ids.length > 5 || new Set(ids).size !== ids.length) throw new Error('Enter distinct invitation codes from other group members.')
         path = '/recommendations/group'
         options = { method: 'POST', body: { user_ids: ids, invitations: Object.fromEntries(members.map((member) => [member.id, member.token])) } }
-        caption = `Group ? ${ids.length} profiles`
+        caption = `Group: ${ids.length} profiles`
       }
       if (decade) {
         path += `?decade=${encodeURIComponent(decade)}`
@@ -105,7 +105,7 @@ export default function Recommendations({ user, revision }) {
         {decades.map((value) => <option key={value} value={value}>{value}–{value + 9}</option>)}
       </select></label>
       {mode === 'genre' && <label className="w-full text-sm font-medium sm:max-w-sm">Genre<input value={genre} maxLength={40} onChange={(event) => setGenre(event.target.value)} placeholder="e.g. Action, Drama, Sci-Fi" className="mt-2 w-full" /></label>}
-      {mode === 'group' && <label className="w-full text-sm font-medium sm:max-w-sm">Other members? group invitation codes<input value={group} onChange={(event) => setGroup(event.target.value)} placeholder="ID:invitation, ID:invitation" className="mt-2 w-full" /></label>}
+      {mode === 'group' && <label className="w-full text-sm font-medium sm:max-w-sm">Group invitation codes from other members<input value={group} onChange={(event) => setGroup(event.target.value)} placeholder="ID:invitation, ID:invitation" className="mt-2 w-full" /></label>}
       <button className="button-primary" disabled={busy || (mode === 'personal' && !user)}>{busy ? 'Finding movies…' : 'Get recommendations'}<ArrowRight size={16} aria-hidden="true" /></button>
     </form>
     {error && <p className="error" role="alert">{error}</p>}

@@ -26,6 +26,7 @@ def test_independent_clients_require_credentials_and_never_expose_them(api_paths
         assert owner.put(f"/users/{profile['id']}/ratings/1", json={'rating': 4}).status_code == 401
         second = owner.post('/users').json()
         assert owner.get(f"/users/{profile['id']}", headers={'Authorization': 'Bearer ' + second['token']}).status_code == 403
+        assert owner.put(f"/users/{profile['id']}/ratings/1", headers={'Authorization': 'Bearer ' + second['token']}, json={'rating': 5}).status_code == 403
         assert owner.get('/users/me', headers=auth).json() == {'id': profile['id']}
         with Session(owner.app.state.engine) as session, session.begin():
             session.get(Credential, profile['id']).expires_at = int(time.time()) - 1
@@ -38,6 +39,12 @@ def test_group_capabilities_are_scoped_expiring_and_revocable(api_paths):
         auth_a = {'Authorization': 'Bearer ' + a['token']}
         auth_b = {'Authorization': 'Bearer ' + b['token']}
         body = {'user_ids': [a['id'], b['id']]}
+        assert client.post('/recommendations/group', headers=auth_a, json=body).status_code == 403
+        renewed = client.post(f"/users/{b['id']}/group-invitation", headers=auth_b).json()['code'].split(':')[1]
+        body['invitations'] = {str(b['id']): renewed}
+        from app.models import GroupInvitation
+        with Session(client.app.state.engine) as session, session.begin():
+            session.get(GroupInvitation, b['id']).expires_at = int(time.time()) - 1
         assert client.post('/recommendations/group', headers=auth_a, json=body).status_code == 403
         grant = client.post(f"/users/{b['id']}/group-invitation", headers=auth_b).json()
         body['invitations'] = {str(b['id']): grant['code'].split(':')[1]}

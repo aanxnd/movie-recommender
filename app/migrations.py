@@ -1,6 +1,6 @@
 """Additive, versioned migrations. No user/rating deletion or public claiming."""
 
-from sqlalchemy import select, text
+from sqlalchemy import inspect, select, text
 
 from app.models import Base, RateBucket, SchemaVersion
 
@@ -40,3 +40,7 @@ def check_schema(engine) -> None:
     with engine.connect() as connection:
         if connection.scalar(select(SchemaVersion.version).where(SchemaVersion.id == 1)) != VERSION:
             raise ValueError("Database migration required: run python -m app.manage migrate")
+        inspector = inspect(connection)
+        for table in Base.metadata.sorted_tables:
+            if not inspector.has_table(table.name) or not set(table.columns.keys()) <= {column['name'] for column in inspector.get_columns(table.name)}:
+                raise ValueError('Database schema is incomplete; inspect migrations before startup')

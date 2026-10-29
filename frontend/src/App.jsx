@@ -86,6 +86,7 @@ export default function App() {
 
   async function rateMovie(movie, rating) {
     const userId = user.id
+    const selectedRevision = identityRevision.current
     const key = `${userId}:${movie.movie_id}`
     if (pendingWrites.current.has(key)) return
     pendingWrites.current.add(key)
@@ -98,7 +99,7 @@ export default function App() {
     })
     try {
       const row = await request(`/users/${userId}/ratings/${movie.movie_id}`, { method: 'PUT', body: { rating } })
-      if (activeId.current !== userId) return
+      if (activeId.current !== userId || identityRevision.current !== selectedRevision) return
       ratingsController.current?.abort()
       setRatingsBusy(false)
       setNotice(`Saved ${row.rating} / 5 for ${movie.title}.`)
@@ -106,7 +107,7 @@ export default function App() {
       setRevision((value) => value + 1)
       if (movie.rating === undefined && !ratings.some((item) => item.movie_id === movie.movie_id)) setRatingsTotal((value) => value + 1)
     } catch (error) {
-      if (activeId.current !== userId) return
+      if (activeId.current !== userId || identityRevision.current !== selectedRevision) return
       setRatingErrors((previous) => ({ ...previous, [key]: `Could not save ${movie.title}: ${error.message} Retry using Save or Update.` }))
     } finally {
       pendingWrites.current.delete(key)

@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:17-alpine
+        image: postgres:17-alpine@sha256:266d3c257594e195b309ae9d1805e54c788f1d7b375f56bf6c367aac6c917e7b
         env:
           POSTGRES_USER: test
           POSTGRES_PASSWORD: disposable-ci-only
@@ -31,7 +31,7 @@ jobs:
         with:
           python-version: '3.14'
       - name: Install Python dependencies
-        run: python -m pip install -r requirements.txt
+        run: python -m pip install --require-hashes -r requirements-dev.txt
       - name: Prepare repository MovieLens Small offline
         run: python scripts/prepare_movielens.py --source data --output data/prepared/latest-small-v1
       - name: Verify prepared application startup
@@ -60,7 +60,6 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '24'
-          package-manager-cache: false
       - name: Install locked frontend dependencies
         run: npm ci
       - name: Build production frontend

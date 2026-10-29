@@ -22,3 +22,5 @@ frontend/dist/
 /.pytest-stage4/
 .vscode/
 .idea/
+/.vite/
+*.credentials.json

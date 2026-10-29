@@ -25,3 +25,6 @@ CODEX_CONTEXT.md
 README.md
 pytest.ini
 data/
+docs/
+requirements-dev.txt
+.vite/

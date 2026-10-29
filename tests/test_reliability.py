@@ -78,3 +78,17 @@ def test_concurrent_schema_initializers_are_serialized(tmp_path):
             list(pool.map(database.create_schema, engines))
     finally:
         for engine in engines: engine.dispose()
+
+
+def test_current_version_does_not_hide_missing_schema_columns(tmp_path):
+    from app.migrations import check_schema
+    engine = database.create_database_engine(tmp_path / 'incomplete.db')
+    try:
+        database.create_schema(engine)
+        check_schema(engine)
+        with engine.begin() as connection:
+            connection.exec_driver_sql('ALTER TABLE profile_credentials DROP COLUMN expires_at')
+        with pytest.raises(ValueError, match='incomplete'):
+            check_schema(engine)
+    finally:
+        engine.dispose()

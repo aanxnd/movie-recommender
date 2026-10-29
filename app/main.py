@@ -260,6 +260,7 @@ def create_app(
 
     @application.post("/users", status_code=201, response_model=CredentialResponse)
     def create_user(session: DatabaseSession) -> CredentialResponse:
+        database.enforce_user_capacity(session, limits.MAX_PROFILES)
         user_id = database.create_user(session).id
         token, expires = security.issue_credential(session, user_id)
         return CredentialResponse(id=user_id, token=token, expires_at=expires)
@@ -276,7 +277,7 @@ def create_app(
     @application.post("/users/{user_id}/group-invitation", response_model=InvitationResponse)
     def invitation(user_id: IdParameter, session: DatabaseSession, authorization: Authorization = None):
         security.require_owner(session, user_id, authorization)
-        limits.owner_admission(session.get_bind(), user_id, 'invitation', 10)
+        limits.owner_admission(session, user_id, 'invitation', 10)
         token, expires = security.issue_invitation(session, user_id)
         return InvitationResponse(code=f"{user_id}:{token}", expires_at=expires)
 
@@ -295,7 +296,7 @@ def create_app(
         security.require_owner(session, user_id, authorization)
         require_user(session, user_id)
         movie_metadata(request, movie_id)
-        limits.owner_admission(session.get_bind(), user_id, 'write', 60)
+        limits.owner_admission(session, user_id, 'write', 60)
         database.enforce_rating_quota(session, user_id, movie_id, limits.MAX_PROFILE_RATINGS)
         row = database.save_rating(session, user_id, movie_id, body.rating)
         return RatingResponse(user_id=row.user_id, movie_id=row.movie_id, rating=row.rating)
@@ -337,7 +338,7 @@ def create_app(
         with Session(request.app.state.engine) as session, session.begin():
             security.require_owner(session, user_id, authorization)
             require_user(session, user_id)
-            limits.owner_admission(session.get_bind(), user_id, 'recommend', 6)
+            limits.owner_admission(session, user_id, 'recommend', 6)
             profile = database.bounded_profile(session, user_id, limits.MAX_PROFILE_RATINGS)
         results = compute_recommendations(
             profile, request.app.state.historical_users,
@@ -356,7 +357,7 @@ def create_app(
     ) -> list[RecommendationResponse]:
         with Session(request.app.state.engine) as session, session.begin():
             owner = security.authorize_group(session, body.user_ids, body.invitations, authorization)
-            limits.owner_admission(session.get_bind(), owner, 'recommend', 6)
+            limits.owner_admission(session, owner, 'recommend', 6)
             profiles = []
             for user_id in body.user_ids:
                 require_user(session, user_id)

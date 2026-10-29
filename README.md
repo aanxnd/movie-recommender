@@ -1,17 +1,102 @@
-# Movie Recommender
+# Movelle
 
-A full-stack movie recommendation application where users search the MovieLens catalog, rate films, and receive personalized recommendations. The user-user collaborative-filtering algorithm is implemented directly in Python in this repository, with a React interface, persistent ratings, and a tested REST API around it.
+A portfolio movie recommender: React/Vite/Tailwind on Vercel, FastAPI on Azure Container Apps, Neon PostgreSQL for application profiles, and read-only prepared MovieLens 32M reference arrays. Local development uses SQLite. GHCR and GitHub Actions provide manually controlled releases with Azure OIDC.
 
-**Python · FastAPI · React / Vite · SQLite · SQLAlchemy · Docker · GitHub Actions**
+The scoring mathematics remains unchanged. Production boundaries now require anonymous profile credentials, explicit group invitations, bounded workloads, and versioned migrations. See [deployment and rollback](docs/DEPLOYMENT.md), [audit resolution](docs/AUDIT_RESOLUTION.md), and [recommendation evidence](docs/RECOMMENDATIONS.md).
 
-## Features
+## Local development
 
-- Search movies by title and create or select an application user by ID.
-- Rate and rerate movies from 0.5 to 5.0; saved ratings persist across restarts.
-- Get personalized recommendations with predicted ratings and evidence confidence.
-- Explore popular movies or recommendations within a MovieLens genre.
-- Combine multiple users' saved preferences for group recommendations.
-- Filter every recommendation mode by release decade.
+Use Python 3.14 and Node.js 24 (>=22.12 supported by the frontend tools). PowerShell, from the repository root:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install --require-hashes -r requirements-dev.txt
+.\.venv\Scripts\python.exe scripts/prepare_movielens.py --source data --output data/prepared/latest-small-v1
+$env:APP_ENV = 'development'
+$env:MOVIELENS_PREPARED_DIR = 'data/prepared/latest-small-v1'
+.\.venv\Scripts\python.exe -m app.runtime
+```
+
+Preparation refuses to overwrite an existing directory: skip that command if it already exists and is verified. In a second terminal run `cd frontend`, `npm ci`, and `npm run dev`. Open http://127.0.0.1:5173. Vite proxies `/api` to port 8000. On Linux/macOS use `.venv/bin/python` and `export NAME=value`.
+
+For 32M, run `python scripts/load_movielens.py --dataset ml-32m --download`, then `python scripts/prepare_movielens.py --source data/raw/ml-32m --output data/prepared/ml-32m-v1 --dataset ml-32m`, and select that prepared directory. Acquisition and preparation are offline/operator tools, never public endpoints. Retain the upstream README/license. There is no implicit Small fallback.
+
+Direct `python -m uvicorn app.main:app --reload` is supported for development. Both entrypoints verify artifact inventory/checksums; neither runs the full semantic profile/posting scan at startup. Explicit offline verification: `python scripts/prepare_movielens.py --verify PATH`.
+
+## Anonymous identity and groups
+
+`POST /users` issues an ID, a random 256-bit bearer credential, and an expiration timestamp (one year). Only SHA-256 hashes of these high-entropy credentials are stored. IDs alone grant no profile access. Profile GETs, ratings, and personalized recommendations require `Authorization: Bearer CREDENTIAL`. Responses containing private data use `Cache-Control: no-store`.
+
+The browser stores the credential in localStorage, restores it after refresh, and reacts to identity changes in other tabs. Save the masked **private recovery code** securely before replacing a profile or clearing browser storage. Anyone holding it owns the profile. No email/password account or automatic lost-key recovery is implied. LocalStorage is accessible to same-origin scripts; React text rendering, restricted scripts, dependency updates, and the Vercel CSP reduce risk but do not make stolen credentials harmless.
+
+Groups include the caller plus one to four consenting members. Each other member creates a ten-minute `ID:invitation` code with `POST /users/{id}/group-invitation`. Supply `user_ids` and an `invitations` map to `POST /recommendations/group`. These capabilities grant group computation only, not raw ratings or writes. Creating another invitation invalidates the previous one; DELETE on the invitation endpoint revokes it. Never share a private recovery code for a group.
+
+Legacy users/ratings are preserved by additive migrations and locked because old numeric IDs cannot prove ownership. Only an operator with independently verified ownership may use `python -m app.manage recover-profile --user-id ID --output PRIVATE_PATH.credentials.json`. The command refuses active claimed profiles, supports expired credentials, and writes the new credential to a private new file instead of stdout. Protect Windows file ACLs and transfer that file privately. If ownership cannot be verified, create a new profile; do not publicly claim an old ID.
+
+## Public API resource policy
+
+| Protection | Default |
+|---|---|
+| Body / receive deadline | 16 KiB / 10 seconds, including chunked bodies |
+| Search / genre input | 120 / 40 characters |
+| General API admission | 180 requests/minute/source address; 600/minute globally |
+| New profiles | 10/hour/source address; 1,000/day globally; 5,000 profiles total |
+| Rating writes | 60/minute/profile; at most 100 distinct saved ratings |
+| Group invitation issuance | 10/minute/profile |
+| Personal/group computation | 6/minute/caller; 30/minute globally |
+| Group workload | At most 5 members and 200 distinct combined ratings |
+| Compute admission | One personal/group operation/process; immediate 503 + Retry-After when busy |
+| Compute deadline | Cooperative 20-second budget; no detached work after timeout |
+| DB pool | Two connections/replica, no overflow; three-second checkout wait |
+| PostgreSQL budgets | Five-second statements, two-second locks, ten-second idle/overall transactions (server overall timeout on PostgreSQL >=17) |
+
+Admission counters live in the shared database and expire independently of profiles. Counter cleanup deletes only old counters; no automatic deletion of users/ratings occurs. A serialized lifetime cap of 5,000 profiles bounds long-term growth; raising it requires an operator storage-budget review. Rate windows use the database clock and cannot rewind. Failed endpoint transactions may roll back their owner counter, while the separately committed public admission remains charged. These controls bound normal application abuse; platform ingress and finite replica/cost limits remain necessary for volumetric attacks.
+
+Do not trust client-supplied forwarding headers. `TRUSTED_PROXY_IPS` defaults to empty. Configure only validated ingress proxy addresses/CIDRs; never `*`. Without that configuration an ingress proxy may share a conservative source quota across visitors. Verify this with two real client networks before promotion.
+
+Legacy profiles above the new rating quota remain readable/paginated and existing ratings remain updateable; personalization rejects profiles above 100 rather than silently sampling or deleting their data. Group requests over the union limit fail with an actionable 422.
+
+Ratings metadata is returned in one bounded request: `GET /users/{id}/ratings/details?limit=100&after=MOVIE_ID` gives `items`, `next_after`, and `total`. Unavailable catalog entries retain their rating and display an unavailable label. Search uses one bounded rating lookup for its results. The original ratings list remains available, now keyset-paginated (default/max 100).
+
+The frontend preserves HTTP status/Retry-After, times out requests after 45 seconds, and retries only explicit recommendation-capacity failures up to twice with jitter. It never automatically retries profile creation or rating writes. A timed-out write may have committed: use **Reload saved ratings** before retrying.
+
+## Configuration
+
+| Variable | Meaning |
+|---|---|
+| `APP_ENV` | `development` locally; image defaults to `production`. Unknown modes fail. |
+| `DATABASE_URL` | Backend secret. Production requires PostgreSQL with `sslmode=require`, `verify-ca`, or `verify-full`; prefer certificate verification supported by your Neon connection. Missing configuration never falls back to SQLite in production. |
+| `CORS_ALLOWED_ORIGINS` | Exact comma-separated origins, no paths/trailing slash/wildcards. Production requires HTTPS origins. Authorization is independently enforced. |
+| `VITE_API_BASE_URL` | Public backend HTTPS origin, no `/api`; set at frontend build time. Never put a secret in `VITE_*`. Unset means development `/api` proxy; Vercel must supply the real backend origin. |
+| `MOVIELENS_PREPARED_DIR` | Prepared reference directory. Image default `/backend/data/reference/ml-32m-v1`. |
+| `MOVIELENS_ARCHIVE_URL` / `MOVIELENS_ARCHIVE_SHA256` | Both required for opt-in pinned bootstrap; omit both for administrator-mounted artifacts. |
+| `TRUSTED_PROXY_IPS` | Explicit trusted forwarding proxies; empty is conservative, wildcard is rejected in production. |
+| `PORT` | Backend port, default 8000. |
+| `POSTGRES_TEST_URL` | Tests only; rejected unless an explicit disposable loopback PostgreSQL destination. Never use Neon here. |
+| `MOVIELENS_32M_EQUIVALENCE` | Opt-in local read-only 32M equivalence/profile regressions. |
+
+Pinned prepared release: `https://github.com/aanxnd/movie-recommender/releases/download/data-v1/ml-32m-v1.tar.gz`, SHA-256 `1e7fc9d6c664cff0f697438996e31ed6cf40cd7570aee43e31b814f0e505c303`. Reusing downloaded data requires the same pinned provenance and unchanged files. A changed hash or missing provenance fails safely: choose a fresh versioned directory. Mounted data is verified against its manifest. Startup never relabels old data as a different release.
+
+## Migrations and operations
+
+`python -m app.manage migrate` runs additive, versioned migrations under a PostgreSQL transaction advisory lock or SQLite BEGIN IMMEDIATE. Version 1 adds ownership/invitations/schema tracking; version 2 adds admission counters. No existing ratings are removed. Development migrates automatically; production only checks the required schema. Incompatible future changes need an explicit new migration and a compatible rollout.
+
+`/health` is cheap liveness. `/ready` checks initialization plus a single-flight, deadline-bounded database probe: success is cached 30 seconds, failure two seconds. Concurrent callers share the result. Probe subprocess isolation/termination remains to bound stalled database drivers, but requests no longer spawn a process each time. Readiness can lag a database failure by the cache interval; it is not a check of every application write permission or a guarantee of spare recommendation capacity.
+
+The image is non-root (UID 10001), contains runtime-only dependencies, uses one Uvicorn worker, limits concurrent connections, and has a 30-second graceful shutdown budget. Set a longer platform termination grace. Use disk-backed prepared storage, approximately 2 GiB RAM and 2 GiB writable disk as an initial allocation, then measure. Each fresh ephemeral replica may download the archive; startup probes must tolerate that delay. Multiple replicas have separate memory/gates but share PostgreSQL quotas.
+
+## Verification and dependency maintenance
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest -q -p no:cacheprovider
+cd frontend
+npm test
+npm run build
+```
+
+For a disposable localhost PostgreSQL server set `POSTGRES_TEST_URL` only in the test process. CI provisions its own PostgreSQL 17 container. Optional 32M tests read existing local prepared files and never call production services. `scripts/smoke_container.py --image IMAGE --prepared PATH` starts/stops only a newly created disposable container and verifies readiness, ownership, persistence contract, recommendations, UID, and absence of pytest/HTTPX.
+
+Runtime/test Python dependencies are pinned separately with published distribution hashes. CI and Docker enforce hashes; Docker accepts wheels only. After deliberately selecting reviewed versions, run `python scripts/hash_requirements.py`, reinstall the dev lock, rerun advisory checks and regressions, and rebuild. npm uses `npm ci`; actions, the Python base image, and the CI PostgreSQL image are digest/commit-pinned. Dependabot proposes upgrades. Check both runtime and development advisories; the latter still matter for contributors/builds.
 
 ## How It Works
 
@@ -19,12 +104,12 @@ A full-stack movie recommendation application where users search the MovieLens c
 flowchart TD
     Browser[Browser] --> Frontend[React / Vite frontend]
     Frontend -->|HTTP / JSON REST API| API[FastAPI]
-    API --> DB[SQLite: application users and ratings]
+    API --> DB[SQLAlchemy: Neon PostgreSQL production / SQLite development]
     API --> Engine[Recommendation engine]
     Engine --> Data[MovieLens catalog and historical ratings]
 ```
 
-Acquire and prepare MovieLens 32M explicitly before starting FastAPI. Startup memory-maps read-only numeric profile arrays, movie-to-user postings, precomputed statistics, and catalog metadata. These reference users remain separate from application users, whose ratings are stored through SQLAlchemy in `data/application.db`. SQLite registers movie IDs to enforce valid rating references.
+Prepare MovieLens 32M offline, or explicitly bootstrap the pinned prepared release before starting FastAPI. Startup memory-maps read-only numeric profile arrays, movie-to-user postings, precomputed statistics, and catalog metadata. These reference users remain separate from application users, whose ratings are stored through SQLAlchemy in Neon PostgreSQL (production) or `data/application.db` (development). Both databases enforce movie references.
 
 The personalized pipeline in [app/recommender.py](app/recommender.py) works as follows:
 
@@ -39,134 +124,11 @@ With fewer than two ratings, or no usable collaborative-filtering candidates, th
 
 Decade selection restricts candidates before ranking and limiting, including fallback candidates. Release years come from trailing years in MovieLens titles; movies with unknown years are excluded when a decade is selected. Groups average the supplied ratings for each movie, preserve ratings supplied by only one member, and run the same pipeline while excluding movies rated by any member. This simple combination can hide disagreements between members.
 
-## Running Locally
 
-Use **Python 3.14** and **Node.js 24**, matching the CI runtime families. Clone the repository and enter its directory:
+## Data and evaluation
 
-```sh
-git clone https://github.com/aanxnd/movie-recommender.git
-cd movie-recommender
-```
+The tracked MovieLens Small snapshot is retained for deterministic offline tests. Production reference data is MovieLens 32M; application-created users never become historical reference users. Data archives, prepared arrays, databases, credentials, and evaluation outputs are excluded from version control and the image.
 
-Create a Python environment and install backend dependencies. On Windows PowerShell:
+The original deterministic offline evaluation remains in `scripts/evaluate_recommender.py`. Follow train, validation, select, test phases with a fresh output directory; do not retune against test results. Sparse confidence is evidence, not probability. The reported eight-film scenario and exact baseline timing/output comparisons are recorded in [the recommendation investigation](docs/RECOMMENDATIONS.md).
 
-```powershell
-python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-.\.venv\Scripts\python.exe scripts/load_movielens.py --dataset ml-32m --download
-.\.venv\Scripts\python.exe scripts/prepare_movielens.py --source data/raw/ml-32m --output data/prepared/ml-32m-v1 --dataset ml-32m
-.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
-```
-
-On macOS/Linux:
-
-```sh
-python3.14 -m venv .venv
-.venv/bin/python -m pip install -r requirements.txt
-.venv/bin/python scripts/load_movielens.py --dataset ml-32m --download
-.venv/bin/python scripts/prepare_movielens.py --source data/raw/ml-32m --output data/prepared/ml-32m-v1 --dataset ml-32m
-.venv/bin/python -m uvicorn app.main:app --reload
-```
-
-In a second terminal, from the repository root:
-
-```sh
-cd frontend
-npm ci
-npm run dev
-```
-
-Open **[http://127.0.0.1:5173](http://127.0.0.1:5173)** for the application and **[http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)** for FastAPI's interactive API documentation. Create a user and keep its ID, search for movies, save a few ratings, then request recommendations.
-
-The React frontend calls the FastAPI REST API using native `fetch()`. During development, Vite forwards `/api/*` requests to `127.0.0.1:8000` and removes the prefix. The backend initializes SQLite automatically. Acquisition stores the 32M archive in `data/raw/ml-32m.zip` and extracts source files into `data/raw/ml-32m/`; use `--archive PATH` instead of `--download` for an existing official ZIP. Acquisition refuses to overwrite an existing 32M source directory, and preparation refuses to overwrite existing artifacts.
-
-The application defaults to repository-relative `data/prepared/ml-32m-v1/`. Set `MOVIELENS_PREPARED_DIR` to select another prepared directory. Startup never downloads or prepares data and fails with setup instructions when artifacts are missing; it never silently falls back to Small.
-
-For explicit lightweight development, prepare the tracked Small snapshot with `python scripts/prepare_movielens.py --source data --output data/prepared/latest-small-v1 --dataset latest-small`, then set `MOVIELENS_PREPARED_DIR` before starting Uvicorn: `$env:MOVIELENS_PREPARED_DIR = 'data/prepared/latest-small-v1'` in PowerShell, or `export MOVIELENS_PREPARED_DIR=data/prepared/latest-small-v1` on macOS/Linux.
-
-### Tests and CI
-
-Run the backend suite from the repository root:
-
-```powershell
-.\.venv\Scripts\python.exe -m pytest -q -p no:cacheprovider
-```
-
-On macOS/Linux, use `.venv/bin/python -m pytest -q -p no:cacheprovider`. Tests cover recommendation mathematics and ranking, cold start, genres and groups, decade filtering, data validation, persistence, API behavior, and invalid inputs. Normal tests use tracked Small or synthetic datasets and temporary databases, leaving application ratings untouched. Deterministic 32M equivalence checks are opt-in.
-
-To build the frontend production bundle, run `npm run build` in `frontend/`; output goes to `frontend/dist/`.
-
-The offline quality harness uses deterministic, disjoint development/validation/test users, removes validation/test users from reference ratings and statistics, and reports error, coverage, top-10 retrieval, support, clipping, and confidence diagnostics. Parameters are selected on validation users and frozen before one test run. With existing prepared 32M artifacts, run these phases in order:
-
-```powershell
-.\.venv\Scripts\python.exe scripts/evaluate_recommender.py --phase train
-.\.venv\Scripts\python.exe scripts/evaluate_recommender.py --phase validation
-.\.venv\Scripts\python.exe scripts/evaluate_recommender.py --phase select
-.\.venv\Scripts\python.exe scripts/evaluate_recommender.py --phase test
-```
-
-Results stay under ignored `data/evaluation/`. The default sample is 300 users across five profile-size strata, bounded at 1,999 ratings per user. Use `--output` for a new experiment directory; completed phases refuse overwrites. This is an offline evaluation, not a startup or CI workload.
-
-[GitHub Actions](.github/workflows/tests.yml) runs independent backend-test and frontend-build jobs on pushes to `main` and pull requests targeting `main`. Backend verification prepares the tracked Small snapshot offline, checks prepared application startup, and runs pytest. The frontend job installs dependencies with `npm ci` before building. Prepared data is not uploaded or retained.
-
-### Docker
-
-Acquire and prepare 32M as above. With Docker running Linux containers, build the backend from the repository root:
-
-```sh
-docker build -t movie-recommender-backend .
-```
-
-Free port 8000 first by stopping any local backend. The image packages code and Python dependencies; prepared reference data is mounted read-only. The React/Vite frontend remains separate.
-
-Run with separate reference and application-data mounts. On Windows PowerShell:
-
-```powershell
-docker volume create movie-recommender-data
-docker run --name movie-recommender-api -p 8000:8000 -e MOVIELENS_PREPARED_DIR=/backend/reference --mount "type=bind,source=$((Resolve-Path data/prepared/ml-32m-v1).Path),target=/backend/reference,readonly" --mount type=volume,source=movie-recommender-data,target=/backend/data movie-recommender-backend
-```
-
-On macOS/Linux, use `source="$(pwd)/data/prepared/ml-32m-v1"` in the bind mount. API documentation is available at **[http://localhost:8000/docs](http://localhost:8000/docs)**. `/backend/reference` contains immutable prepared 32M data; `/backend/data/application.db` is writable SQLite. The image contains no dataset and has no Small fallback. Reuse the named volume for replacement containers. Omitting that volume loses application data when the container is removed.
-
-The container runs as UID 10001. Existing application-data volumes must be writable by that user; reference mounts only need read access. New named volumes inherit the image's application-data directory ownership.
-
-## Production deployment readiness
-
-No backend provider has been selected or verified. The frontend can remain on Vercel; the backend supports PostgreSQL through SQLAlchemy/Psycopg while local development continues to use SQLite. With no configuration, `python -m uvicorn app.main:app --reload` retains the existing prepared-data/SQLite workflow and never downloads data. Explicit database paths passed by tests or local callers override `DATABASE_URL`. The frontend still uses `/api` through Vite's development proxy when its API base is unset.
-
-Configure these variables on the relevant service:
-
-| Variable | Service | Purpose |
-|---|---|---|
-| `VITE_API_BASE_URL` | Frontend build | Public HTTPS backend origin, without `/api`; trailing slashes are normalized. Rebuild the frontend after changing it. |
-| `DATABASE_URL` | Backend secret | PostgreSQL connection string, including TLS parameters. Plain PostgreSQL URLs are normalized to `postgresql+psycopg`. Never put this in a `VITE_*` variable or commit it. |
-| `CORS_ALLOWED_ORIGINS` | Backend | Exact comma-separated frontend origins, without trailing paths/slashes; no wildcard fallback. GET/POST/PUT and Content-Type are allowed, without credentials. |
-| `MOVIELENS_PREPARED_DIR` | Backend | Prepared directory on disk-backed storage. Docker defaults to `/backend/data/reference/ml-32m-v1`; set `/backend/reference` for an external reference mount. |
-| `MOVIELENS_ARCHIVE_URL` | Backend | Opt-in trusted GitHub Release download URL; omit when supplying prepared data locally. |
-| `MOVIELENS_ARCHIVE_SHA256` | Backend | Required pinned SHA-256 when archive downloading is enabled. |
-| `PORT` | Backend | Listening port; defaults to 8000. |
-
-For the published prepared release, use:
-
-```text
-MOVIELENS_ARCHIVE_URL=https://github.com/aanxnd/movie-recommender/releases/download/data-v1/ml-32m-v1.tar.gz
-MOVIELENS_ARCHIVE_SHA256=1e7fc9d6c664cff0f697438996e31ed6cf40cd7570aee43e31b814f0e505c303
-```
-
-Start the deployment runtime with `python -m app.runtime`. It verifies existing prepared artifacts or downloads the configured archive, verifies SHA-256, inspects a bounded file inventory, safely extracts into staging, and atomically publishes the directory. OS locking coordinates concurrent startup attempts. A verification marker outside the dataset allows unchanged files to be reused without rehashing; administrator-supplied files are checked against their manifest and distinguished from a verified downloaded archive. The compressed archive is removed after publication. Downloading is streamed, limited to 200 MiB, with three transport attempts and 30-second socket timeouts; extraction is limited to 600 MiB. Only HTTPS release URLs for this repository and trusted GitHub asset redirects are accepted. Full semantic verification/preprocessing is not performed at startup.
-
-The runtime binds `0.0.0.0`, uses **one Uvicorn worker**, and disables reload. Personal and group recommendation routes share a nonblocking capacity guard: **one expensive computation per process**; overload returns HTTP 503 with Retry-After. Popular/genre/search/health routes remain available. `/health` is cheap liveness; `/ready` checks initialized reference data and a bounded database query, returning a sanitized 503 when unavailable. Readiness uses one disposable probe process at a time with a three-second total budget, including cleanup; a stalled probe is terminated rather than leaving blocked threads. Its fresh database connection bypasses the application's pool. PostgreSQL application requests retain the two-connection pool with no overflow and bounded connection/pool waits.
-
-Plan for at least approximately **1 GiB RAM**, with **1–1.5 GiB preferred and 2 GiB safer**; 512 MiB is below measured workload requirements. These are planning estimates, requiring Linux/host verification. Allow approximately **1 GiB writable ephemeral disk minimum, 2 GiB preferred**, excluding image storage; archive and extraction briefly coexist. Use disk-backed storage rather than tmpfs. Allow several minutes for first startup and at least 60 seconds for requests. Persistent backend disk is unnecessary when PostgreSQL stores application ratings, but fresh ephemeral instances may redownload the archive. Keep normal portfolio usage within a verified $0/no-card host's limits.
-
-This remains an unauthenticated public demo: IDs are not access-control secrets. Do not store sensitive ratings/profile information. Configure exact CORS origins and keep database credentials in backend secret settings. No deployment, cloud configuration, authentication, or recommendation tuning is included in this readiness stage.
-
-Run `npm test` in `frontend/` for dependency-free API URL tests. Backend CI uses synthetic bootstrap archives and tracked Small data; it never downloads 32M or requires Neon. Optional PostgreSQL integration uses `POSTGRES_TEST_URL` pointing **only to a disposable localhost PostgreSQL container**, then `python -m pytest tests/test_postgresql.py -q`; without that variable, the test is skipped. It creates/removes an isolated temporary schema, not application tables in the default schema.
-
-## Data
-
-The normal application uses **MovieLens 32M** from GroupLens Research at the University of Minnesota. The tracked **MovieLens latest-small** [snapshot](https://grouplens.org/datasets/movielens/latest/) contains 9,742 movies and 100,836 historical ratings from 610 users and remains available for tests, CI, equivalence reference, and explicit lightweight development. Historical ratings provide collaborative-filtering reference profiles; application-created ratings remain separate in SQLite.
-
-`data/movies.csv`, `data/ratings.csv`, and the upstream [data/README.txt](data/README.txt) are tracked for offline Small tests and CI. Large 32M archives/source files, prepared artifacts, local benchmark records, and application databases are ignored by Git and intentionally not committed. Acquisition retains the upstream 32M README alongside its source files; consult the corresponding upstream README for each dataset's usage conditions.
-
-Dataset citation: F. Maxwell Harper and Joseph A. Konstan (2015). *The MovieLens Datasets: History and Context*. ACM Transactions on Interactive Intelligent Systems, 5(4), Article 19. [doi:10.1145/2827872](https://doi.org/10.1145/2827872).
+Dataset citation: F. Maxwell Harper and Joseph A. Konstan (2015), *The MovieLens Datasets: History and Context*, ACM TiiS 5(4), Article 19, https://doi.org/10.1145/2827872. Follow the usage conditions in the upstream [README](data/README.txt), including restrictions on commercial use.

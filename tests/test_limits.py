@@ -69,3 +69,66 @@ def test_cooperative_computation_budget_stops_without_changing_default_math():
     with budget.computation(-1):
         with pytest.raises(budget.WorkloadTimeout): budget.check()
     budget.check()
+
+
+def test_profile_lifetime_capacity_preserves_existing_users(api_paths, monkeypatch):
+    monkeypatch.setattr(limits, 'MAX_PROFILES', 2)
+    with TestClient(create_app(*api_paths)) as client:
+        first = client.post('/users').json()
+        assert client.post('/users').status_code == 201
+        assert client.post('/users').status_code == 503
+        assert client.get(f"/users/{first['id']}", headers={'Authorization': 'Bearer ' + first['token']}).status_code == 200
+
+
+def test_rate_window_cannot_rewind_or_refund_exhausted_capacity(tmp_path):
+    engine = database.create_database_engine(tmp_path / 'clock.db')
+    database.create_schema(engine)
+    try:
+        with Session(engine) as session, session.begin():
+            limits.consume(session, 'client', 'clock', 1, 60, now=120)
+        for now in (60, 120, 179):
+            with pytest.raises(HTTPException) as error:
+                with Session(engine) as session, session.begin():
+                    limits.consume(session, 'client', 'clock', 1, 60, now=now)
+            assert error.value.status_code == 429
+        with Session(engine) as session, session.begin():
+            limits.consume(session, 'client', 'clock', 1, 60, now=180)
+    finally:
+        engine.dispose()
+
+
+def test_group_union_and_legacy_profile_limits_precede_computation(api_paths, monkeypatch):
+    from app import recommender
+    with TestClient(create_app(*api_paths)) as client:
+        a, b = client.post('/users').json(), client.post('/users').json()
+        auth = {'Authorization': 'Bearer ' + a['token']}
+        grant = client.post(f"/users/{b['id']}/group-invitation", headers={'Authorization': 'Bearer ' + b['token']}).json()['code'].split(':')[1]
+        with Session(client.app.state.engine) as session, session.begin():
+            database.register_movies(session, [1, 2, 3])
+            for movie in (1, 2): database.save_rating(session, a['id'], movie, 4)
+            database.save_rating(session, b['id'], 3, 4)
+        monkeypatch.setattr(recommender, 'recommend_details', lambda *args, **kwargs: pytest.fail('Oversized computation started'))
+        monkeypatch.setattr(limits, 'MAX_PROFILE_RATINGS', 1)
+        assert client.get(f"/users/{a['id']}/recommendations", headers=auth).status_code == 422
+        monkeypatch.setattr(limits, 'MAX_PROFILE_RATINGS', 100)
+        monkeypatch.setattr(limits, 'MAX_GROUP_RATINGS', 2)
+        response = client.post('/recommendations/group', headers=auth, json={'user_ids': [a['id'], b['id']], 'invitations': {str(b['id']): grant}})
+        assert response.status_code == 422
+
+
+def test_actual_prepared_computation_deadline_releases_gate_and_connections(api_paths, monkeypatch):
+    with TestClient(create_app(*api_paths)) as client:
+        owner = client.post('/users').json()
+        auth = {'Authorization': 'Bearer ' + owner['token']}
+        with Session(client.app.state.engine) as session, session.begin():
+            database.save_rating(session, owner['id'], 1, 1)
+            database.save_rating(session, owner['id'], 2, 5)
+        original = budget.computation
+        monkeypatch.setattr(budget, 'computation', lambda: original(-1))
+        response = client.get(f"/users/{owner['id']}/recommendations", headers=auth)
+        assert response.status_code == 503
+        assert 'time budget' in response.json()['detail']
+        assert 'retry-after' not in response.headers  # Deadline failures are not capacity retries.
+        assert client.app.state.engine.pool.checkedout() == 0
+        monkeypatch.setattr(budget, 'computation', original)
+        assert client.get(f"/users/{owner['id']}/recommendations", headers=auth).status_code == 200

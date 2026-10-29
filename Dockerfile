@@ -8,13 +8,15 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /backend
 
 COPY requirements.txt .
-RUN python -m pip install --no-cache-dir -r requirements.txt
+RUN python -m pip install --no-cache-dir --require-hashes --only-binary=:all: -r requirements.txt
 
 COPY app/ ./app/
 
 RUN useradd --uid 10001 --create-home appuser \
     && mkdir -p /backend/data/reference \
-    && chown -R appuser:appuser /backend/data
+    && chown -R appuser:appuser /backend/data \
+    && printf '%s\n' '#!/bin/sh' 'exec python -m app.manage migrate' > /usr/local/bin/movelle-migrate \
+    && chmod 0755 /usr/local/bin/movelle-migrate
 
 USER appuser
 
