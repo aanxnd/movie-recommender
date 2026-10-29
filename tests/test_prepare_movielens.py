@@ -1,3 +1,6 @@
+import os
+import stat
+
 import numpy as np
 import pytest
 
@@ -11,6 +14,22 @@ def source(tmp_path):
     (tmp_path / "ratings.csv").write_text('userId,movieId,rating,timestamp\n2,10,0.5,1\n2,20,5,2\n9,10,4.5,3\n', encoding="utf-8")
     (tmp_path / "README.txt").write_text("Fixture terms", encoding="utf-8")
     return tmp_path
+
+
+@pytest.mark.skipif(os.name != 'posix', reason='POSIX permissions require a POSIX filesystem')
+@pytest.mark.parametrize('umask', [0o022, 0o077])
+def test_published_artifacts_are_readable_by_the_container_uid(source, umask):
+    original_umask = os.umask(umask)
+    try:
+        output = prepare_movielens(source, source / 'prepared')
+    finally:
+        os.umask(original_umask)
+    # The publisher and non-root container have different UIDs. Traversal and
+    # file reads must work for other users without granting them write access.
+    assert stat.S_IMODE(output.stat().st_mode) == 0o755
+    assert all(stat.S_IMODE(path.stat().st_mode) == 0o644 for path in output.iterdir())
+    checked = load_prepared(output, verify=True)
+    checked.close()
 
 
 def test_prepared_contents_and_semantic_determinism(source):
