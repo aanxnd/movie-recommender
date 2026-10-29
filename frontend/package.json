@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "test": "node --test src/api.test.js",
+    "test": "node --test src/*.test.js",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview"
@@ -20,7 +20,8 @@
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
     "@vitejs/plugin-react": "^6.1.1",
+    "jsdom": "27.4.0",
     "tailwindcss": "^4.3.3",
-    "vite": "^8.3.2"
+    "vite": "8.3.5"
   }
 }

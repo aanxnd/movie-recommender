@@ -1,6 +1,6 @@
 """Application database models, separate from MovieLens reference users."""
 
-from sqlalchemy import BigInteger, CheckConstraint, Float, ForeignKey, Integer
+from sqlalchemy import BigInteger, CheckConstraint, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -34,3 +34,31 @@ class UserRating(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True)
     movie_id: Mapped[int] = mapped_column(ForeignKey("movies.movie_id"), primary_key=True)
     rating: Mapped[float] = mapped_column(Float, nullable=False)
+
+
+class SchemaVersion(Base):
+    __tablename__ = "schema_version"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
+class Credential(Base):
+    __tablename__ = "profile_credentials"
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    expires_at: Mapped[int] = mapped_column(BigInteger, nullable=False)
+
+
+class GroupInvitation(Base):
+    __tablename__ = "group_invitations"
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    token_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    expires_at: Mapped[int] = mapped_column(BigInteger, nullable=False)
+
+
+class RateBucket(Base):
+    __tablename__ = "rate_buckets"
+    key: Mapped[str] = mapped_column(String(100), primary_key=True)
+    window: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    count: Mapped[int] = mapped_column(Integer, nullable=False)
+    expires_at: Mapped[int] = mapped_column(BigInteger, index=True, nullable=False)

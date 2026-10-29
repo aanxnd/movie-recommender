@@ -7,15 +7,17 @@ on success and roll back on failure; reads do not commit.
 from collections.abc import Iterable
 from math import isfinite
 import os
+import time
 from pathlib import Path
 
-from sqlalchemy import Engine, URL, create_engine, event, select
+from sqlalchemy import Engine, URL, create_engine, event, select, func, update
 from sqlalchemy.engine import make_url
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import TimeoutError as DatabaseTimeout
 
-from app.models import Base, Movie, User, UserRating
+from app.models import Base, Movie, User, UserRating, RateBucket
 
 
 DEFAULT_DATABASE_PATH = Path(__file__).resolve().parents[1] / "data" / "application.db"
@@ -34,11 +36,26 @@ def create_database_engine(path: Path | None = None, *, database_url: str | None
     backend = url.get_backend_name()
     if backend == "postgresql":
         url = url.set(drivername="postgresql+psycopg")
-        return create_engine(
+        engine = create_engine(
             url, pool_pre_ping=True, pool_size=2, max_overflow=0, pool_timeout=3,
             connect_args={"connect_timeout": 5, "prepare_threshold": None},
             hide_parameters=True,
         )
+        # SET LOCAL is transaction-scoped and compatible with transaction pooling.
+        @event.listens_for(engine, 'begin')
+        def postgresql_timeouts(connection):
+            connection.info['transaction_deadline'] = time.monotonic() + 10
+            connection.exec_driver_sql("SET LOCAL statement_timeout = '5s'")
+            connection.exec_driver_sql("SET LOCAL lock_timeout = '2s'")
+            connection.exec_driver_sql("SET LOCAL idle_in_transaction_session_timeout = '10s'")
+            if connection.dialect.server_version_info >= (17,):
+                connection.exec_driver_sql("SET LOCAL transaction_timeout = '10s'")
+
+        @event.listens_for(engine, 'before_cursor_execute')
+        def transaction_budget(connection, *args):
+            if time.monotonic() >= connection.info.get('transaction_deadline', float('inf')):
+                raise DatabaseTimeout('Database transaction time budget exceeded')
+        return engine
     if backend != "sqlite" or url.drivername not in {"sqlite", "sqlite+pysqlite"}:
         raise ValueError("Only SQLite and PostgreSQL databases are supported")
     if url.database and url.database != ":memory:":
@@ -53,6 +70,11 @@ def create_database_engine(path: Path | None = None, *, database_url: str | None
         cursor.execute("PRAGMA foreign_keys=ON")
         cursor.close()
 
+    @event.listens_for(engine, 'before_cursor_execute')
+    def sqlite_statement_budget(connection, *args):
+        deadline = time.monotonic() + 5
+        connection.connection.driver_connection.set_progress_handler(lambda: time.monotonic() >= deadline, 10000)
+
     return engine
 
 
@@ -66,7 +88,8 @@ def conflict_insert(model, dialect: str):
 
 
 def create_schema(engine: Engine) -> None:
-    Base.metadata.create_all(engine)
+    from app.migrations import migrate
+    migrate(engine)
 
 
 def register_movies(session: Session, movie_ids: Iterable[int]) -> None:
@@ -97,6 +120,17 @@ def create_user(session: Session) -> User:
     session.add(user)
     session.flush()
     return user
+
+
+def enforce_user_capacity(session: Session, maximum: int):
+    from fastapi import HTTPException
+    # A permanent singleton admission row serializes lifetime count+creation.
+    # It is never removed by expired-counter cleanup and never deletes users.
+    statement = conflict_insert(RateBucket, session.get_bind().dialect.name).values(
+        key='profile-capacity', window=0, count=0, expires_at=2**63 - 1)
+    session.execute(statement.on_conflict_do_update(index_elements=['key'], set_={'count': RateBucket.count}))
+    if session.scalar(select(func.count()).select_from(User)) >= maximum:
+        raise HTTPException(503, 'Demo profile storage capacity reached; contact the operator')
 
 
 def get_user(session: Session, user_id: int) -> User | None:
@@ -143,3 +177,21 @@ def get_user_ratings(session: Session, user_id: int) -> list[UserRating]:
 def get_user_profile(session: Session, user_id: int) -> dict[int, float]:
     """Return application ratings as a sparse recommendation profile."""
     return {row.movie_id: row.rating for row in get_user_ratings(session, user_id)}
+
+
+def enforce_rating_quota(session: Session, user_id: int, movie_id: int, maximum: int):
+    from fastapi import HTTPException
+    # A row write serializes count+insert in SQLite and PostgreSQL alike.
+    session.execute(update(User).where(User.id == user_id).values(id=User.id))
+    if session.get(UserRating, (user_id, movie_id)) is None:
+        count = session.scalar(select(func.count()).select_from(UserRating).where(UserRating.user_id == user_id))
+        if count >= maximum:
+            raise HTTPException(422, f'Profile rating quota reached (maximum {maximum}); existing ratings can still be updated')
+
+
+def bounded_profile(session: Session, user_id: int, maximum: int) -> dict[int, float]:
+    from fastapi import HTTPException
+    rows = list(session.scalars(select(UserRating).where(UserRating.user_id == user_id).order_by(UserRating.movie_id).limit(maximum + 1)))
+    if len(rows) > maximum:
+        raise HTTPException(422, 'Legacy profile exceeds personalization limit; saved ratings are preserved')
+    return {row.movie_id: row.rating for row in rows}

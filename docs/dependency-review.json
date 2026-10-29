@@ -1,0 +1,12 @@
+{
+  "source": "https://api.osv.dev/v1/querybatch",
+  "date": "2026-10-28",
+  "queried_packages": 31,
+  "findings": [],
+  "reviewed_upgrades": [
+    "opentelemetry-api 1.45.0 to 1.45.1",
+    "certifi 2026.7.22 to 2026.10.23",
+    "vite 8.3.2 to 8.3.5"
+  ],
+  "limitations": "Known advisory records only; no guarantee of absence of vulnerabilities; npm audit separately reports zero known vulnerabilities"
+}

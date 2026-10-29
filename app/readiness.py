@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 import subprocess
 import sys
-from threading import Lock
+from threading import Condition, Lock
 import time
 
 
@@ -12,6 +12,38 @@ DATABASE_TIMEOUT = 3.0
 CLEANUP_RESERVE = 0.5
 _probe_lock = Lock()
 _active_probe = None
+
+
+class CachedReadiness:
+    """One probe per cache interval; overlapping callers share the result."""
+    def __init__(self, engine, *, success_ttl=30, failure_ttl=2):
+        self.engine = engine
+        self.success_ttl = success_ttl
+        self.failure_ttl = failure_ttl
+        self.condition = Condition()
+        self.running = False
+        self.checked_at = 0.0
+        self.result = False
+
+    def check(self):
+        with self.condition:
+            ttl = self.success_ttl if self.result else self.failure_ttl
+            if self.checked_at and time.monotonic() - self.checked_at < ttl:
+                return self.result
+            if self.running:
+                completed = self.condition.wait_for(lambda: not self.running, DATABASE_TIMEOUT + .5)
+                return self.result if completed else False
+            self.running = True
+        result = False
+        try:
+            result = database_ready(self.engine)
+            return result
+        finally:
+            with self.condition:
+                self.result = result
+                self.checked_at = time.monotonic()
+                self.running = False
+                self.condition.notify_all()
 
 
 def database_ready(engine, *, timeout: float = DATABASE_TIMEOUT) -> bool:

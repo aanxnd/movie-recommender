@@ -1,0 +1,92 @@
+{
+  "baseline_commit": "6166c8d",
+  "dataset_manifest_sha256": "2afcd65695fb1dfa16aeb604caa212bdedfb352027e145ac1ec810e5c13199ef",
+  "environment": "Local Windows / Python 3.14; warm in-process computation, not production HTTP or Linux capacity measurements",
+  "cases": {
+    "reported_eight": {
+      "profile_size": 8,
+      "exact_top10_match": true,
+      "baseline_seconds": [
+        0.17312630009837449,
+        0.19103059999179095,
+        0.20409350004047155
+      ],
+      "current_seconds": [
+        0.20008509990293533,
+        0.22989040007814765,
+        0.18973970005754381
+      ],
+      "baseline_median": 0.19103059999179095,
+      "current_median": 0.20008509990293533,
+      "weak_top10_count": 10
+    },
+    "reference_5": {
+      "profile_size": 5,
+      "exact_top10_match": true,
+      "baseline_seconds": [
+        0.4459655999671668,
+        0.33836129994597286,
+        0.37043050001375377
+      ],
+      "current_seconds": [
+        0.4079022000078112,
+        0.4112619999796152,
+        0.4041737000225112
+      ],
+      "baseline_median": 0.37043050001375377,
+      "current_median": 0.4079022000078112,
+      "weak_top10_count": 0
+    },
+    "reference_20": {
+      "profile_size": 20,
+      "exact_top10_match": true,
+      "baseline_seconds": [
+        1.9633658999809995,
+        1.8944099999498576,
+        1.8565365000395104
+      ],
+      "current_seconds": [
+        1.8401230000890791,
+        1.9857219000114128,
+        1.9594889000291005
+      ],
+      "baseline_median": 1.8944099999498576,
+      "current_median": 1.9594889000291005,
+      "weak_top10_count": 0
+    },
+    "reference_100": {
+      "profile_size": 100,
+      "exact_top10_match": true,
+      "baseline_seconds": [
+        6.365654799970798,
+        5.814227700000629,
+        5.609033399960026
+      ],
+      "current_seconds": [
+        5.677015400025994,
+        5.986552900052629,
+        5.639738900004886
+      ],
+      "baseline_median": 5.814227700000629,
+      "current_median": 5.677015400025994,
+      "weak_top10_count": 0
+    },
+    "group_up_to_36": {
+      "profile_size": 33,
+      "exact_top10_match": true,
+      "baseline_seconds": [
+        3.1900347000919282,
+        3.0291983000934124,
+        3.2002172999782488
+      ],
+      "current_seconds": [
+        3.2559020000044256,
+        3.049352200003341,
+        3.081971799954772
+      ],
+      "baseline_median": 3.1900347000919282,
+      "current_median": 3.081971799954772,
+      "weak_top10_count": 0
+    }
+  }
+}

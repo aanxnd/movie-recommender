@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { ArrowRight } from 'lucide-react'
-import { parseUserId, request } from '../api.js'
+import { request } from '../api.js'
+import { parseRecoveryCode } from '../identity.js'
 import MovieList from './MovieList.jsx'
+import { evidenceMessage } from '../evidence.js'
 
 const modes = { personal: 'For you', popular: 'Popular', genre: 'By genre', group: 'For a group' }
 
@@ -18,6 +20,7 @@ export default function Recommendations({ user, revision }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const controller = useRef(null)
+  const inFlight = useRef(false)
 
   useEffect(() => {
     const current = new AbortController()
@@ -32,15 +35,16 @@ export default function Recommendations({ user, revision }) {
 
   useEffect(() => {
     controller.current?.abort()
+    inFlight.current = false
     setResult(null)
     setError('')
     setBusy(false)
     return () => controller.current?.abort()
-  }, [mode, revision, decade])
+  }, [mode, revision, decade, user?.id, genre, group])
 
   async function load(event) {
     event.preventDefault()
-    if (busy) return
+    if (inFlight.current) return
     setError('')
     setResult(null)
     const current = new AbortController()
@@ -58,25 +62,26 @@ export default function Recommendations({ user, revision }) {
         path = `/recommendations/genre/${encodeURIComponent(genre.trim())}`
         caption = `${genre.trim()} recommendations`
       } else {
-        const parts = group.trim().split(/[\s,]+/).filter(Boolean)
-        if (parts.length < 2 || parts.length > 100) throw new Error('Enter between 2 and 100 user IDs, separated by commas or spaces.')
-        const ids = parts.map(parseUserId)
-        if (new Set(ids).size !== ids.length) throw new Error('Each group member must have a different user ID. Remove duplicate IDs.')
+        if (!user) throw new Error('Select your profile first.')
+        const members = group.trim().split(/[\s,]+/).filter(Boolean).map(parseRecoveryCode)
+        const ids = [user.id, ...members.map((member) => member.id)]
+        if (ids.length < 2 || ids.length > 5 || new Set(ids).size !== ids.length) throw new Error('Enter distinct invitation codes from other group members.')
         path = '/recommendations/group'
-        options = { method: 'POST', body: { user_ids: ids } }
-        caption = `Group · Users ${ids.join(', ')}`
+        options = { method: 'POST', body: { user_ids: ids, invitations: Object.fromEntries(members.map((member) => [member.id, member.token])) } }
+        caption = `Group: ${ids.length} profiles`
       }
       if (decade) {
         path += `?decade=${encodeURIComponent(decade)}`
         caption += ` · ${decade}–${Number(decade) + 9}`
       }
       setBusy(true)
-      const movies = await request(path, { ...options, signal: current.signal })
+      inFlight.current = true
+      const movies = await request(path, { ...options, token: user?.token, signal: current.signal, retry: true })
       if (!current.signal.aborted) setResult({ movies, caption })
     } catch (error) {
       if (!current.signal.aborted) setError(error.message)
     } finally {
-      if (!current.signal.aborted) setBusy(false)
+      if (!current.signal.aborted) { setBusy(false); inFlight.current = false }
     }
   }
 
@@ -99,14 +104,15 @@ export default function Recommendations({ user, revision }) {
         <option value="">{decadesBusy ? 'Loading decades…' : 'All decades'}</option>
         {decades.map((value) => <option key={value} value={value}>{value}–{value + 9}</option>)}
       </select></label>
-      {mode === 'genre' && <label className="w-full text-sm font-medium sm:max-w-sm">Genre<input value={genre} onChange={(event) => setGenre(event.target.value)} placeholder="e.g. Action, Drama, Sci-Fi" className="mt-2 w-full" /></label>}
-      {mode === 'group' && <label className="w-full text-sm font-medium sm:max-w-sm">Application user IDs<input value={group} onChange={(event) => setGroup(event.target.value)} placeholder="e.g. 1, 2" className="mt-2 w-full" /></label>}
+      {mode === 'genre' && <label className="w-full text-sm font-medium sm:max-w-sm">Genre<input value={genre} maxLength={40} onChange={(event) => setGenre(event.target.value)} placeholder="e.g. Action, Drama, Sci-Fi" className="mt-2 w-full" /></label>}
+      {mode === 'group' && <label className="w-full text-sm font-medium sm:max-w-sm">Group invitation codes from other members<input value={group} onChange={(event) => setGroup(event.target.value)} placeholder="ID:invitation, ID:invitation" className="mt-2 w-full" /></label>}
       <button className="button-primary" disabled={busy || (mode === 'personal' && !user)}>{busy ? 'Finding movies…' : 'Get recommendations'}<ArrowRight size={16} aria-hidden="true" /></button>
     </form>
     {error && <p className="error" role="alert">{error}</p>}
     {busy && <p className="empty" role="status">Finding your next movies…</p>}
     {!busy && !error && !result && <p className="empty">{mode === 'personal' && !user ? 'Select a user to get recommendations.' : 'Request a shortlist to see ranked movies here.'}</p>}
     {result && <>
+      {evidenceMessage(result.movies) && <p role="status" className="mb-4 border-l-2 border-amber-500 bg-amber-50 px-4 py-3 text-sm">{evidenceMessage(result.movies)}</p>}
       <p role="status" className="mb-3 text-xs text-stone-500">{result.caption} · {result.movies.length} movies</p>
       {result.movies.length ? <MovieList movies={result.movies} ranked showConfidence={mode === 'personal' || mode === 'group'} scoreLabel={mode === 'popular' || mode === 'genre' ? 'Average' : 'Predicted'} /> : <p className="empty">No eligible movies found. {decade ? 'Try another decade or All decades.' : mode === 'genre' ? 'Try another MovieLens genre.' : 'Try another recommendation view or adjust your saved ratings.'}</p>}
     </>}

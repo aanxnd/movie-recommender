@@ -2,13 +2,43 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
-from fastapi.testclient import TestClient
+from fastapi.testclient import TestClient as RawTestClient
 from sqlalchemy.exc import OperationalError
 
 from app import database
 from app.main import create_app
 from app.historical import PreparedHistoricalData
 from scripts.prepare_movielens import prepare_movielens
+
+
+class TestClient(RawTestClient):
+    """Existing math/contract tests own all profiles they create; no auth bypass."""
+    __test__ = False
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.credentials = {}
+
+    def request(self, method, url, **kwargs):
+        import re
+        match = re.match(r"/users/(\d+)", str(url))
+        body = kwargs.get('json')
+        uid = int(match[1]) if match else (body.get('user_ids') or [None])[0] if isinstance(body, dict) else None
+        token = self.credentials.get(uid)
+        if token is None and self.credentials:
+            token = next(iter(self.credentials.values()))
+        if token:
+            kwargs['headers'] = {**dict(kwargs.get('headers') or {}), 'Authorization': f'Bearer {token}'}
+        if str(url).startswith('/recommendations/group') and isinstance(body, dict):
+            grants = {}
+            for member in body.get('user_ids', [])[1:]:
+                if member in self.credentials:
+                    result = super().request('POST', f'/users/{member}/group-invitation', headers={'Authorization': f'Bearer {self.credentials[member]}'})
+                    grants[member] = result.json()['code'].split(':')[1]
+            kwargs['json'] = {**body, 'invitations': grants}
+        result = super().request(method, url, **kwargs)
+        if method.upper() == 'POST' and str(url) == '/users' and result.status_code == 201:
+            self.credentials[result.json()['id']] = result.json()['token']
+        return result
 
 
 @pytest.fixture
@@ -93,6 +123,7 @@ def test_readiness_is_bounded_and_sanitized(client, monkeypatch):
     client.app.state.initialized = True
     from app import readiness
     monkeypatch.setattr(readiness, "database_ready", lambda engine: False)
+    client.app.state.readiness.checked_at = 0
     response = client.get("/ready")
     assert response.status_code == 503
     assert response.json() == {"detail": "Application not ready"}
@@ -143,7 +174,7 @@ def test_admission_releases_after_errors(client, monkeypatch):
         with pytest.raises(ValueError, match="synthetic"):
             client.get(f"/users/{first}/recommendations")
     assert client.get(f"/users/{first}/recommendations").status_code == 200
-    assert client.get("/users/999/recommendations").status_code == 404
+    assert client.get("/users/999/recommendations").status_code == 403
     assert client.get(f"/users/{first}/recommendations").status_code == 200
 
 
@@ -187,8 +218,8 @@ def test_invalid_ratings_preserve_saved_value(client, body):
 
 def test_missing_users_and_movies(client):
     for path in ("/users/999", "/users/999/ratings", "/users/999/recommendations"):
-        assert client.get(path).status_code == 404
-    assert client.put("/users/999/ratings/1", json={"rating": 4}).status_code == 404
+        assert client.get(path).status_code in {401, 403}
+    assert client.put("/users/999/ratings/1", json={"rating": 4}).status_code == 401
     user_id = new_user(client)
     assert client.put(f"/users/{user_id}/ratings/999", json={"rating": 4}).status_code == 404
     assert client.get(f"/users/{user_id}/ratings").json() == []
@@ -269,7 +300,7 @@ def test_group_cold_start_and_missing_member(client):
     users = [new_user(client), new_user(client)]
     response = client.post("/recommendations/group?min_rating_count=2", json={"user_ids": users})
     assert [row["movie_id"] for row in response.json()] == [3, 1, 2]
-    assert client.post("/recommendations/group", json={"user_ids": [users[0], 999]}).status_code == 404
+    assert client.post("/recommendations/group", json={"user_ids": [users[0], 999]}).status_code == 403
 
 
 @pytest.mark.parametrize("ids", [[], [1], [1, 1], [1, 0], [1, 2**63], [True, 2], ["1", 2]])
@@ -282,13 +313,14 @@ def test_database_persists_across_app_restarts(api_paths):
         user_id = new_user(first)
         rate(first, user_id, 1, 4.5)
     with TestClient(create_app(*api_paths)) as reopened:
+        reopened.credentials = first.credentials
         assert reopened.get(f"/users/{user_id}/ratings").json() == [
             {"user_id": user_id, "movie_id": 1, "rating": 4.5},
         ]
 
 
 def test_each_fixture_starts_with_empty_application_database(client):
-    assert client.get("/users/1").status_code == 404
+    assert client.get("/users/1").status_code == 401
     assert new_user(client) == 1
 
 
@@ -304,12 +336,16 @@ def test_database_error_is_sanitized_and_write_rolled_back(client, monkeypatch):
         response = client.post("/users")
     assert response.status_code == 500
     assert response.json() == {"detail": "Database operation failed"}
-    assert client.get("/users/1").status_code == 404
+    assert client.get("/users/1").status_code == 401
     assert new_user(client) == 1
 
 
 @pytest.mark.parametrize("write_kind", ["user", "rating"])
 def test_commit_failure_returns_error_and_rolls_back(client, monkeypatch, write_kind):
+    from app import limits
+    # Isolate the endpoint COMMIT; admission has its own committed transaction.
+    monkeypatch.setattr(limits, 'public_admission', lambda *args: None)
+    monkeypatch.setattr(limits, 'owner_admission', lambda *args: None)
     user_id = new_user(client)
     rate(client, user_id, 1, 4)
     engine = client.app.state.engine
@@ -330,7 +366,7 @@ def test_commit_failure_returns_error_and_rolls_back(client, monkeypatch, write_
     assert response.status_code == 500
     assert response.json() == {"detail": "Database operation failed"}
     assert engine.pool.checkedout() == 0
-    assert client.get("/users/2").status_code == 404
+    assert client.get("/users/2").status_code == 403
     assert client.get(f"/users/{user_id}/ratings").json() == [
         {"user_id": user_id, "movie_id": 1, "rating": 4},
     ]

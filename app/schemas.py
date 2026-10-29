@@ -3,6 +3,7 @@
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, field_validator
+from app.limits import MAX_GROUP_MEMBERS
 
 
 UserId = Annotated[int, Field(strict=True, gt=0, lt=2**63)]
@@ -28,6 +29,16 @@ class UserResponse(BaseModel):
     id: int
 
 
+class CredentialResponse(UserResponse):
+    token: str
+    expires_at: int
+
+
+class InvitationResponse(BaseModel):
+    code: str
+    expires_at: int
+
+
 class RatingRequest(BaseModel):
     rating: float = Field(strict=True, ge=0.5, le=5.0, allow_inf_nan=False)
 
@@ -38,8 +49,25 @@ class RatingResponse(BaseModel):
     rating: float
 
 
+class SavedMovie(RatingResponse):
+    title: str
+    genres: list[str]
+    available: bool
+
+
+class RatingsPage(BaseModel):
+    items: list[SavedMovie]
+    next_after: int | None
+    total: int
+
+
+class RatingLookup(BaseModel):
+    movie_ids: list[UserId] = Field(max_length=30)
+
+
 class GroupRequest(BaseModel):
-    user_ids: list[UserId] = Field(min_length=2, max_length=100)
+    user_ids: list[UserId] = Field(min_length=2, max_length=MAX_GROUP_MEMBERS)
+    invitations: dict[Annotated[int, Field(gt=0, lt=2**63)], Annotated[str, Field(min_length=43, max_length=43)]] = Field(default_factory=dict, max_length=MAX_GROUP_MEMBERS - 1)
 
     @field_validator("user_ids")
     @classmethod
