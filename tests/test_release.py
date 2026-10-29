@@ -29,6 +29,7 @@ def test_release_is_manual_verified_serialized_and_digest_based():
     assert release.index('Reject stale release') < release.rindex('uses: docker/login-action@') < release.index('Migrate using')
     assert 'digest: ${{ steps.image.outputs.digest }}' in release
     assert 'IMAGE: ghcr.io/aanxnd/movie-recommender@${{ steps.image.outputs.digest }}' in release
+    assert 'python scripts/smoke_container.py --image "$IMAGE" --prepared data/prepared/smoke' in release
     assert 'IMAGE: ghcr.io/aanxnd/movie-recommender@${{ needs.publish.outputs.digest }}' in release
     assert 'imageToDeploy: ${{ env.IMAGE }}' in release
     assert ':latest' not in release

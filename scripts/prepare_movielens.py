@@ -187,6 +187,11 @@ def prepare_movielens(source: Path, destination: Path, *, dataset: str = "latest
         write_json(staging / "manifest.json", manifest)
         checked = load_prepared(staging, verify=True)
         checked.close()
+        # Verified public reference artifacts must be readable by a different
+        # runtime UID. TemporaryDirectory's private 0700 mode survives rename.
+        for artifact in staging.iterdir():
+            artifact.chmod(0o644)
+        staging.chmod(0o755)
         staging.rename(destination)
     return destination
 
