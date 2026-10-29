@@ -1,5 +1,3 @@
-﻿import { identityToken } from './identity.js'
-
 export function apiUrl(path, base = import.meta.env?.VITE_API_BASE_URL) {
   return `${(base || '/api').replace(/\/+$/, '')}${path}`
 }
@@ -31,7 +29,7 @@ async function pause(ms, signal) {
   })
 }
 
-export async function request(path, { body, token = identityToken(), headers = {}, retry = false, timeoutMs = 45000, signal: callerSignal, ...options } = {}) {
+export async function request(path, { body, token, headers = {}, retry = false, timeoutMs = 45000, signal: callerSignal, ...options } = {}) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(new DOMException('Request timed out', 'TimeoutError')), timeoutMs)
   const signal = callerSignal ? AbortSignal.any([callerSignal, controller.signal]) : controller.signal
@@ -49,6 +47,7 @@ export async function request(path, { body, token = identityToken(), headers = {
           ...(body === undefined ? {} : { body: JSON.stringify(body) }),
         })
         data = response.status === 204 ? undefined : await response.json().catch((error) => { signal.throwIfAborted(); return null })
+        signal.throwIfAborted()
       } catch (error) {
         signal.throwIfAborted()
         throw new ApiError('Cannot reach the API. Check your connection and retry. If saving, reload your ratings first: the write may have completed.')

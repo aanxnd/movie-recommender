@@ -24,7 +24,7 @@ export default function Library({ user, ratings, pendingRatings, ratingsBusy, ra
     try {
       let movies = await request(`/movies/search?q=${encodeURIComponent(query.trim())}&limit=30`, { signal: current.signal })
       if (user && movies.length) {
-        const saved = await request(`/users/${user.id}/ratings/lookup`, { method: 'POST', body: { movie_ids: movies.map((movie) => movie.movie_id) }, signal: current.signal })
+        const saved = await request(`/users/${user.id}/ratings/lookup`, { token: user.token, method: 'POST', body: { movie_ids: movies.map((movie) => movie.movie_id) }, signal: current.signal })
         const byId = new Map(saved.map((row) => [row.movie_id, row]))
         movies = movies.map((movie) => ({ ...movie, ...byId.get(movie.movie_id) }))
       }

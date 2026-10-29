@@ -76,7 +76,7 @@ export default function Recommendations({ user, revision }) {
       }
       setBusy(true)
       inFlight.current = true
-      const movies = await request(path, { ...options, signal: current.signal, retry: true })
+      const movies = await request(path, { ...options, token: user?.token, signal: current.signal, retry: true })
       if (!current.signal.aborted) setResult({ movies, caption })
     } catch (error) {
       if (!current.signal.aborted) setError(error.message)

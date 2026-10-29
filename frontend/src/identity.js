@@ -1,5 +1,4 @@
-const KEY = 'movelle.identity.v1'
-let current = null
+export const IDENTITY_KEY = 'movelle.identity.v1'
 
 export function parseIdentity(value) {
   if (!value || !Number.isSafeInteger(value.id) || value.id < 1 || !/^[A-Za-z0-9_-]{43}$/.test(value.token)) return null
@@ -7,22 +6,24 @@ export function parseIdentity(value) {
 }
 
 export function readIdentity(storage) {
-  try { current = parseIdentity(JSON.parse((storage ?? globalThis.localStorage).getItem(KEY))); return current } catch { current = null; return null }
+  try { return parseIdentity(JSON.parse((storage ?? globalThis.localStorage).getItem(IDENTITY_KEY))) } catch { return null }
 }
 
 export function saveIdentity(value, storage) {
-  current = parseIdentity(value)
-  if (!current) throw new Error('Invalid profile credential.')
-  try { (storage ?? globalThis.localStorage).setItem(KEY, JSON.stringify(current)) } catch {
+  const next = parseIdentity(value)
+  if (!next) throw new Error('Invalid profile credential.')
+  try { (storage ?? globalThis.localStorage).setItem(IDENTITY_KEY, JSON.stringify(next)) } catch {
     throw new Error('Browser storage is unavailable. Keep your recovery code before closing this page.')
   }
-  return current
+  return next
 }
 
-export function identityToken() { return current?.token }
 export function clearIdentity(storage) {
-  current = null
-  try { (storage ?? globalThis.localStorage).removeItem(KEY) } catch { /* In-memory identity still cleared. */ }
+  (storage ?? globalThis.localStorage).removeItem(IDENTITY_KEY)
+}
+
+export function sameIdentity(left, right) {
+  return left?.id === right?.id && left?.token === right?.token
 }
 
 export function parseRecoveryCode(code) {

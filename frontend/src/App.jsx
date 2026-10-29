@@ -4,7 +4,7 @@ import { request } from './api.js'
 import UserPanel from './components/UserPanel.jsx'
 import Library from './components/Library.jsx'
 import Recommendations from './components/Recommendations.jsx'
-import { readIdentity, saveIdentity } from './identity.js'
+import { IDENTITY_KEY, readIdentity, saveIdentity, sameIdentity } from './identity.js'
 
 export default function App() {
   const [user, setUser] = useState(null)
@@ -21,47 +21,54 @@ export default function App() {
   const [pendingRatings, setPendingRatings] = useState(new Set())
   const [ratingErrors, setRatingErrors] = useState({})
   const pendingWrites = useRef(new Set())
-  const activeId = useRef(null)
   const identityRevision = useRef(0)
+  const restoreController = useRef(null)
 
-  function selectUser(next) {
+  function activateUser(next) {
     identityRevision.current++
-    saveIdentity(next)
-    activeId.current = next.id
+    restoreController.current?.abort()
+    ratingsController.current?.abort()
     setNotice('')
     setUser(next)
     setRatings([])
     setNextAfter(null)
     setRatingsTotal(0)
     setRatingsError('')
-    setRatingsBusy(true)
+    setRatingsBusy(next !== null)
     setReload((value) => value + 1)
     setRevision((value) => value + 1)
     setSelection((value) => value + 1)
   }
 
+  function selectUser(next) {
+    activateUser(saveIdentity(next))
+  }
+
   useEffect(() => {
-    let controller
     function restore() {
-      const revision = ++identityRevision.current
-      controller?.abort()
-      ratingsController.current?.abort()
-      activeId.current = null
-      setUser(null)
-      setRatings([])
-      setSelection((value) => value + 1)
+      activateUser(null)
+      const revision = identityRevision.current
       const stored = readIdentity()
       if (!stored) return
-      controller = new AbortController()
-      const current = controller
+      const current = new AbortController()
+      restoreController.current = current
+      function complete(error) {
+        if (current.signal.aborted || identityRevision.current !== revision) return
+        // Storage may have changed before its cross-tab event reaches this tab.
+        if (!sameIdentity(stored, readIdentity())) { restore(); return }
+        if (error) setNotice(`Could not restore profile: ${error.message}`)
+        else activateUser(stored) // Restoration never persists an older snapshot.
+      }
       request(`/users/${stored.id}`, { token: stored.token, signal: current.signal })
-        .then(() => { if (!current.signal.aborted && identityRevision.current === revision) selectUser(stored) })
-        .catch((error) => { if (!current.signal.aborted && identityRevision.current === revision) setNotice(`Could not restore profile: ${error.message}`) })
+        .then(() => complete(), complete)
     }
-    restore()
-    function storageChanged(event) { if (event.key === 'movelle.identity.v1' || event.key === null) restore() }
+    function storageChanged(event) {
+      if (event.storageArea && event.storageArea !== window.localStorage) return
+      if (event.key === IDENTITY_KEY || event.key === null) restore()
+    }
     window.addEventListener('storage', storageChanged)
-    return () => { controller?.abort(); window.removeEventListener('storage', storageChanged) }
+    restore()
+    return () => { restoreController.current?.abort(); window.removeEventListener('storage', storageChanged) }
   }, [])
 
   useEffect(() => {
@@ -72,7 +79,7 @@ export default function App() {
       setRatingsBusy(true)
       setRatingsError('')
       try {
-        const page = await request(`/users/${user.id}/ratings/details`, { signal: controller.signal })
+        const page = await request(`/users/${user.id}/ratings/details`, { token: user.token, signal: controller.signal })
         if (!controller.signal.aborted) { setRatings(page.items); setNextAfter(page.next_after); setRatingsTotal(page.total) }
       } catch (error) {
         if (!controller.signal.aborted) setRatingsError(error.message)
@@ -98,8 +105,8 @@ export default function App() {
       return next
     })
     try {
-      const row = await request(`/users/${userId}/ratings/${movie.movie_id}`, { method: 'PUT', body: { rating } })
-      if (activeId.current !== userId || identityRevision.current !== selectedRevision) return
+      const row = await request(`/users/${userId}/ratings/${movie.movie_id}`, { token: user.token, method: 'PUT', body: { rating } })
+      if (identityRevision.current !== selectedRevision) return
       ratingsController.current?.abort()
       setRatingsBusy(false)
       setNotice(`Saved ${row.rating} / 5 for ${movie.title}.`)
@@ -107,7 +114,7 @@ export default function App() {
       setRevision((value) => value + 1)
       if (movie.rating === undefined && !ratings.some((item) => item.movie_id === movie.movie_id)) setRatingsTotal((value) => value + 1)
     } catch (error) {
-      if (activeId.current !== userId || identityRevision.current !== selectedRevision) return
+      if (identityRevision.current !== selectedRevision) return
       setRatingErrors((previous) => ({ ...previous, [key]: `Could not save ${movie.title}: ${error.message} Retry using Save or Update.` }))
     } finally {
       pendingWrites.current.delete(key)
@@ -118,19 +125,20 @@ export default function App() {
   async function loadMore() {
     if (nextAfter === null || ratingsBusy || !user) return
     const userId = user.id
+    const selectedRevision = identityRevision.current
     const current = new AbortController()
     ratingsController.current?.abort()
     ratingsController.current = current
     setRatingsBusy(true)
     try {
-      const page = await request(`/users/${userId}/ratings/details?after=${nextAfter}`, { signal: current.signal })
-      if (!current.signal.aborted && activeId.current === userId) {
+      const page = await request(`/users/${userId}/ratings/details?after=${nextAfter}`, { token: user.token, signal: current.signal })
+      if (!current.signal.aborted && identityRevision.current === selectedRevision) {
         setRatings((previous) => [...new Map([...previous, ...page.items].map((row) => [row.movie_id, row])).values()])
         setNextAfter(page.next_after)
         setRatingsTotal(page.total)
       }
-    } catch (error) { if (!current.signal.aborted && activeId.current === userId) setRatingsError(error.message) }
-    finally { if (!current.signal.aborted && activeId.current === userId) setRatingsBusy(false) }
+    } catch (error) { if (!current.signal.aborted && identityRevision.current === selectedRevision) setRatingsError(error.message) }
+    finally { if (!current.signal.aborted && identityRevision.current === selectedRevision) setRatingsBusy(false) }
   }
 
   return <div className="min-h-screen bg-[#faf9f6] text-stone-800">
@@ -141,7 +149,7 @@ export default function App() {
       </div>
     </header>
     <div className="mx-auto grid max-w-7xl lg:min-h-[calc(100vh-116px)] lg:grid-cols-[280px_1fr]">
-      <UserPanel user={user} onSelect={selectUser} />
+      <UserPanel key={`user-${selection}`} user={user} onSelect={selectUser} />
       <main className="min-w-0 px-6 py-9 sm:px-8 lg:px-12">
         {notice && <p role="status" className="mb-5 border-l-2 border-emerald-600 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">{notice}</p>}
         {Object.entries(ratingErrors).filter(([key]) => key.startsWith(`${user?.id}:`)).map(([key, message]) => <p key={key} role="alert" className="error mb-5">{message}</p>)}

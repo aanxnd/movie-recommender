@@ -1,36 +1,44 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { UserRound, Plus } from 'lucide-react'
 import { request } from '../api.js'
-import { identityToken, parseRecoveryCode, saveIdentity } from '../identity.js'
+import { parseRecoveryCode, readIdentity, sameIdentity } from '../identity.js'
 
 export default function UserPanel({ user, onSelect }) {
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const [code, setCode] = useState('')
+  const [unsavedCode, setUnsavedCode] = useState('')
   const [invitation, setInvitation] = useState('')
-  useEffect(() => {
-    if (user && identityToken()) setCode(`${user.id}:${identityToken()}`)
-    else setCode('')
-    setInvitation('')
-  }, [user?.id])
+  const pending = useRef(null)
+  const code = unsavedCode || (user ? `${user.id}:${user.token}` : '')
+  useEffect(() => () => pending.current?.abort(), [])
 
-  async function select(create) {
-    if (busy) return
+  async function perform(action) {
+    if (pending.current) return
+    const current = new AbortController()
+    pending.current = current
     setBusy(true)
     setError('')
     try {
-      const next = create ? await request('/users', { method: 'POST' }) : parseRecoveryCode(input)
-      setCode(`${next.id}:${next.token}`)
-      if (!create) await request(`/users/${next.id}`, { token: next.token })
-      saveIdentity(next)
-      onSelect(next)
-      setInput('')
+      await action(current.signal)
     } catch (error) {
-      setError(error.message)
+      if (!current.signal.aborted) setError(error.message)
     } finally {
-      setBusy(false)
+      if (!current.signal.aborted) { pending.current = null; setBusy(false) }
     }
+  }
+
+  function select(create) {
+    return perform(async (signal) => {
+      const previous = readIdentity()
+      const next = create ? await request('/users', { method: 'POST', signal }) : parseRecoveryCode(input)
+      if (!create) await request(`/users/${next.id}`, { token: next.token, signal })
+      signal.throwIfAborted()
+      if (!sameIdentity(previous, readIdentity())) throw new Error('The profile changed in another tab. Please try again.')
+      if (create) setUnsavedCode(`${next.id}:${next.token}`)
+      onSelect(next) // App alone persists and activates the selection.
+      setInput('')
+    })
   }
 
   return <aside className="border-b border-stone-200 bg-stone-100/70 p-6 lg:border-b-0 lg:border-r lg:p-8">
@@ -42,8 +50,8 @@ export default function UserPanel({ user, onSelect }) {
       <label htmlFor="user-id" className="text-sm font-medium">Private recovery code</label>
       <div className="mt-2 flex gap-2"><input id="user-id" type="password" autoComplete="off" placeholder="ID:credential" value={input} onChange={(event) => setInput(event.target.value)} className="min-w-0 flex-1" disabled={busy} /><button className="button-secondary" disabled={busy}>Load</button></div>
     </form>
-    {code && <label className="mt-4 block text-xs">Private recovery code: save securely; never share for groups<input className="mt-2 w-full" type="password" readOnly value={code} onFocus={(event) => event.target.select()} /></label>}
-    {user && <div className="mt-4"><button className="button-secondary" disabled={busy} onClick={async () => { setBusy(true); setError(''); try { const result = await request(`/users/${user.id}/group-invitation`, { method: 'POST' }); setInvitation(result.code) } catch (e) { setError(e.message) } finally { setBusy(false) } }}>Create 10-minute group invitation</button>{invitation && <input aria-label="Group invitation" className="mt-2 w-full" readOnly value={invitation} onFocus={(event) => event.target.select()} />}<button className="button-secondary mt-2" disabled={busy} onClick={async () => { setBusy(true); try { await request(`/users/${user.id}/group-invitation`, { method: 'DELETE' }); setInvitation('') } catch (e) { setError(e.message) } finally { setBusy(false) } }}>Revoke invitation</button></div>}
+    {code && <label className="mt-4 block text-xs">{unsavedCode ? 'Unsaved new profile recovery code: save securely' : 'Private recovery code: save securely; never share for groups'}<input className="mt-2 w-full" type="password" readOnly value={code} onFocus={(event) => event.target.select()} /></label>}
+    {user && <div className="mt-4"><button className="button-secondary" disabled={busy} onClick={() => perform(async (signal) => { const result = await request(`/users/${user.id}/group-invitation`, { token: user.token, method: 'POST', signal }); setInvitation(result.code) })}>Create 10-minute group invitation</button>{invitation && <input aria-label="Group invitation" className="mt-2 w-full" readOnly value={invitation} onFocus={(event) => event.target.select()} />}<button className="button-secondary mt-2" disabled={busy} onClick={() => perform(async (signal) => { await request(`/users/${user.id}/group-invitation`, { token: user.token, method: 'DELETE', signal }); setInvitation('') })}>Revoke invitation</button></div>}
     {error && <p role="alert" className="mt-3 text-sm text-red-700">{error}</p>}
     <p className="mt-6 border-t border-stone-200 pt-4 text-xs leading-relaxed text-stone-500">Your number is not a password. Keep your recovery code private. Group invitations grant temporary recommendation access only.</p>
   </aside>
