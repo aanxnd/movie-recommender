@@ -60,10 +60,10 @@ jobs:
     permissions:
       contents: read
       id-token: write
+      packages: read
     env:
       IMAGE: ghcr.io/aanxnd/movie-recommender@${{ needs.publish.outputs.digest }}
       RESOURCE_GROUP: movie-recommender-rg
-      MIGRATION_JOB: movie-recommender-migrate
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -72,23 +72,23 @@ jobs:
         env:
           EXPECTED_SHA: ${{ github.sha }}
         run: test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_SHA"
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Migrate using the exact release image
+        timeout-minutes: 7
+        env:
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+          APP_ENV: production
+          CORS_ALLOWED_ORIGINS: ${{ vars.CORS_ALLOWED_ORIGINS }}
+        run: bash scripts/migrate_release.sh
       - uses: azure/login@7184910d9eb2b1c5e48f7073824a90609bb9b6d6 # v2
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      - name: Migrate using the exact release image
-        run: |
-          set -euo pipefail
-          execution=$(az containerapp job start --name "$MIGRATION_JOB" --resource-group "$RESOURCE_GROUP" --image "$IMAGE" --command /usr/local/bin/movelle-migrate --args "" --query name -o tsv)
-          test -n "$execution"
-          for _ in $(seq 1 60); do
-            status=$(az containerapp job execution show --name "$MIGRATION_JOB" --resource-group "$RESOURCE_GROUP" --job-execution-name "$execution" --query properties.status -o tsv)
-            if [ "$status" = Succeeded ]; then exit 0; fi
-            if [ "$status" = Failed ]; then exit 1; fi
-            sleep 5
-          done
-          exit 1
       - name: Deploy tested immutable image
         uses: azure/container-apps-deploy-action@8dff69dac3367c32ceb2690d8f13adbeab462703 # v2
         with:
