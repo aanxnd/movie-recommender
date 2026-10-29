@@ -100,6 +100,109 @@ function harness(t) {
   }
 }
 
+function clipboard(t, writeText) {
+  const original = Object.getOwnPropertyDescriptor(window.navigator, 'clipboard')
+  Object.defineProperty(window.navigator, 'clipboard', { configurable: true, value: writeText ? { writeText } : undefined })
+  t.after(() => {
+    if (original) Object.defineProperty(window.navigator, 'clipboard', original)
+    else delete window.navigator.clipboard
+  })
+}
+
+test('recovery code is masked by default with accessible show/hide controls and a security warning', async (t) => {
+  const h = harness(t)
+  await h.mount()
+  const field = document.getElementById('profile-recovery-code')
+  assert.equal(field.type, 'password')
+  assert.equal(field.readOnly, true)
+  assert.equal(field.labels.length, 1)
+  assert.match(document.getElementById(field.getAttribute('aria-describedby')).textContent, /grants access to your account.*Store it securely/)
+  const toggle = document.querySelector('button[aria-controls="profile-recovery-code"]')
+  const copy = [...document.querySelectorAll('button')].find(button => button.textContent === 'Copy recovery code')
+  for (const button of [toggle, copy]) {
+    // Native buttons provide Enter/Space activation and keyboard focus without
+    // custom key handlers. Neither control submits the recovery form.
+    assert.equal(button.type, 'button')
+    assert.equal(button.tabIndex, 0)
+    button.focus()
+    assert.equal(document.activeElement, button)
+  }
+  assert.equal(toggle.getAttribute('aria-pressed'), 'false')
+  await h.click('Show recovery code')
+  assert.equal(field.type, 'text')
+  assert.equal(toggle.getAttribute('aria-pressed'), 'true')
+  assert.equal(toggle.textContent, 'Hide recovery code')
+  field.focus()
+  assert.equal(field.selectionStart, 0)
+  assert.equal(field.selectionEnd, field.value.length)
+  await h.click('Hide recovery code')
+  assert.equal(field.type, 'password')
+  h.selected(1)
+})
+
+test('copy writes the complete masked recovery code only to the clipboard and reports success', async (t) => {
+  const h = harness(t), copied = []
+  clipboard(t, async code => { copied.push(code) })
+  await h.mount()
+  const before = h.calls.length
+  await h.click('Copy recovery code')
+  assert.deepEqual(copied, [`1:${identity(1).token}`])
+  assert.equal(document.getElementById('profile-recovery-code').type, 'password')
+  assert.match(document.querySelector('#profile-recovery-code').parentElement.querySelector('[role="status"]').textContent, /Recovery code copied/)
+  assert.equal(document.body.textContent.includes(identity(1).token), false)
+  assert.equal(h.calls.length, before)
+  assert.equal(window.location.href, 'https://movelle.test/')
+  h.selected(1)
+})
+
+for (const failure of ['unavailable', 'rejected', 'throws']) test(`clipboard ${failure} gives safe feedback and permits retry`, async (t) => {
+  const h = harness(t), copied = []
+  let fail = true
+  const writeText = code => {
+    if (fail) {
+      const error = new Error(`Sensitive browser details: ${code}`)
+      if (failure === 'throws') throw error
+      return Promise.reject(error)
+    }
+    copied.push(code)
+    return Promise.resolve()
+  }
+  clipboard(t, failure === 'unavailable' ? undefined : writeText)
+  await h.mount()
+  await h.click('Copy recovery code')
+  const error = document.querySelector('[role="alert"]')
+  assert.match(error.textContent, /Could not copy recovery code.*copy it manually/)
+  assert.equal(document.body.textContent.includes(identity(1).token), false)
+  assert.equal(document.body.textContent.includes('Sensitive browser details'), false)
+  fail = false
+  if (failure === 'unavailable') Object.defineProperty(window.navigator, 'clipboard', { configurable: true, value: { writeText } })
+  await h.click('Copy recovery code')
+  assert.equal(document.querySelector('[role="alert"]'), null)
+  assert.deepEqual(copied, [`1:${identity(1).token}`])
+  h.selected(1)
+})
+
+test('pending clipboard feedback and revealed state do not follow a cross-tab profile change', async (t) => {
+  const h = harness(t), copied = []
+  let finish
+  clipboard(t, code => { copied.push(code); return new Promise(resolve => { finish = resolve }) })
+  await h.mount()
+  await h.click('Show recovery code')
+  await h.click('Copy recovery code')
+  const button = [...document.querySelectorAll('button')].find(button => button.textContent === 'Copy recovery code')
+  assert.equal(button.disabled, true)
+  await h.click('Copy recovery code')
+  assert.equal(copied.length, 1)
+  await h.change(identity(2))
+  const field = document.getElementById('profile-recovery-code')
+  assert.equal(field.type, 'password')
+  assert.equal(field.value, `2:${identity(2).token}`)
+  await act(async () => { finish() })
+  assert.equal(document.body.textContent.includes('Recovery code copied.'), false)
+  assert.equal(document.body.textContent.includes('Copying recovery code...'), false)
+  h.selected(2)
+})
+
 test('stale restore cannot overwrite a newer cross-tab identity before its event arrives', async (t) => {
   const h = harness(t), pending = h.hold('/users/1')
   await h.mount()
@@ -110,14 +213,19 @@ test('stale restore cannot overwrite a newer cross-tab identity before its event
 })
 
 test('failed persistence keeps the selected identity and its request credential', async (t) => {
-  const h = harness(t), creation = h.hold('/users', 'POST')
+  const h = harness(t), creation = h.hold('/users', 'POST'), copied = []
+  clipboard(t, async code => { copied.push(code) })
   await h.mount()
+  await h.click('Show recovery code')
   const setItem = t.mock.method(window.Storage.prototype, 'setItem', () => { throw new Error('quota exceeded') })
   await h.click('Create new user')
   await h.settle(creation, identity(2))
   h.selected(1)
   assert.match(document.querySelector('[role="alert"]').textContent, /storage is unavailable/)
   assert.equal(document.querySelector('aside input[readonly]').value, `2:${identity(2).token}`)
+  assert.equal(document.querySelector('aside input[readonly]').type, 'password')
+  await h.click('Copy recovery code')
+  assert.deepEqual(copied, [`2:${identity(2).token}`])
   await h.click('Create 10-minute group invitation')
   const invitation = h.calls.find(call => call.path.endsWith('/group-invitation'))
   assert.equal(invitation.headers.Authorization, `Bearer ${identity(1).token}`)

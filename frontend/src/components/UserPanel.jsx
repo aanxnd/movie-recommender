@@ -3,6 +3,34 @@ import { UserRound, Plus } from 'lucide-react'
 import { request } from '../api.js'
 import { parseRecoveryCode, readIdentity, sameIdentity } from '../identity.js'
 
+function RecoveryCode({ code, unsaved }) {
+  const [visible, setVisible] = useState(false)
+  const [copyStatus, setCopyStatus] = useState('')
+
+  async function copy() {
+    setCopyStatus('copying')
+    try {
+      await window.navigator.clipboard.writeText(code)
+      setCopyStatus('copied')
+    } catch {
+      // Browser errors may contain sensitive details; show only fixed text.
+      setCopyStatus('error')
+    }
+  }
+
+  return <div className="mt-4 text-xs">
+    <label htmlFor="profile-recovery-code">{unsaved ? 'Unsaved new profile recovery code: save securely' : 'Private recovery code: save securely; never share for groups'}</label>
+    <input id="profile-recovery-code" aria-describedby="recovery-code-warning" className="mt-2 w-full" type={visible ? 'text' : 'password'} autoComplete="off" spellCheck={false} readOnly value={code} onFocus={(event) => event.target.select()} />
+    <div className="mt-2 flex flex-wrap gap-2">
+      <button type="button" className="button-secondary" disabled={copyStatus === 'copying'} onClick={copy}>Copy recovery code</button>
+      <button type="button" className="button-secondary" aria-controls="profile-recovery-code" aria-pressed={visible} onClick={() => setVisible((value) => !value)}>{visible ? 'Hide recovery code' : 'Show recovery code'}</button>
+    </div>
+    <p role="status" aria-atomic="true" className="mt-2">{copyStatus === 'copied' ? 'Recovery code copied.' : copyStatus === 'copying' ? 'Copying recovery code...' : ''}</p>
+    {copyStatus === 'error' && <p role="alert" className="mt-2 text-red-700">Could not copy recovery code. Show it, then select and copy it manually.</p>}
+    <p id="recovery-code-warning" className="mt-2 leading-relaxed text-stone-600">Your recovery code grants access to your account. Store it securely and never share it.</p>
+  </div>
+}
+
 export default function UserPanel({ user, onSelect }) {
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
@@ -50,7 +78,7 @@ export default function UserPanel({ user, onSelect }) {
       <label htmlFor="user-id" className="text-sm font-medium">Private recovery code</label>
       <div className="mt-2 flex gap-2"><input id="user-id" type="password" autoComplete="off" placeholder="ID:credential" value={input} onChange={(event) => setInput(event.target.value)} className="min-w-0 flex-1" disabled={busy} /><button className="button-secondary" disabled={busy}>Load</button></div>
     </form>
-    {code && <label className="mt-4 block text-xs">{unsavedCode ? 'Unsaved new profile recovery code: save securely' : 'Private recovery code: save securely; never share for groups'}<input className="mt-2 w-full" type="password" readOnly value={code} onFocus={(event) => event.target.select()} /></label>}
+    {code && <RecoveryCode key={unsavedCode ? `unsaved-${code.split(':')[0]}` : 'selected'} code={code} unsaved={Boolean(unsavedCode)} />}
     {user && <div className="mt-4"><button className="button-secondary" disabled={busy} onClick={() => perform(async (signal) => { const result = await request(`/users/${user.id}/group-invitation`, { token: user.token, method: 'POST', signal }); setInvitation(result.code) })}>Create 10-minute group invitation</button>{invitation && <input aria-label="Group invitation" className="mt-2 w-full" readOnly value={invitation} onFocus={(event) => event.target.select()} />}<button className="button-secondary mt-2" disabled={busy} onClick={() => perform(async (signal) => { await request(`/users/${user.id}/group-invitation`, { token: user.token, method: 'DELETE', signal }); setInvitation('') })}>Revoke invitation</button></div>}
     {error && <p role="alert" className="mt-3 text-sm text-red-700">{error}</p>}
     <p className="mt-6 border-t border-stone-200 pt-4 text-xs leading-relaxed text-stone-500">Your number is not a password. Keep your recovery code private. Group invitations grant temporary recommendation access only.</p>
