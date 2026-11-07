@@ -48,3 +48,17 @@ test('personal artwork key stays masked, tab-only, and removable without contact
   await expect(input).toHaveValue('')
   await expect(page.getByRole('button', { name: 'Remove personal key', exact: true })).toHaveCount(0)
 })
+
+
+test('a previous backend provider response becomes an honest fallback during a coordinated rollout', async ({ page }) => {
+  await page.route('**/api/movies/artwork', async route => {
+    const body = route.request().postDataJSON()
+    await route.fulfill({ json: { provider: 'retired-provider', configured: true, items: body.movie_ids.map(movie_id => ({ movie_id, poster_path: '/old-poster.jpg', backdrop_path: '/old-backdrop.jpg', overview: 'Retired provider text' })) } })
+  })
+  await page.goto('/')
+  const first = page.locator('.shelf-list .movie-card').first()
+  await expect(first.locator('.movie-cover')).toHaveAttribute('data-artwork', 'unavailable')
+  await expect(first.getByText('Poster unavailable', { exact: true })).toBeVisible()
+  await expect(page.getByText('Retired provider text', { exact: true })).toHaveCount(0)
+  await expect(page.locator('.feature-backdrop')).toHaveCount(0)
+})

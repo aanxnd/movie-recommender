@@ -8,14 +8,15 @@ import { Skeletons } from './ui.jsx'
 
 function FeaturedFilm({ movie, onPick }) {
   const artwork = useArtwork(movie)
+  const backdrop = imageUrl(artwork?.backdrop_path, 'fanart')
   const [failed, setFailed] = useState(false)
   const { title, year } = movieTitle(movie.title)
-  useEffect(() => setFailed(false), [movie.movie_id])
+  useEffect(() => setFailed(false), [movie.movie_id, backdrop])
   return (
     <article
-      className={`featured-film ${!artwork?.backdrop_path || failed ? 'feature-without-backdrop' : ''}`}
+      className={`featured-film ${!backdrop || failed ? 'feature-without-backdrop' : ''}`}
     >
-      {artwork?.backdrop_path && !failed && (
+      {backdrop && !failed && (
         <img
           className="feature-backdrop"
           src={imageUrl(artwork.backdrop_path, 'fanart')}
@@ -46,7 +47,7 @@ function FeaturedFilm({ movie, onPick }) {
           </span>
         </div>
       </div>
-      {(!artwork?.backdrop_path || failed) && (
+      {(!backdrop || failed) && (
         <div className="feature-poster">
           <MovieCover movie={movie} priority />
         </div>

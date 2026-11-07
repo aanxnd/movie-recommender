@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect } from 'react'
 
 export const ArtworkContext = createContext(null)
 export function imageUrl(path, size = 'bigpreview') {
-  if (!/^https:\/\/assets\.fanart\.tv\/fanart\/[A-Za-z0-9/_-]+\.(jpg|png|webp)$/.test(path || '') || path.includes('..')) return null
+  if (typeof path !== 'string' || !/^https:\/\/assets\.fanart\.tv\/fanart\/[A-Za-z0-9/_-]+\.(jpg|png|webp)$/.test(path) || path.includes('..')) return null
   const variant = ['preview', 'bigpreview', 'fanart'].includes(size) ? size : 'bigpreview'
   return path.replace('/fanart/', `/${variant}/`)
 }

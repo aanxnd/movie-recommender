@@ -29,11 +29,12 @@ export default function ArtworkProvider({ children, onFind, user }) {
     const controller = session.controller
     let rows = []
     try {
-      rows = (await request('/movies/artwork', {
+      const reply = await request('/movies/artwork', {
         method: 'POST', token: session.personalKey ? session.token : undefined,
         body: { movie_ids: batch, ...(session.personalKey ? { personal_key: session.personalKey } : {}), ...(details ? { include_credits: true } : {}) },
         signal: controller.signal, timeoutMs: 30000,
-      })).items || []
+      })
+      rows = reply.provider === 'trakt+fanart.tv' && Array.isArray(reply.items) ? reply.items : []
     } catch { if (controller.signal.aborted) return }
     if (controller.signal.aborted || current.current !== session) return
     setItems(previous => {

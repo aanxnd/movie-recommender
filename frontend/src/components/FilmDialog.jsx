@@ -8,8 +8,9 @@ export default function FilmDialog({ movie, onClose, onFind }) {
   const ref = useRef(null)
   const previous = useRef(null)
   const artwork = useArtwork(movie)
+  const backdrop = imageUrl(artwork?.backdrop_path, 'fanart')
   const [imageFailed, setImageFailed] = useState(false)
-  useEffect(() => setImageFailed(false), [movie?.movie_id])
+  useEffect(() => setImageFailed(false), [movie?.movie_id, backdrop])
   useEffect(() => {
     if (movie) {
       previous.current = document.activeElement
@@ -43,7 +44,7 @@ export default function FilmDialog({ movie, onClose, onFind }) {
           >
             <X size={21} aria-hidden="true" />
           </button>
-          {artwork?.backdrop_path && !imageFailed && (
+          {backdrop && !imageFailed && (
             <img
               className="film-detail-backdrop"
               src={imageUrl(artwork.backdrop_path, 'fanart')}

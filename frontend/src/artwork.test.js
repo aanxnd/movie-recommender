@@ -6,7 +6,7 @@ test('only official credential-free Fanart image URLs reach image elements', () 
   const url = 'https://assets.fanart.tv/fanart/poster.jpg'
   assert.equal(imageUrl(url), 'https://assets.fanart.tv/bigpreview/poster.jpg')
   assert.equal(imageUrl(url, 'fanart'), url)
-  for (const bad of ['https://evil.invalid/fanart/poster.jpg', `${url}?key=private`, 'https://assets.fanart.tv/fanart/../poster.jpg', 'javascript:alert(1)', 'https://user:password@assets.fanart.tv/fanart/poster.jpg']) {
+  for (const bad of [null, {}, [url], 'https://evil.invalid/fanart/poster.jpg', `${url}?key=private`, 'https://assets.fanart.tv/fanart/../poster.jpg', 'javascript:alert(1)', 'https://user:password@assets.fanart.tv/fanart/poster.jpg']) {
     assert.equal(imageUrl(bad), null)
   }
 })

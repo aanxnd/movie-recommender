@@ -57,7 +57,7 @@ function PosterImage({ movie, path, credit, priority, pending }) {
 
 export default function MovieCover({ movie, priority = false }) {
   const artwork = useArtwork(movie)
-  const path = artwork?.poster_path
+  const path = imageUrl(artwork?.poster_path, 'fanart')
   // A new source owns a fresh loading state; cached onLoad cannot race a reset effect.
   return (
     <PosterImage

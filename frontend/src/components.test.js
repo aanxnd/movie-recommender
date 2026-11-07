@@ -15,5 +15,13 @@ test('actual rating component preserves fractions and handles unavailable catalo
     assert.equal((html.match(/<form/g) || []).length, 99)
     assert.ok(html.includes('>3.25</option>'))
     assert.ok(!html.includes('>3.3</option>'))
+    const { default: MovieCover } = await vite.ssrLoadModule('/src/components/MovieCover.jsx')
+    const { ArtworkContext } = await vite.ssrLoadModule('/src/artwork.js')
+    const rejected = renderToStaticMarkup(React.createElement(ArtworkContext.Provider, {
+      value: { items: new Map([[1, { poster_path: 'https://unsupported.invalid/poster.jpg' }]]) },
+    }, React.createElement(MovieCover, { movie: movies[0] })))
+    assert.ok(rejected.includes('data-artwork="unavailable"'))
+    assert.ok(rejected.includes('Poster unavailable'))
+    assert.ok(!rejected.includes('<img'))
   } finally { await vite.close() }
 })
