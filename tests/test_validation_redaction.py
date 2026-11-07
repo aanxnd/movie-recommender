@@ -126,7 +126,7 @@ def test_real_runtime_does_not_log_credentials_pasted_into_urls_or_headers(api_p
         **os.environ, 'APP_ENV': 'development', 'PORT': str(port),
         'DATABASE_URL': 'sqlite:///' + str(database),
         'MOVIELENS_PREPARED_DIR': str(prepared), 'CORS_ALLOWED_ORIGINS': '',
-        'TRUSTED_PROXY_IPS': '', 'TMDB_READ_ACCESS_TOKEN': '',
+        'TRUSTED_PROXY_IPS': '', 'TRAKT_CLIENT_ID': '', 'FANART_API_KEY': '',
         'MOVELLE_ARTWORK_CACHE_DIR': '', 'MOVELLE_ARTWORK_LINKS': '',
     }
     # Administrator-prepared fixtures omit opt-in archive provenance settings.

@@ -1,7 +1,7 @@
 ﻿import { useEffect, useState } from 'react'
 import { ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react'
 import { request } from '../api.js'
-import { imageUrl, useArtwork, useFilmActions } from '../artwork.js'
+import { imageUrl, imageSrcSet, useArtwork, useFilmActions } from '../artwork.js'
 import MovieCover, { movieTitle } from './MovieCover.jsx'
 import MovieList from './MovieList.jsx'
 import { Skeletons } from './ui.jsx'
@@ -18,8 +18,8 @@ function FeaturedFilm({ movie, onPick }) {
       {artwork?.backdrop_path && !failed && (
         <img
           className="feature-backdrop"
-          src={imageUrl(artwork.backdrop_path, 'w1280')}
-          srcSet={`${imageUrl(artwork.backdrop_path, 'w780')} 780w, ${imageUrl(artwork.backdrop_path, 'w1280')} 1280w`}
+          src={imageUrl(artwork.backdrop_path, 'fanart')}
+          srcSet={imageSrcSet(artwork.backdrop_path, artwork.backdrop_credit, true)}
           sizes="(max-width: 767px) 100vw, 1280px"
           width="1280"
           height="720"

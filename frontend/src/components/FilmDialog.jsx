@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { X } from 'lucide-react'
-import { imageUrl, useArtwork } from '../artwork.js'
+import { imageUrl, imageSrcSet, useArtwork } from '../artwork.js'
 import { movieTitle } from './MovieCover.jsx'
 import { containDialogFocus } from '../dialog.js'
 
@@ -46,7 +46,9 @@ export default function FilmDialog({ movie, onClose, onFind }) {
           {artwork?.backdrop_path && !imageFailed && (
             <img
               className="film-detail-backdrop"
-              src={imageUrl(artwork.backdrop_path, 'w780')}
+              src={imageUrl(artwork.backdrop_path, 'fanart')}
+              srcSet={imageSrcSet(artwork.backdrop_path, artwork.backdrop_credit, true)}
+              sizes="(max-width: 767px) 100vw, 900px"
               alt={`Scene from ${info.title}`}
               width="780"
               height="439"
@@ -58,11 +60,12 @@ export default function FilmDialog({ movie, onClose, onFind }) {
               {info.year}
               {artwork?.runtime ? ` / ${artwork.runtime} min` : ''}
             </p>
+            {artwork?.released && <p className="field-hint">Released {artwork.released}</p>}
             <h2 id="film-detail-title">{info.title}</h2>
             <p className="film-detail-genres">
               {movie.genres
                 .filter((g) => g !== '(no genres listed)')
-                .join(', ')}
+                .join(', ') || artwork?.metadata_genres?.join(', ')}
             </p>
             {artwork?.director && (
               <p className="film-director">Directed by {artwork.director}</p>
@@ -84,11 +87,25 @@ export default function FilmDialog({ movie, onClose, onFind }) {
               Find and rate this film
             </button>
             {artwork && (
-              <p className="film-source">Film metadata and images from TMDB.</p>
+              <div className="film-source">
+                <p>Metadata: <a href="https://trakt.tv/" target="_blank" rel="noreferrer">Trakt</a>. Artwork: <a href="https://fanart.tv/" target="_blank" rel="noreferrer">Fanart.tv</a>.</p>
+                {[['Poster', artwork.poster_credit], ['Backdrop', artwork.backdrop_credit]].map(([label, credit]) => credit && (
+                  <p key={label}>{label} copyright: {credit.copyright || 'Unknown'}.
+                    {safeCreditLink(credit.copyright_link) && <> <a href={credit.copyright_link} target="_blank" rel="noreferrer">Recorded source</a>.</>}
+                  </p>
+                ))}
+              </div>
             )}
           </div>
         </div>
       )}
     </dialog>
   )
+}
+
+function safeCreditLink(value) {
+  try {
+    const url = new URL(value)
+    return url.protocol === 'https:' && !url.username && !url.password && !url.search && !url.hash
+  } catch { return false }
 }

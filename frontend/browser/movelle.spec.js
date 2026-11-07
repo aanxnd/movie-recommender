@@ -69,6 +69,17 @@ async function capture(page, name) {
     )
   })
   await page.waitForFunction(() => scrollY === 0)
+  // Full-page evidence includes vertically offscreen artwork. Load those
+  // images for the capture without fetching hidden horizontal shelf items.
+  await page.evaluate(async () => {
+    const images = [...document.querySelectorAll('.page-view:not([hidden]) img')].filter(image => {
+      const rect = image.getBoundingClientRect(), shelf = image.closest('.shelf-list')?.getBoundingClientRect()
+      return rect.width > 0 && rect.left < Math.min(innerWidth, shelf?.right ?? innerWidth) && rect.right > Math.max(0, shelf?.left ?? 0)
+    })
+    for (const image of images) image.loading = 'eager'
+    await Promise.all(images.map(image => image.decode().catch(() => {})))
+  })
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
   await page.mouse.move(0, 0)
   await page.screenshot({
     path: resolve(shots, `${name}.png`),
@@ -508,7 +519,7 @@ test('real posters and film details keep canonical IDs; image failure uses an ho
     'data-movie-id',
     '318',
   )
-  await page.route('https://image.tmdb.org/**', (route) => route.abort())
+  await page.route('https://assets.fanart.tv/**', (route) => route.abort())
   await page.reload()
   await expect(
     page.locator('.shelf-list .movie-card').first().locator('.movie-cover'),

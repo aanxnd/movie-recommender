@@ -1,198 +1,336 @@
-"""Optional, bounded TMDB metadata enrichment; MovieLens IDs remain canonical."""
-
+"""Catalogue-only Trakt metadata and Fanart.tv artwork; MovieLens IDs stay canonical."""
+from collections import OrderedDict
+from concurrent.futures import ThreadPoolExecutor
 import csv
+import hashlib
 import json
+import math
 import os
+from pathlib import Path
 import re
+from threading import Event, Lock
 import time
 import unicodedata
-from concurrent.futures import ThreadPoolExecutor
-from pathlib import Path
-from threading import BoundedSemaphore, Lock
-from urllib.parse import urlencode
-from urllib.request import Request, urlopen
-from urllib.error import HTTPError
+from urllib.parse import urlsplit
 
-from fastapi import APIRouter, Request as ApiRequest
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Header, Request, Response
+from pydantic import BaseModel, Field, SecretStr, field_validator
+from sqlalchemy.orm import Session
+from app import limits, security
+from app.providers import ProviderClient, ProviderFailure
 from app.schemas import UserId
 
 router = APIRouter()
-IMAGE_PATH = re.compile(r"^/[A-Za-z0-9_-]+\.(?:jpg|png|webp)$")
+IMDB = re.compile(r'^tt[0-9]{7,10}$')
+IMAGE_PATH = re.compile(r'^/fanart/[A-Za-z0-9/_-]+\.(?:jpg|png|webp)$')
+SCHEMA = 'trakt-fanart-v1'
 
 
 def film_name(title):
-    match = re.search(r"\s*\((\d{4})\)\s*$", title)
+    match = re.search(r'\s*\((\d{4})\)\s*$', title)
     return (title[:match.start()] if match else title, int(match[1]) if match else None)
 
 
 def normalized_title(title):
-    article = re.match(r"^(.*),\s*(The|An|A)$", title, flags=re.I)
+    article = re.match(r'^(.*),\s*(The|An|A)$', title, flags=re.I)
     if article:
         title = article[2] + ' ' + article[1]
-    return re.sub(r"[^a-z0-9]", "", unicodedata.normalize('NFKD', title).encode('ascii', 'ignore').decode().lower())
+    return re.sub(r'[^a-z0-9]', '', unicodedata.normalize('NFKD', title).encode('ascii', 'ignore').decode().lower())
+
+
+def title_variants(title):
+    primary = re.sub(r'\s*\([^)]*\)', '', title).strip()
+    aliases = re.findall(r'\((?:a\.k\.a\.\s*)?([^)]*)\)', title, flags=re.I)
+    return {value for s in [primary, *aliases] if (value := normalized_title(s))}
+
+
+def image_url(value):
+    if not isinstance(value, str) or len(value) > 500:
+        return None
+    try:
+        p = urlsplit(value)
+        return value if (p.scheme == 'https' and p.netloc == 'assets.fanart.tv'
+                         and not p.query and not p.fragment and IMAGE_PATH.fullmatch(p.path)
+                         and '..' not in p.path) else None
+    except ValueError:
+        return None
+
+
+def credit_url(value):
+    if not isinstance(value, str) or len(value) > 500:
+        return None
+    try:
+        p = urlsplit(value)
+        return value if (p.scheme == 'https' and p.hostname and not p.username and not p.password
+                         and not p.query and not p.fragment) else None
+    except ValueError:
+        return None
+
+
+def select_image(rows, kind):
+    choices = []
+    for row in rows if isinstance(rows, list) else []:
+        if not isinstance(row, dict) or not image_url(row.get('url')):
+            continue
+        try:
+            width, height = int(row['width']), int(row['height'])
+            likes = max(0, int(row.get('likes', 0)))
+            if not (100 <= width <= 12000 and 100 <= height <= 12000):
+                continue
+            ratio = width / height
+            if not (.55 <= ratio <= .85 if kind == 'poster' else 1.5 <= ratio <= 2.5):
+                continue
+        except (KeyError, ValueError, TypeError, OverflowError):
+            continue
+        lang = row.get('lang', '')
+        preference = 0 if lang == 'en' else 1 if lang in ('', '00') else 2
+        item = {'url': row['url'], 'width': width, 'height': height,
+                'copyright': str(row.get('copyright') or 'Unknown')[:300],
+                'copyright_link': credit_url(row.get('copyright_link'))}
+        choices.append(((preference, -likes, -width * height, str(row.get('id', '')), row['url']), item))
+    return min(choices, key=lambda choice: choice[0])[1] if choices else None
 
 
 class ArtworkLookup(BaseModel):
     movie_ids: list[UserId] = Field(min_length=1, max_length=8)
+    personal_key: SecretStr | None = None
+    include_credits: bool = False
+
+    @field_validator('personal_key')
+    @classmethod
+    def valid_personal_key(cls, value):
+        if value is not None and not re.fullmatch(r'[A-Fa-f0-9]{32}', value.get_secret_value()):
+            raise ValueError('Invalid personal key')
+        return value
 
 
 class ArtworkStore:
-    def __init__(self, catalog, *, token='', links=None, cache=None, fetch=None, clock=time.time):
-        self.catalog, self.token, self.cache = catalog, token, Path(cache) if cache else None
-        self.clock, self.fetch = clock, fetch or self._fetch
-        self.slots = BoundedSemaphore(3)
-        self.memory, self.ids = {}, {}
+    def __init__(self, catalog, *, trakt_id='', fanart_key='', links=None, cache=None,
+                 fetch=None, clock=time.time, monotonic=time.monotonic):
+        self.catalog, self.clock, self.monotonic = catalog, clock, monotonic
+        self.client = ProviderClient(trakt_id, fanart_key, clock=clock, monotonic=monotonic)
+        self.fetch = fetch or self.client.fetch
+        self.trakt_id, self.fanart_key = trakt_id, fanart_key
+        self.cache = Path(cache) / SCHEMA if cache else None
+        self.memory, self.ids, self.inflight = OrderedDict(), {}, {}
         self.lock = Lock()
-        self.cooldown = 0
-        self.last_prune = 0
-        self._prune()
         if links:
-            # Never assume an arbitrary links.csv belongs to this catalogue.
-            source = Path(links)
             try:
-                with source.with_name('movies.csv').open(encoding='utf-8-sig', newline='') as stream:
-                    titles = {int(row['movieId']): row['title'] for row in csv.DictReader(stream)}
-                with source.open(encoding='utf-8-sig', newline='') as stream:
-                    for row in csv.DictReader(stream):
-                        mid = int(row['movieId'])
-                        if mid in catalog and titles.get(mid) == catalog[mid].title and row.get('tmdbId', '').isdigit():
-                            self.ids[mid] = int(row['tmdbId'])
-            except (OSError, ValueError, KeyError):
+                source = Path(links)
+                with source.with_name('movies.csv').open(encoding='utf-8-sig', newline='') as f:
+                    titles = {int(r['movieId']): r['title'] for r in csv.DictReader(f)}
+                with source.open(encoding='utf-8-sig', newline='') as f:
+                    for row in csv.DictReader(f):
+                        mid, value = int(row['movieId']), row.get('imdbId') or ''
+                        if not value.isdigit() or int(value) <= 0:
+                            continue
+                        imdb = 'tt' + value.zfill(7)
+                        if mid in catalog and titles.get(mid) == catalog[mid].title and IMDB.fullmatch(imdb):
+                            self.ids[mid] = imdb
+            except (OSError, ValueError, KeyError, csv.Error):
                 self.ids = {}
 
-    def _prune(self):
+    @staticmethod
+    def _valid_cached_item(layer, item):
+        if item is None:
+            return True
+        if layer == 'credits':
+            return isinstance(item, str) and len(item) <= 300
+        if not isinstance(item, dict):
+            return False
+        if layer == 'metadata':
+            return (isinstance(item.get('imdb_id'), str) and bool(IMDB.fullmatch(item['imdb_id']))
+                    and type(item.get('trakt_id')) is int and item['trakt_id'] > 0
+                    and isinstance(item.get('overview'), str)
+                    and (item.get('runtime') is None or type(item['runtime']) is int)
+                    and (item.get('released') is None or isinstance(item['released'], str))
+                    and isinstance(item.get('metadata_genres', []), list)
+                    and all(isinstance(g, str) for g in item.get('metadata_genres', [])))
+        return all(row is None or (isinstance(row, dict) and image_url(row.get('url'))
+                                  and type(row.get('width')) is int and type(row.get('height')) is int
+                                  and isinstance(row.get('copyright'), str)
+                                  and (row.get('copyright_link') is None or credit_url(row['copyright_link'])))
+                   for row in (item.get('poster'), item.get('backdrop')))
+
+    def _cached(self, layer, mid, resolve, *, scope='', ttl=7 * 86400, deadline=None):
+        key = (layer, mid, scope)
         now = self.clock()
-        if self.last_prune and now - self.last_prune < 86400:
-            return
-        self.last_prune = now
         with self.lock:
-            expired = [mid for mid, entry in self.memory.items()
-                       if now - entry.get('fetched_at', entry.get('expires', now) - 7 * 86400) >= 150 * 86400]
-            for mid in expired:
-                self.memory.pop(mid, None)
-        if not self.cache or not self.cache.exists():
-            return
-        for source in self.cache.glob('*.json'):
+            entry = self.memory.get(key)
+        path = self.cache / layer / f'{mid}.json' if self.cache and not scope else None
+        if entry is None and path:
             try:
-                entry = json.loads(source.read_text(encoding='utf-8'))
-                owned = source.stem.isdigit() and entry.get('movie_id') == int(source.stem) and isinstance(entry.get('expires'), (int, float))
-                fetched = entry.get('fetched_at', entry.get('expires', now) - 7 * 86400)
-                # Conservative retention below the provider's six-month ceiling.
-                if owned and now - fetched >= 150 * 86400:
-                    source.unlink()
+                with path.open('rb') as stream:
+                    raw = stream.read(128001)
+                if len(raw) <= 128000:
+                    candidate = json.loads(raw)
+                    if (candidate.get('schema') == SCHEMA and candidate.get('movie_id') == mid
+                            and candidate.get('title') == self.catalog[mid].title
+                            and isinstance(candidate.get('fetched_at'), (int, float))
+                            and isinstance(candidate.get('expires'), (int, float))
+                            and math.isfinite(candidate['fetched_at']) and math.isfinite(candidate['expires'])
+                            and self._valid_cached_item(layer, candidate.get('item'))):
+                        entry = candidate
             except (OSError, ValueError, TypeError, AttributeError):
-                continue
-
-    def _fetch(self, path, params=None):
-        query = urlencode(params or {})
-        req = Request('https://api.themoviedb.org/3/' + path + ('?' + query if query else ''),
-                      headers={'Authorization': 'Bearer ' + self.token, 'Accept': 'application/json'})
-        with urlopen(req, timeout=3) as response:
-            # Bound metadata even if an upstream unexpectedly sends a huge body.
-            body = response.read(512_001)
-            if len(body) > 512_000:
-                raise ValueError('Oversized metadata')
-            return json.loads(body)
-
-    def _read(self, mid):
-        self._prune()
-        with self.lock:
-            entry = self.memory.get(mid)
-        if entry is None and self.cache:
-            try:
-                entry = json.loads((self.cache / f'{mid}.json').read_text(encoding='utf-8'))
-                if entry.get('movie_id') != mid or entry.get('title') != self.catalog[mid].title:
-                    return None
-            except (OSError, ValueError, TypeError, AttributeError):
-                return None
-        if entry and self.clock() - entry.get('fetched_at', entry.get('expires', 0) - 7 * 86400) >= 150 * 86400:
-            with self.lock:
-                self.memory.pop(mid, None)
-            return None
-        return entry
-
-    def _save(self, mid, item, ttl):
-        entry = {'movie_id': mid, 'title': self.catalog[mid].title, 'fetched_at': self.clock(), 'expires': self.clock() + ttl, 'item': item}
-        with self.lock:
-            self.memory[mid] = entry
-            if self.cache:
+                pass
+        retention = 600 if scope else 30 * 86400
+        if entry and now - entry['fetched_at'] >= retention:
+            entry = None
+            if path:
                 try:
-                    self.cache.mkdir(parents=True, exist_ok=True)
-                    temporary = self.cache / f'{mid}.tmp'
-                    temporary.write_text(json.dumps(entry), encoding='utf-8')
-                    temporary.replace(self.cache / f'{mid}.json')
+                    path.unlink(missing_ok=True)
                 except OSError:
-                    pass  # A read-only disk must not prevent browsing or ratings.
+                    pass
+        if entry and entry['expires'] > now:
+            return entry.get('item')
+        with self.lock:
+            event = self.inflight.get(key)
+            leader = event is None
+            if leader:
+                event = self.inflight[key] = Event()
+        if not leader:
+            event.wait(max(0, min(8, deadline - self.monotonic())) if deadline else 8)
+            with self.lock:
+                completed = self.memory.get(key)
+            return (completed or entry or {}).get('item')
+        try:
+            item = resolve()
+            lifetime = min(ttl, 600) if scope else ttl
+            if not item:
+                lifetime = 60 if scope else 6 * 3600
+            record = {'schema': SCHEMA, 'movie_id': mid, 'title': self.catalog[mid].title,
+                      'fetched_at': now, 'expires': now + lifetime, 'item': item}
+            with self.lock:
+                self.memory[key] = record
+                self.memory.move_to_end(key)
+                while len(self.memory) > 2048:
+                    self.memory.popitem(last=False)
+            if path:
+                try:
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_text(json.dumps(record, ensure_ascii=False), encoding='utf-8')
+                except OSError:
+                    pass
+            return item
+        except ProviderFailure:
+            return (entry or {}).get('item')  # Never negative-cache transport/auth errors.
+        finally:
+            with self.lock:
+                self.inflight.pop(key, None)
+            event.set()
 
-    def _resolve(self, mid):
+    def _metadata(self, mid, deadline):
         title, year = film_name(self.catalog[mid].title)
-        tmdb_id = self.ids.get(mid)
-        method = 'movielens_link'
-        if not tmdb_id:
-            if not year or not normalized_title(title):
+        imdb = self.ids.get(mid)
+        expected_tid = None
+        if imdb:
+            data = self.fetch('trakt', 'movies/' + imdb, {'extended': 'full'}, deadline=deadline)
+            method = 'movielens_imdb'
+        else:
+            if year is None:
                 return None
-            query = re.sub(r",\s*(The|An|A)$", lambda m: '', title, flags=re.I)
-            candidates = self.fetch('search/movie', {'query': query, 'year': year, 'include_adult': 'false'}).get('results', [])
-            matches = [row for row in candidates if row.get('release_date', '')[:4] == str(year) and
-                       normalized_title(title) in {normalized_title(row.get('title', '')), normalized_title(row.get('original_title', ''))}]
-            # Ambiguous names never select the first search result.
+            query = re.sub(r'\s*\([^)]*\)', '', title).strip()
+            article = re.match(r'^(.*),\s*(The|An|A)$', query, flags=re.I)
+            if article:
+                query = article[2] + ' ' + article[1]
+            results = self.fetch('trakt', 'search/movie', {'query': query[:120], 'extended': 'full', 'limit': 10}, deadline=deadline)
+            matches = {}
+            for result in results if isinstance(results, list) else []:
+                row = result.get('movie', {}) if isinstance(result, dict) and result.get('type') == 'movie' else {}
+                if not isinstance(row, dict):
+                    continue
+                if (row.get('year') == year and isinstance(row.get('title'), str)
+                        and title_variants(title) & title_variants(row['title'])):
+                    ids = row.get('ids')
+                    tid = ids.get('trakt') if isinstance(ids, dict) else None
+                    if type(tid) is int and tid > 0:
+                        matches[tid] = row
             if len(matches) != 1:
                 return None
-            tmdb_id, method = matches[0]['id'], 'exact_title_year'
-        data = self.fetch(f'movie/{int(tmdb_id)}', {'append_to_response': 'credits'})
-        release = data.get('release_date', '')
-        if data.get('id') != tmdb_id or (year and (not release[:4].isdigit() or abs(int(release[:4]) - year) > 1)):
+            tid = next(iter(matches))
+            expected_tid = tid
+            data = self.fetch('trakt', f'movies/{tid}', {'extended': 'full'}, deadline=deadline)
+            method = 'exact_title_year'
+        if not isinstance(data, dict):
             return None
-        poster, backdrop = data.get('poster_path'), data.get('backdrop_path')
-        poster = poster if isinstance(poster, str) and IMAGE_PATH.fullmatch(poster) else None
-        backdrop = backdrop if isinstance(backdrop, str) and IMAGE_PATH.fullmatch(backdrop) else None
-        runtime = data.get('runtime')
-        runtime = runtime if isinstance(runtime, int) and 0 < runtime < 2000 else None
-        return {'movie_id': mid, 'tmdb_id': tmdb_id, 'poster_path': poster, 'backdrop_path': backdrop,
-                'overview': str(data.get('overview') or '')[:3000], 'runtime': runtime,
-                'director': ', '.join(row['name'] for row in data.get('credits', {}).get('crew', []) if row.get('job') == 'Director')[:180],
-                'source': 'tmdb', 'match': method}
+        ids = data.get('ids')
+        if not isinstance(ids, dict):
+            return None
+        matched_imdb, tid = ids.get('imdb'), ids.get('trakt')
+        if (not isinstance(matched_imdb, str) or not IMDB.fullmatch(matched_imdb)
+                or type(tid) is not int or tid <= 0
+                or (expected_tid is not None and tid != expected_tid)
+                or (imdb and matched_imdb != imdb)
+                or (year and (type(data.get('year')) is not int or abs(data['year'] - year) > (1 if imdb else 0)))
+                or (not imdb and not title_variants(title) & title_variants(str(data.get('title', ''))))):
+            return None
+        runtime, released = data.get('runtime'), data.get('released')
+        return {'imdb_id': matched_imdb, 'trakt_id': tid, 'match': method,
+                'overview': str(data.get('overview') or '')[:3000],
+                'metadata_genres': [g[:60] for g in data.get('genres', []) if isinstance(g, str)][:20] if isinstance(data.get('genres'), list) else [],
+                'runtime': runtime if type(runtime) is int and 0 < runtime < 2000 else None,
+                'released': released if isinstance(released, str) and re.fullmatch(r'\d{4}-\d{2}-\d{2}', released) else None}
 
-    def get(self, mid):
+    def _images(self, imdb, personal_key, deadline):
+        data = self.fetch('fanart', 'movies/' + imdb, {'source': 'imdb'}, personal_key=personal_key, deadline=deadline)
+        if not isinstance(data, dict) or data.get('imdb_id') != imdb:
+            return None
+        return {'poster': select_image(data.get('movieposter'), 'poster'),
+                'backdrop': select_image(data.get('moviebackground'), 'backdrop')}
+
+    def _credits(self, tid, deadline):
+        data = self.fetch('trakt', f'movies/{tid}/people', deadline=deadline)
+        crew = data.get('crew') if isinstance(data, dict) else None
+        rows = crew.get('directing') if isinstance(crew, dict) else None
+        names = set()
+        for row in rows if isinstance(rows, list) else []:
+            person = row.get('person') if isinstance(row, dict) else None
+            if isinstance(row, dict) and row.get('job') == 'Director' and isinstance(person, dict) and isinstance(person.get('name'), str):
+                names.add(person['name'][:100])
+        return ', '.join(sorted(names))[:300] or None
+
+    def get(self, mid, personal_key=None, include_credits=False):
         if mid not in self.catalog:
             return None
-        entry = self._read(mid)
-        if entry and entry.get('expires', 0) > self.clock():
-            return entry.get('item')
-        if not self.token or self.clock() < self.cooldown or not self.slots.acquire(blocking=False):
-            return entry.get('item') if entry else None
-        try:
-            item = self._resolve(mid)
-            self._save(mid, item, 7 * 86400 if item else 6 * 3600)
-            return item
-        except HTTPError as error:
-            if error.code == 429:
-                try:
-                    delay = min(300, max(1, int(error.headers.get('Retry-After', 60))))
-                except (ValueError, TypeError):
-                    delay = 60
-                self.cooldown = self.clock() + delay
-            return entry.get('item') if entry else None
-        except (OSError, ValueError, TypeError, KeyError):
-            # Preserve known imagery during outages; never cache a transport failure as a match.
-            return entry.get('item') if entry else None
-        finally:
-            self.slots.release()
+        deadline = self.monotonic() + 8
+        meta = self._cached('metadata', mid, lambda: self._metadata(mid, deadline), deadline=deadline) if self.trakt_id else None
+        imdb = (meta or {}).get('imdb_id') or self.ids.get(mid)
+        if not imdb:
+            return None
+        scope = hashlib.sha256(personal_key.encode()).hexdigest() if personal_key else ''
+        images = self._cached('images', mid, lambda: self._images(imdb, personal_key, deadline), scope=scope, deadline=deadline) if self.fanart_key else None
+        director = self._cached('credits', mid, lambda: self._credits(meta['trakt_id'], deadline), deadline=deadline) if include_credits and meta and self.trakt_id else None
+        if not meta and not images:
+            return None
+        poster, backdrop = (images or {}).get('poster'), (images or {}).get('backdrop')
+        return {'movie_id': mid, **(meta or {'imdb_id': imdb, 'match': 'movielens_imdb'}),
+                'poster_path': image_url((poster or {}).get('url')), 'backdrop_path': image_url((backdrop or {}).get('url')),
+                'poster_credit': poster, 'backdrop_credit': backdrop, 'director': director,
+                'credits_loaded': include_credits, 'source': 'trakt+fanart.tv'}
 
-    def batch(self, ids):
+    def batch(self, ids, personal_key=None, include_credits=False):
         with ThreadPoolExecutor(max_workers=3) as pool:
-            return [item for item in pool.map(self.get, dict.fromkeys(ids)) if item]
+            return [item for item in pool.map(lambda mid: self.get(mid, personal_key, include_credits), dict.fromkeys(ids)) if item]
 
 
 @router.post('/movies/artwork')
-def lookup_artwork(body: ArtworkLookup, request: ApiRequest):
+def lookup_artwork(body: ArtworkLookup, request: Request, response: Response,
+                   authorization: str | None = Header(default=None, max_length=100)):
+    with Session(request.app.state.engine) as session, session.begin():
+        host = request.client.host if request.client else 'unknown'
+        limits.consume(session, host, 'artwork', 40, 60)
+        limits.consume(session, 'all', 'artwork-global', 180, 60)
+        if body.personal_key is not None:
+            security.authenticate(session, authorization)
+    response.headers['Cache-Control'] = 'no-store'
     store = request.app.state.artwork
-    return {'items': store.batch(body.movie_ids), 'configured': bool(store.token), 'provider': 'tmdb'}
+    personal = body.personal_key.get_secret_value() if body.personal_key is not None else None
+    return {'items': store.batch(body.movie_ids, personal, body.include_credits),
+            'configured': bool(store.trakt_id and store.fanart_key), 'provider': 'trakt+fanart.tv'}
 
 
 def configure(application):
-    # Called after catalogue startup. No remote request occurs during readiness.
     application.state.artwork = ArtworkStore(application.state.catalog,
-        token=os.environ.get('TMDB_READ_ACCESS_TOKEN', '').strip(),
+        trakt_id=os.environ.get('TRAKT_CLIENT_ID', '').strip(),
+        fanart_key=os.environ.get('FANART_API_KEY', '').strip(),
         links=os.environ.get('MOVELLE_ARTWORK_LINKS'), cache=os.environ.get('MOVELLE_ARTWORK_CACHE_DIR'))

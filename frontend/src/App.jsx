@@ -276,6 +276,7 @@ export default function App() {
 
   return (
     <ArtworkProvider
+      user={user}
       onFind={(movie) => {
         navigate('discover')
         setFilmSearchRequest({ movie })
@@ -375,19 +376,8 @@ export default function App() {
           <section className="film-credits" aria-label="Credits">
             <h2>Credits</h2>
             <p>Catalogue and ratings: MovieLens.</p>
-            <p>
-              <a
-                href="https://www.themoviedb.org"
-                target="_blank"
-                rel="noreferrer"
-              >
-                <img src="/tmdb-logo.svg" width="55" height="24" alt="TMDB" />
-              </a>
-              <span>
-                This website uses TMDB and the TMDB APIs but is not endorsed,
-                certified, or otherwise approved by TMDB.
-              </span>
-            </p>
+            <p>Movelle uses <a href="https://trakt.tv/" target="_blank" rel="noreferrer">Trakt</a> but is not endorsed or certified by Trakt.</p>
+            <p>Movie artwork is sourced through <a href="https://fanart.tv/" target="_blank" rel="noreferrer">Fanart.tv</a>, which does not endorse Movelle. Recorded artwork credits appear in film details.</p>
           </section>
         </footer>
         {notice && (

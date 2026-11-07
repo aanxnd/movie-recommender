@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Film } from 'lucide-react'
-import { imageUrl, useArtwork } from '../artwork.js'
+import { imageUrl, imageSrcSet, useArtwork } from '../artwork.js'
 
 export function movieTitle(title) {
   const match = title.match(/\s*\((\d{4})\)\s*$/)
@@ -13,7 +13,7 @@ export function movieTitle(title) {
   }
 }
 
-function PosterImage({ movie, path, priority, pending }) {
+function PosterImage({ movie, path, credit, priority, pending }) {
   const [failed, setFailed] = useState(false)
   const [loaded, setLoaded] = useState(false)
   const { title } = movieTitle(movie.title)
@@ -35,7 +35,7 @@ function PosterImage({ movie, path, priority, pending }) {
               setLoaded(true)
           }}
           src={imageUrl(path)}
-          srcSet={`${imageUrl(path, 'w185')} 185w, ${imageUrl(path)} 342w, ${imageUrl(path, 'w500')} 500w`}
+          srcSet={imageSrcSet(path, credit)}
           sizes="(max-width: 600px) 40vw, (max-width: 1100px) 20vw, 160px"
           width="342"
           height="513"
@@ -64,6 +64,7 @@ export default function MovieCover({ movie, priority = false }) {
       key={path || 'missing'}
       movie={movie}
       path={path}
+      credit={artwork?.poster_credit}
       priority={priority}
       pending={artwork === undefined}
     />

@@ -814,16 +814,8 @@
     line-height: 1.8;
   }
   .film-credits p + p {
-    display: flex;
-    align-items: center;
-    gap: 13px;
-    margin-top: 6px;
-  }
-  .film-credits img {
     display: block;
-    object-fit: contain;
-    width: 55px;
-    height: 24px;
+    margin-top: 6px;
   }
   .film-dialog,
   .profile-dialog {
@@ -1320,12 +1312,6 @@
   .film-credits {
     font-size: 11px;
     max-width: 220px;
-  }
-  .film-credits p + p {
-    gap: 10px;
-  }
-  .film-credits img {
-    width: 42px;
   }
   .site-footer {
     gap: 20px;
@@ -1843,11 +1829,7 @@
     max-width: 100%;
   }
   .film-credits p + p {
-    align-items: flex-start;
     max-width: 335px;
-  }
-  .film-credits img {
-    min-width: 48px;
   }
   .security-note {
     font-size: 12px;
@@ -2145,3 +2127,8 @@ html[data-theme]:not([data-theme="cinema"]) ::selection {
     background:linear-gradient(0deg,color-mix(in srgb,var(--theme-bg) 97%,transparent),color-mix(in srgb,var(--theme-bg) 55%,transparent) 60%,#11111115);
   }
 }
+
+.fanart-settings { margin-top: 1.5rem; padding-top: 1rem; }
+.fanart-settings h3 { font: 600 1rem var(--font-sans); margin-bottom: .65rem; }
+.fanart-settings form { display: grid; gap: .6rem; margin-top: 1rem; }
+.film-source a, .film-credits a, .fanart-settings a { text-decoration: underline; text-underline-offset: .2em; }
