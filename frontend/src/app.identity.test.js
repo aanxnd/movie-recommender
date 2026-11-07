@@ -50,7 +50,7 @@ before(async () => {
   vite = await createServer({
     root: fileURLToPath(new URL('..', import.meta.url)),
     configLoader: 'native',
-    server: { middlewareMode: true },
+    server: { middlewareMode: true, hmr: false },
     appType: 'custom',
   })
   App = (await vite.ssrLoadModule('/src/App.jsx')).default
@@ -902,8 +902,11 @@ test('genre and decade filters keep the existing endpoint and clear stale result
       method: 'popularity',
     },
   ])
-  assert.match(h.calls.at(-1).url, /genre\/Sci-Fi\?decade=1990$/)
-  assert.equal(h.calls.at(-1).headers.Authorization, undefined)
+  const latestGenreRequest = () => h.calls.findLast(
+    (call) => call.path === '/recommendations/genre/Sci-Fi',
+  )
+  assert.match(latestGenreRequest().url, /genre\/Sci-Fi\?decade=1990$/)
+  assert.equal(latestGenreRequest().headers.Authorization, undefined)
   assert.equal(
     document.querySelectorAll('.recommendations-section .ranked-grid li')
       .length,
@@ -917,7 +920,7 @@ test('genre and decade filters keep the existing endpoint and clear stale result
   await h.select('.recommendation-form select', '')
   const unfiltered = h.hold('/recommendations/genre/Sci-Fi')
   await h.click('Get recommendations')
-  assert.match(h.calls.at(-1).url, /genre\/Sci-Fi$/)
+  assert.match(latestGenreRequest().url, /genre\/Sci-Fi$/)
   await h.settle(unfiltered, [])
   assert.equal(document.querySelector('.recommendation-form select').value, '')
 })
@@ -982,7 +985,10 @@ test('saved-ratings pagination preserves the authenticated cursor and deduplicat
   await h.click('My ratings')
   const more = h.hold('/users/1/ratings/details')
   await h.click('Load more saved ratings')
-  assert.match(h.calls.at(-1).url, /ratings\/details\?after=1$/)
+  assert.match(
+    h.calls.findLast((call) => call.path === '/users/1/ratings/details').url,
+    /ratings\/details\?after=1$/,
+  )
   await h.settle(more, {
     items: [movie(1), { ...movie(1, 4), movie_id: 2, title: 'Second Film' }],
     next_after: null,

@@ -33,6 +33,7 @@ frontend/dist/
 /docs/MOVELLE_DESIGN_SYSTEM.md
 /docs/THEMES.md
 /docs/screenshots/
+/docs/PREDEPLOY_HANDOFF.md
 
 # Unused font variant retained locally from design exploration.
 /frontend/public/fonts/cormorant-garamond-italic.woff2

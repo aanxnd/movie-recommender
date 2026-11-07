@@ -23,7 +23,7 @@ To manage the API yourself, prepare a new output directory with `python scripts/
 
 For 32M, run `python scripts/load_movielens.py --dataset ml-32m --download`, then `python scripts/prepare_movielens.py --source data/raw/ml-32m --output data/prepared/ml-32m-v1 --dataset ml-32m`, and select that prepared directory. Acquisition and preparation are offline/operator tools, never public endpoints. Retain the upstream README/license. There is no implicit Small fallback.
 
-Direct `python -m uvicorn app.main:app --reload` is supported for development. Both entrypoints verify artifact inventory/checksums; neither runs the full semantic profile/posting scan at startup. Explicit offline verification: `python scripts/prepare_movielens.py --verify PATH`.
+Direct `python -m uvicorn app.main:app --reload --no-access-log` is supported for development. Both entrypoints verify artifact inventory/checksums; neither runs the full semantic profile/posting scan at startup. Explicit offline verification: `python scripts/prepare_movielens.py --verify PATH`.
 
 ## Film imagery
 
@@ -37,6 +37,8 @@ npm run dev
 The combined launcher uses `.movelle-dev/artwork` for public metadata caching and detects `data/download/ml-latest-small/links.csv` if available. `MOVELLE_ARTWORK_LINKS` can select a matching MovieLens links CSV with its sibling movies CSV; mismatched catalogue entries are rejected. `MOVELLE_ARTWORK_CACHE_DIR` selects a writable metadata directory. Without matching links, only a unique normalized exact-title/year match is accepted. Missing or ambiguous images remain unavailable rather than receiving unrelated art.
 
 `POST /movies/artwork` accepts 1-8 canonical IDs; upstream work is bounded to three slots with timeouts and 429 cooldown. Metadata caches for seven days (unmatched results six hours), known stale records can cover outages, and retention is capped at 150 days with startup/daily pruning during use. Browser poster images load from TMDB's CDN at responsive sizes; no private profile credential is sent to TMDB. Credits contain the approved logo and non-endorsement notice. Review [TMDB's terms](https://www.themoviedb.org/api-terms-of-use) before any production use; this local implementation does not authorize commercial use or deploy anything.
+
+TMDB's API terms, section 1.C, restrict use in connection with an ML/AI application, beyond training alone. Display-only enrichment does not establish permission for this collaborative-filtering application. Obtain written clarification covering this architecture and public portfolio use before enabling it publicly; section 2 separately governs commercial use. A developer token and attribution are not permission to bypass those restrictions. Without a token, a fresh process with no configured metadata cache returns honest unavailable-artwork states; removing the token alone does not remove already cached metadata. MovieLens permissions are separate, as described below.
 
 ## Interface and local preferences
 
@@ -56,6 +58,8 @@ A future release needs a compatible frontend and backend, public `VITE_API_BASE_
 ## Anonymous identity and groups
 
 `POST /users` issues an ID, a random 256-bit bearer credential, and an expiration timestamp (one year). Only SHA-256 hashes of these high-entropy credentials are stored. IDs alone grant no profile access. Profile GETs, ratings, and personalized recommendations require `Authorization: Bearer CREDENTIAL`. Responses containing private data use `Cache-Control: no-store`.
+
+Request-validation errors return only fixed `type`, sanitized `loc`, and fixed `msg` diagnostics. Submitted inputs, validator context, custom messages, and dynamic mapping keys are not serialized. The supported runtime and combined local launcher disable Uvicorn access logging because raw URLs can contain mistakenly pasted credentials. Operators must separately check ingress/platform logging; never log authorization headers, recovery codes, invitation bodies, or full credential-bearing URLs.
 
 The browser stores the credential in localStorage, restores it after refresh, and reacts to identity changes in other tabs. Save the masked **private recovery code** securely before replacing a profile or clearing browser storage. Anyone holding it owns the profile. No email/password account or automatic lost-key recovery is implied. LocalStorage is accessible to same-origin scripts; React text rendering, restricted scripts, dependency updates, and the Vercel CSP reduce risk but do not make stolen credentials harmless.
 
@@ -173,3 +177,5 @@ The tracked MovieLens Small snapshot is retained for deterministic offline tests
 The original deterministic offline evaluation remains in `scripts/evaluate_recommender.py`. Follow train, validation, select, test phases with a fresh output directory; do not retune against test results. Sparse confidence is evidence, not probability. The reported eight-film scenario and exact baseline timing/output comparisons are recorded in [the recommendation investigation](docs/RECOMMENDATIONS.md).
 
 Dataset citation: F. Maxwell Harper and Joseph A. Konstan (2015), *The MovieLens Datasets: History and Context*, ACM TiiS 5(4), Article 19, https://doi.org/10.1145/2827872. Follow the usage conditions in the upstream [README](data/README.txt), including restrictions on commercial use.
+
+The official [Small license](https://files.grouplens.org/datasets/movielens/ml-latest-small-README.html) and [32M license](https://files.grouplens.org/datasets/movielens/ml-32m-README.html) permit research use subject to attribution, no implied endorsement, and the same conditions on redistributed data or transformations. Commercial or revenue-bearing use requires faculty permission. The [dataset site](https://grouplens.org/datasets/movielens/) also says public redistribution is typically not permitted and provides a permission-request form. Obtain clarification for a public portfolio and its downloadable Small files/prepared 32M release; do not assume an educational label or LinkedIn promotion resolves the scope. Preserve the upstream license with every prepared distribution. Neither GroupLens nor the University of Minnesota endorses Movelle.

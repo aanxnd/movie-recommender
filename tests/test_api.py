@@ -387,7 +387,8 @@ def test_nonfinite_numeric_rating_returns_422_without_persisting(client, numeric
         details = response.json()["detail"]
         assert details[0]["loc"] == ["body", "rating"]
         assert details[0]["type"] == "finite_number"
-        assert isinstance(details[0]["input"], str)
+        assert set(details[0]) == {"loc", "type", "msg"}
+        assert details[0]["msg"] == "Enter a finite number."
     assert client.get(f"/users/{user_id}/ratings").json() == [
         {"user_id": user_id, "movie_id": 1, "rating": 4},
     ]

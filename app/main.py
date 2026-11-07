@@ -2,7 +2,6 @@
 
 from collections.abc import Iterator
 from contextlib import asynccontextmanager
-from math import isfinite
 import os
 from pathlib import Path
 from threading import BoundedSemaphore
@@ -10,7 +9,6 @@ from typing import Annotated
 from urllib.parse import urlsplit
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Path as PathParameter, Query, Request
-from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -23,6 +21,7 @@ from app import artwork, budget, config, database, limits, readiness, recommende
 from app.data import DEFAULT_DATA_DIR
 from app.historical import load_prepared
 from app.bootstrap import verify_local
+from app.validation import public_validation_errors
 from app.schemas import (
     GroupRequest, HealthResponse, MovieResponse, RatingRequest, RatingResponse,
     RecommendationResponse, UserResponse, CredentialResponse, InvitationResponse, RatingsPage, SavedMovie, RatingLookup,
@@ -184,11 +183,8 @@ def create_app(
 
     @application.exception_handler(RequestValidationError)
     async def validation_error(request: Request, error: RequestValidationError) -> JSONResponse:
-        # Rejected inputs can contain infinity/NaN, which JSON cannot encode.
-        details = jsonable_encoder(
-            error.errors(),
-            custom_encoder={float: lambda value: value if isfinite(value) else str(value)},
-        )
+        # Never echo input, context, custom messages, or client-controlled keys.
+        details = public_validation_errors(error.errors())
         return JSONResponse(status_code=422, content={"detail": details})
 
     @application.exception_handler(SQLAlchemyError)

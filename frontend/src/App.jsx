@@ -384,8 +384,8 @@ export default function App() {
                 <img src="/tmdb-logo.svg" width="55" height="24" alt="TMDB" />
               </a>
               <span>
-                This product uses the TMDB API but is not endorsed or certified
-                by TMDB.
+                This website uses TMDB and the TMDB APIs but is not endorsed,
+                certified, or otherwise approved by TMDB.
               </span>
             </p>
           </section>

@@ -233,6 +233,7 @@ export async function main(args = process.argv.slice(2)) {
         '-m',
         'uvicorn',
         'app.main:app',
+        '--no-access-log',
         '--host',
         '127.0.0.1',
         '--port',
