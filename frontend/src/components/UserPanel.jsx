@@ -355,7 +355,7 @@ export default function UserPanel({ user, onSelect, open = true }) {
           invitations grant temporary recommendation access only.
         </p>
       )}
-      <FanartKeySettings open={open} />
+      <FanartKeySettings open={open} user={user} />
     </aside>
   )
 }

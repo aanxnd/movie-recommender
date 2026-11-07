@@ -1246,4 +1246,7 @@ test('personal artwork keys stay masked and tab-only, use owner auth, and are re
   await act(async () => new Promise(resolve => setTimeout(resolve, 50)))
   assert.equal([...document.querySelectorAll('button')].some(button => button.textContent === 'Remove personal key'), false)
   assert.equal(h.calls.slice(start).filter(call => call.path === '/movies/artwork').every(call => !JSON.parse(call.body).personal_key), true)
+  await h.input('#fanart-personal-key', key)
+  await h.change(identity(1))
+  assert.equal(document.getElementById('fanart-personal-key').value, '', 'Unsubmitted keys must also clear on owner changes')
 })

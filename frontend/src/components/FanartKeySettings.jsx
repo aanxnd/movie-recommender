@@ -1,11 +1,11 @@
 import { useContext, useEffect, useState } from 'react'
 import { ArtworkContext } from '../artwork.js'
 
-export default function FanartKeySettings({ open }) {
+export default function FanartKeySettings({ open, user }) {
   const artwork = useContext(ArtworkContext)
   const [input, setInput] = useState('')
   const [error, setError] = useState('')
-  useEffect(() => { if (!open) { setInput(''); setError('') } }, [open])
+  useEffect(() => { setInput(''); setError('') }, [open, user?.token])
   if (!artwork) return null
   return (
     <section className="fanart-settings" aria-labelledby="fanart-key-title">
