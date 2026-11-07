@@ -19,7 +19,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 from app.models import UserRating
 
-from app import budget, config, database, limits, readiness, recommender, security
+from app import artwork, budget, config, database, limits, readiness, recommender, security
 from app.data import DEFAULT_DATA_DIR
 from app.historical import load_prepared
 from app.bootstrap import verify_local
@@ -142,6 +142,7 @@ def create_app(
                 ) for row in historical.catalog["movies"]
             }
             application.state.release_years = historical.release_years
+            artwork.configure(application)
             application.state.genres = historical.genres
             engine = database.create_database_engine(database_path, database_url=database_url)
             if config.production():
@@ -373,6 +374,7 @@ def create_app(
         )
         return recommendation_response(request, results)
 
+    application.include_router(artwork.router)
     return application
 
 

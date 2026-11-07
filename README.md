@@ -6,22 +6,52 @@ The scoring mathematics remains unchanged. Production boundaries now require ano
 
 ## Local development
 
-Use Python 3.14 and Node.js 24 (>=22.12 supported by the frontend tools). PowerShell, from the repository root:
+Use Python 3.14 and Node.js 24 (>=22.12 supported by the frontend tools). Install the Python dependencies once, from the repository root:
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install --require-hashes -r requirements-dev.txt
-.\.venv\Scripts\python.exe scripts/prepare_movielens.py --source data --output data/prepared/latest-small-v1
-$env:APP_ENV = 'development'
-$env:MOVIELENS_PREPARED_DIR = 'data/prepared/latest-small-v1'
-.\.venv\Scripts\python.exe -m app.runtime
 ```
 
-Preparation refuses to overwrite an existing directory: skip that command if it already exists and is verified. In a second terminal run `cd frontend`, `npm ci`, and `npm run dev`. Open http://127.0.0.1:5173. Vite proxies `/api` to port 8000. On Linux/macOS use `.venv/bin/python` and `export NAME=value`.
+Then, from `frontend/`, run `npm ci` and `npm run dev`. Stop an older frontend-only Vite process first. Open the exact URL on the launcher's **READY** line (normally http://127.0.0.1:5173). This command prepares/verifies the bundled MovieLens sample, starts FastAPI on loopback port 8000, verifies health and database readiness, then starts Vite and verifies its proxied readiness and decade JSON before printing READY. Ctrl+C stops both services. It deliberately uses a persistent, ignored `.movelle-dev/application.db` SQLite database and `.movelle-dev/prepared/`, overriding inherited cloud/database settings **in its child processes only**. Production build configuration is unchanged. It prepares MovieLens data offline and never contacts Movelle production services. Optional poster metadata uses TMDB only when its server credential is configured. Existing development data is not overwritten. On Linux/macOS use `.venv/bin/python` for setup.
+
+`npm run dev -- --port 5174` selects a different frontend port. Set `MOVELLE_DEV_API_PORT` in that terminal to choose a different local API port; the launcher supplies the matching proxy target. `MOVELLE_DEV_PYTHON` can select another Python executable with the required dependencies installed. The launcher refuses occupied frontend and API ports before starting either service. It never reuses or stops unknown services. `MOVELLE_DEV_INSTANCE` optionally selects a separate database under `.movelle-dev/instances/<name>/application.db`; only letters, numbers, underscores and hyphens are accepted.
+
+For an independently managed backend, `npm run dev:frontend` starts **only Vite**. Its same-origin `/api` proxy defaults to `http://127.0.0.1:8000`; `API_PROXY_TARGET` is an optional **server-only, loopback HTTP(S) origin** loaded by Vite. It must not contain credentials, paths, or query parameters. Restart Vite after changing its environment. This mode requires you to start and verify the API separately. A missing API returns an actionable HTTP 502; it is not replaced by sample response data. `VITE_API_BASE_URL` is a public build-time setting for direct API access, normally unset in this manual local mode. A direct cross-origin URL requires intentionally configured backend CORS; the local proxy requires no CORS relaxation. Never put secrets into `VITE_*`.
+
+To manage the API yourself, prepare a new output directory with `python scripts/prepare_movielens.py --source data --output data/prepared/latest-small-v1`, set `APP_ENV=development` and `MOVIELENS_PREPARED_DIR` to that output, and run `python -m app.runtime`. Preparation refuses an existing output directory; verify it with `python scripts/prepare_movielens.py --verify PATH` before reusing it. Select an explicit local SQLite `DATABASE_URL` for isolated QA. These manual API commands are unnecessary when using the default `npm run dev` launcher.
 
 For 32M, run `python scripts/load_movielens.py --dataset ml-32m --download`, then `python scripts/prepare_movielens.py --source data/raw/ml-32m --output data/prepared/ml-32m-v1 --dataset ml-32m`, and select that prepared directory. Acquisition and preparation are offline/operator tools, never public endpoints. Retain the upstream README/license. There is no implicit Small fallback.
 
 Direct `python -m uvicorn app.main:app --reload` is supported for development. Both entrypoints verify artifact inventory/checksums; neither runs the full semantic profile/posting scan at startup. Explicit offline verification: `python scripts/prepare_movielens.py --verify PATH`.
+
+## Film imagery
+
+Movelle uses real TMDB posters and backdrops. Metadata is optional and display-only; recommendation scores and canonical MovieLens IDs are unchanged. The server reads `TMDB_READ_ACCESS_TOKEN`, never a `VITE_*` secret. Existing terminals may not inherit a newly saved Windows user variable; load that specific variable in the launch terminal:
+
+```powershell
+$env:TMDB_READ_ACCESS_TOKEN = [Environment]::GetEnvironmentVariable('TMDB_READ_ACCESS_TOKEN', 'User')
+npm run dev
+```
+
+The combined launcher uses `.movelle-dev/artwork` for public metadata caching and detects `data/download/ml-latest-small/links.csv` if available. `MOVELLE_ARTWORK_LINKS` can select a matching MovieLens links CSV with its sibling movies CSV; mismatched catalogue entries are rejected. `MOVELLE_ARTWORK_CACHE_DIR` selects a writable metadata directory. Without matching links, only a unique normalized exact-title/year match is accepted. Missing or ambiguous images remain unavailable rather than receiving unrelated art.
+
+`POST /movies/artwork` accepts 1-8 canonical IDs; upstream work is bounded to three slots with timeouts and 429 cooldown. Metadata caches for seven days (unmatched results six hours), known stale records can cover outages, and retention is capped at 150 days with startup/daily pruning during use. Browser poster images load from TMDB's CDN at responsive sizes; no private profile credential is sent to TMDB. Credits contain the approved logo and non-endorsement notice. Review [TMDB's terms](https://www.themoviedb.org/api-terms-of-use) before any production use; this local implementation does not authorize commercial use or deploy anything.
+
+## Interface and local preferences
+
+Discover, My ratings, For you, and Groups share film details, search, genre/decade controls, and responsive poster layouts. The header Theme control previews seven dark palettes, including grayscale with off-white text. Preferences are saved locally in `movelle.theme.v1`, independently of profile credentials, and synchronize across tabs. If storage is unavailable, a theme still applies for the visit. Keyboard focus, native dialogs and reduced-motion preferences are supported.
+
+Fonts are served locally with their SIL Open Font License files in `frontend/public/fonts/`. Film images remain provider content; they are not bundled or represented as owned by Movelle.
+
+## Local troubleshooting
+
+- Use the exact READY URL. For isolated concurrent review, set `MOVELLE_DEV_API_PORT` and `MOVELLE_DEV_INSTANCE`, then choose a different Vite `--port`. An occupied port is an error; the launcher never takes over another process.
+- Verify `/api/health`, `/api/ready`, and `/api/movies/decades` through that frontend origin. A 502 indicates an unavailable local API; restart the owning launcher or correct the manual proxy target. `/ready` verifies initialization and database connectivity, not just HTTP liveness.
+- Profiles belong to their issuing database. Keep recovery codes private and use disposable local profiles for QA rather than production credentials.
+- If artwork is unavailable, check the server-only TMDB token, writable cache, optional matching links CSV, and provider availability. Missing or ambiguous matches are intentionally left without artwork. The Vercel image policy permits only same-origin/data images and `https://image.tmdb.org`.
+
+A future release needs a compatible frontend and backend, public `VITE_API_BASE_URL`, appropriate backend CORS, and optional server-side TMDB token/cache configuration. The token is never a frontend setting. Changes here do not initiate or authorize a production rollout.
 
 ## Anonymous identity and groups
 
@@ -67,7 +97,14 @@ The frontend preserves HTTP status/Retry-After, times out requests after 45 seco
 | `APP_ENV` | `development` locally; image defaults to `production`. Unknown modes fail. |
 | `DATABASE_URL` | Backend secret. Production requires PostgreSQL with `sslmode=require`, `verify-ca`, or `verify-full`; prefer certificate verification supported by your Neon connection. Missing configuration never falls back to SQLite in production. |
 | `CORS_ALLOWED_ORIGINS` | Exact comma-separated origins, no paths/trailing slash/wildcards. Production requires HTTPS origins. Authorization is independently enforced. |
-| `VITE_API_BASE_URL` | Public backend HTTPS origin, no `/api`; set at frontend build time. Never put a secret in `VITE_*`. Unset means development `/api` proxy; Vercel must supply the real backend origin. |
+| `VITE_API_BASE_URL` | Public backend HTTPS origin, no `/api`; set at frontend build time. Never put a secret in `VITE_*`. Unset means development `/api` proxy; Vercel must supply the real backend origin. The default local launcher explicitly uses `/api` in its Vite child. |
+| `API_PROXY_TARGET` | Manual frontend-only development: loopback HTTP(S) API origin, default `http://127.0.0.1:8000`. Server-only; never bundled as browser configuration. |
+| `MOVELLE_DEV_API_PORT` | Default local launcher only: API port, default 8000. The launcher configures its matching Vite proxy. |
+| `MOVELLE_DEV_INSTANCE` | Optional local database namespace; useful for isolated browser QA. |
+| `MOVELLE_DEV_PYTHON` | Default local launcher only: optional Python executable; otherwise uses the repository `.venv`. |
+| `TMDB_READ_ACCESS_TOKEN` | Optional server-only TMDB read token for display metadata. Never put it in browser configuration. |
+| `MOVELLE_ARTWORK_LINKS` | Optional MovieLens links CSV with sibling movies CSV for verified canonical image matching. |
+| `MOVELLE_ARTWORK_CACHE_DIR` | Optional writable public metadata cache; local launcher defaults to `.movelle-dev/artwork`. |
 | `MOVIELENS_PREPARED_DIR` | Prepared reference directory. Image default `/backend/data/reference/ml-32m-v1`. |
 | `MOVIELENS_ARCHIVE_URL` / `MOVIELENS_ARCHIVE_SHA256` | Both required for opt-in pinned bootstrap; omit both for administrator-mounted artifacts. |
 | `TRUSTED_PROXY_IPS` | Explicit trusted forwarding proxies; empty is conservative, wildcard is rejected in production. |
@@ -91,8 +128,12 @@ The image is non-root (UID 10001), contains runtime-only dependencies, uses one 
 .\.venv\Scripts\python.exe -m pytest -q -p no:cacheprovider
 cd frontend
 npm test
+npm run test:dev
+npm run test:browser
 npm run build
 ```
+
+`npm run test:dev` checks real port conflicts and shutdown on owned API failure using ports 5181/8011. `npm run test:browser` uses installed Chrome in a fresh headless context and owns ports 5180/8010 with a fresh isolated SQLite instance per run. It never uses a personal browser profile. Masked screenshots are written to `docs/screenshots/movelle/`; traces and videos are disabled to keep recovery and invitation codes out of artifacts. Screenshots are local review artifacts and are excluded from Git. Set `MOVELLE_SCREENSHOT_DIR` to an absolute directory to save a run separately from existing review captures. Poster checks require `TMDB_READ_ACCESS_TOKEN` in the server process.
 
 For a disposable localhost PostgreSQL server set `POSTGRES_TEST_URL` only in the test process. CI provisions its own PostgreSQL 17 container. Optional 32M tests read existing local prepared files and never call production services. `scripts/smoke_container.py --image IMAGE --prepared PATH` starts/stops only a newly created disposable container and verifies readiness, ownership, persistence contract, recommendations, UID, and absence of pytest/HTTPX.
 
