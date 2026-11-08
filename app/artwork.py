@@ -13,9 +13,9 @@ import time
 import unicodedata
 from urllib.request import Request as UrlRequest, build_opener
 from urllib.error import URLError
-from app.providers import NoRedirect
 from fastapi import HTTPException
 from fastapi.responses import FileResponse
+from app.providers import NoRedirect
 from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Header, Request, Response
@@ -29,7 +29,7 @@ router = APIRouter()
 IMDB = re.compile(r'^tt[0-9]{7,10}$')
 IMAGE_PATH = re.compile(r'^/fanart/[A-Za-z0-9/_-]+\.(?:jpg|png|webp)$')
 SCHEMA = 'trakt-fanart-v2'
-TRAKT_IMAGE = re.compile(r'^walter-r2\.trakt\.tv/images/movies/[0-9/]+/(?:posters|fanarts)/(?:thumb|medium|full)/[A-Za-z0-9_-]+\.(?:jpg|png)\.webp
+TRAKT_IMAGE = re.compile(r'^media\.trakt\.tv/images/movies/[0-9/]+/(?:posters|fanarts)/(?:thumb|medium|full)/[A-Za-z0-9_-]+\.(?:jpg|png)\.webp
 
 
 def film_name(title):
@@ -329,6 +329,7 @@ class ArtworkStore:
             return [item for item in pool.map(lambda mid: self.get(mid, personal_key, include_credits), dict.fromkeys(ids)) if item]
 
 
+
 @router.get('/movies/artwork-image/{movie_id}')
 def cached_trakt_image(movie_id: int, request: Request):
     store = request.app.state.artwork
@@ -358,7 +359,6 @@ def cached_trakt_image(movie_id: int, request: Request):
             raise HTTPException(502, 'Artwork temporarily unavailable') from None
     return FileResponse(target, media_type='image/webp', headers={'Cache-Control': 'public, max-age=86400'})
 
-
 @router.post('/movies/artwork')
 def lookup_artwork(body: ArtworkLookup, request: Request, response: Response,
                    authorization: str | None = Header(default=None, max_length=100)):
@@ -384,9 +384,7 @@ def configure(application):
 
 
 def trakt_image(value):
-    if not isinstance(value, str) or len(value) > 300:
-        return None
-    return 'https://' + value if TRAKT_IMAGE.fullmatch(value) else None
+    return 'https://' + value if isinstance(value, str) and TRAKT_IMAGE.fullmatch(value) else None
 
 
 
