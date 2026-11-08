@@ -24,3 +24,16 @@ frontend/dist/
 .idea/
 /.vite/
 *.credentials.json
+/.movelle-dev/
+
+# Local design planning and visual-review evidence; keep source/assets public.
+/docs/ANTI_SLOP_AUDIT.md
+/docs/FRONTEND_AUDIT.md
+/docs/FRONTEND_REDESIGN.md
+/docs/MOVELLE_DESIGN_SYSTEM.md
+/docs/THEMES.md
+/docs/screenshots/
+/docs/PREDEPLOY_HANDOFF.md
+
+# Unused font variant retained locally from design exploration.
+/frontend/public/fonts/cormorant-garamond-italic.woff2

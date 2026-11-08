@@ -1,11 +1,23 @@
 import { useEffect, useRef, useState } from 'react'
-import { UserRound, Plus } from 'lucide-react'
+import {
+  UserRound,
+  Plus,
+  Copy,
+  ShieldCheck,
+  Users,
+  Eye,
+  EyeOff,
+} from 'lucide-react'
 import { request } from '../api.js'
 import { parseRecoveryCode, readIdentity, sameIdentity } from '../identity.js'
+import FanartKeySettings from './FanartKeySettings.jsx'
 
-function RecoveryCode({ code, unsaved }) {
+function RecoveryCode({ code, unsaved, open }) {
   const [visible, setVisible] = useState(false)
   const [copyStatus, setCopyStatus] = useState('')
+  useEffect(() => {
+    if (!open) setVisible(false)
+  }, [open])
 
   async function copy() {
     setCopyStatus('copying')
@@ -18,30 +30,109 @@ function RecoveryCode({ code, unsaved }) {
     }
   }
 
-  return <div className="mt-4 text-xs">
-    <label htmlFor="profile-recovery-code">{unsaved ? 'Unsaved new profile recovery code: save securely' : 'Private recovery code: save securely; never share for groups'}</label>
-    <input id="profile-recovery-code" aria-describedby="recovery-code-warning" className="mt-2 w-full" type={visible ? 'text' : 'password'} autoComplete="off" spellCheck={false} readOnly value={code} onFocus={(event) => event.target.select()} />
-    <div className="mt-2 flex flex-wrap gap-2">
-      <button type="button" className="button-secondary" disabled={copyStatus === 'copying'} onClick={copy}>Copy recovery code</button>
-      <button type="button" className="button-secondary" aria-controls="profile-recovery-code" aria-pressed={visible} onClick={() => setVisible((value) => !value)}>{visible ? 'Hide recovery code' : 'Show recovery code'}</button>
+  return (
+    <div className="recovery-card">
+      <label htmlFor="profile-recovery-code">
+        {unsaved
+          ? 'Unsaved new profile recovery code: save securely'
+          : 'Private recovery code: save securely; never share for groups'}
+      </label>
+      <input
+        id="profile-recovery-code"
+        aria-describedby="recovery-code-warning"
+        className="credential-input"
+        type={visible ? 'text' : 'password'}
+        autoComplete="off"
+        spellCheck={false}
+        readOnly
+        value={code}
+        onFocus={(event) => event.target.select()}
+      />
+      <div className="recovery-actions">
+        <button
+          type="button"
+          className="button-secondary"
+          disabled={copyStatus === 'copying'}
+          onClick={copy}
+          aria-label="Copy recovery code"
+        >
+          <Copy size={14} aria-hidden="true" />
+          Copy code
+        </button>
+        <button
+          type="button"
+          className="button-secondary"
+          aria-label={visible ? 'Hide recovery code' : 'Show recovery code'}
+          aria-controls="profile-recovery-code"
+          aria-pressed={visible}
+          onClick={() => setVisible((value) => !value)}
+        >
+          {visible ? (
+            <EyeOff size={14} aria-hidden="true" />
+          ) : (
+            <Eye size={14} aria-hidden="true" />
+          )}
+          {visible ? 'Hide code' : 'Show code'}
+        </button>
+      </div>
+      <p role="status" aria-atomic="true" className="copy-status">
+        {copyStatus === 'copied'
+          ? 'Recovery code copied.'
+          : copyStatus === 'copying'
+            ? 'Copying recovery code...'
+            : ''}
+      </p>
+      {copyStatus === 'error' && (
+        <p role="alert" className="error">
+          Could not copy recovery code. Show it, then select and copy it
+          manually.
+        </p>
+      )}
+      <p id="recovery-code-warning" className="security-note">
+        <ShieldCheck size={16} aria-hidden="true" />
+        Your recovery code grants access to your account. Store it securely and
+        never share it.
+      </p>
     </div>
-    <p role="status" aria-atomic="true" className="mt-2">{copyStatus === 'copied' ? 'Recovery code copied.' : copyStatus === 'copying' ? 'Copying recovery code...' : ''}</p>
-    {copyStatus === 'error' && <p role="alert" className="mt-2 text-red-700">Could not copy recovery code. Show it, then select and copy it manually.</p>}
-    <p id="recovery-code-warning" className="mt-2 leading-relaxed text-stone-600">Your recovery code grants access to your account. Store it securely and never share it.</p>
-  </div>
+  )
 }
 
-export default function UserPanel({ user, onSelect }) {
+export default function UserPanel({ user, onSelect, open = true }) {
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [errorArea, setErrorArea] = useState('invite')
+  const [invitationVisible, setInvitationVisible] = useState(false)
+  useEffect(() => {
+    if (!open) setInvitationVisible(false)
+  }, [open])
   const [unsavedCode, setUnsavedCode] = useState('')
   const [invitation, setInvitation] = useState('')
+  const [invitationExpiresAt, setInvitationExpiresAt] = useState(null)
+  const [invitationStatus, setInvitationStatus] = useState('')
   const pending = useRef(null)
   const code = unsavedCode || (user ? `${user.id}:${user.token}` : '')
   useEffect(() => () => pending.current?.abort(), [])
+  useEffect(() => {
+    if (!invitation || !Number.isFinite(invitationExpiresAt)) return
+    const expire = () => {
+      setInvitation('')
+      setInvitationExpiresAt(null)
+      setInvitationStatus(
+        'This invitation expired. Create a new invitation to share with your group.',
+      )
+    }
+    const remaining = invitationExpiresAt * 1000 - Date.now()
+    if (remaining <= 0) {
+      expire()
+      return
+    }
+    const timer = setTimeout(expire, remaining)
+    return () => clearTimeout(timer)
+  }, [invitation, invitationExpiresAt])
 
-  async function perform(action) {
+  async function perform(action, area = 'invite') {
+    setErrorArea(area)
     if (pending.current) return
     const current = new AbortController()
     pending.current = current
@@ -52,35 +143,219 @@ export default function UserPanel({ user, onSelect }) {
     } catch (error) {
       if (!current.signal.aborted) setError(error.message)
     } finally {
-      if (!current.signal.aborted) { pending.current = null; setBusy(false) }
+      if (!current.signal.aborted) {
+        pending.current = null
+        setBusy(false)
+      }
     }
   }
 
   function select(create) {
-    return perform(async (signal) => {
-      const previous = readIdentity()
-      const next = create ? await request('/users', { method: 'POST', signal }) : parseRecoveryCode(input)
-      if (!create) await request(`/users/${next.id}`, { token: next.token, signal })
-      signal.throwIfAborted()
-      if (!sameIdentity(previous, readIdentity())) throw new Error('The profile changed in another tab. Please try again.')
-      if (create) setUnsavedCode(`${next.id}:${next.token}`)
-      onSelect(next) // App alone persists and activates the selection.
-      setInput('')
-    })
+    return perform(
+      async (signal) => {
+        const previous = readIdentity()
+        const next = create
+          ? await request('/users', { method: 'POST', signal })
+          : parseRecoveryCode(input)
+        if (!create)
+          await request(`/users/${next.id}`, { token: next.token, signal })
+        signal.throwIfAborted()
+        if (!sameIdentity(previous, readIdentity()))
+          throw new Error(
+            'The profile changed in another tab. Please try again.',
+          )
+        if (create) setUnsavedCode(`${next.id}:${next.token}`)
+        onSelect(next) // App alone persists and activates the selection.
+        setInput('')
+      },
+      create ? 'create' : 'restore',
+    )
   }
 
-  return <aside className="border-b border-stone-200 bg-stone-100/70 p-6 lg:border-b-0 lg:border-r lg:p-8">
-    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-stone-500"><UserRound size={15} aria-hidden="true" /> Application user</div>
-    <p role="status" className="mt-4 text-2xl font-semibold text-stone-900">{user ? `User ${user.id}` : 'No user selected'}</p>
-    <p className="mt-2 text-sm leading-relaxed text-stone-600">{user ? 'This browser remembers your private profile credential.' : 'Create a profile or restore your private recovery code.'}</p>
-    <button onClick={() => select(true)} disabled={busy} className="button-primary mt-5 w-full"><Plus size={16} aria-hidden="true" />{busy ? 'Please wait…' : 'Create new user'}</button>
-    <form onSubmit={(event) => { event.preventDefault(); select(false) }} className="mt-6">
-      <label htmlFor="user-id" className="text-sm font-medium">Private recovery code</label>
-      <div className="mt-2 flex gap-2"><input id="user-id" type="password" autoComplete="off" placeholder="ID:credential" value={input} onChange={(event) => setInput(event.target.value)} className="min-w-0 flex-1" disabled={busy} /><button className="button-secondary" disabled={busy}>Load</button></div>
-    </form>
-    {code && <RecoveryCode key={unsavedCode ? `unsaved-${code.split(':')[0]}` : 'selected'} code={code} unsaved={Boolean(unsavedCode)} />}
-    {user && <div className="mt-4"><button className="button-secondary" disabled={busy} onClick={() => perform(async (signal) => { const result = await request(`/users/${user.id}/group-invitation`, { token: user.token, method: 'POST', signal }); setInvitation(result.code) })}>Create 10-minute group invitation</button>{invitation && <input aria-label="Group invitation" className="mt-2 w-full" readOnly value={invitation} onFocus={(event) => event.target.select()} />}<button className="button-secondary mt-2" disabled={busy} onClick={() => perform(async (signal) => { await request(`/users/${user.id}/group-invitation`, { token: user.token, method: 'DELETE', signal }); setInvitation('') })}>Revoke invitation</button></div>}
-    {error && <p role="alert" className="mt-3 text-sm text-red-700">{error}</p>}
-    <p className="mt-6 border-t border-stone-200 pt-4 text-xs leading-relaxed text-stone-500">Your number is not a password. Keep your recovery code private. Group invitations grant temporary recommendation access only.</p>
-  </aside>
+  return (
+    <aside className="user-panel">
+      <p className="eyebrow">
+        <UserRound size={14} aria-hidden="true" />
+        Your account
+      </p>
+      <h2 id="profile-title">Your profile</h2>
+      <p role="status" className="profile-status">
+        <span className={`status-dot ${user ? 'connected' : ''}`} />
+        {user ? `User ${user.id}` : 'No user selected'}
+      </p>
+      <p className="profile-intro">
+        {user
+          ? 'Your ratings are saved to this profile. Keep its recovery code to use it on another browser.'
+          : 'Create a private profile to save ratings and get recommendations. Keep the recovery code so you can return.'}
+      </p>
+      <button
+        onClick={() => select(true)}
+        disabled={busy}
+        className="button-primary profile-create"
+        aria-label="Create new user"
+      >
+        <Plus size={16} aria-hidden="true" />
+        {busy ? 'Please wait…' : 'Create profile'}
+      </button>
+      {error && errorArea === 'create' && (
+        <p role="alert" className="error">
+          {error}
+        </p>
+      )}
+      <form
+        onSubmit={(event) => {
+          event.preventDefault()
+          select(false)
+        }}
+        className="restore-form"
+      >
+        <label htmlFor="user-id" className="field-label">
+          Private recovery code
+        </label>
+        <p className="field-hint">
+          Already have a profile? Paste your saved code to restore it.
+        </p>
+        <div className="restore-actions">
+          <input
+            id="user-id"
+            type="password"
+            autoComplete="off"
+            placeholder="ID:credential"
+            value={input}
+            onChange={(event) => setInput(event.target.value)}
+            disabled={busy}
+          />
+          <button className="button-secondary" disabled={busy}>
+            Load
+          </button>
+        </div>
+      </form>
+      {error && errorArea === 'restore' && (
+        <p role="alert" className="error">
+          {error}
+        </p>
+      )}
+      {code && (
+        <RecoveryCode
+          key={unsavedCode ? `unsaved-${code.split(':')[0]}` : 'selected'}
+          code={code}
+          unsaved={Boolean(unsavedCode)}
+          open={open}
+        />
+      )}
+      {user && (
+        <div className="invitation-panel">
+          <h3>
+            <Users size={17} aria-hidden="true" />
+            Group invitations
+          </h3>
+          <p className="field-hint">
+            Create an invitation for group recommendations. It grants temporary
+            recommendation access only.
+          </p>
+          <div className="invitation-actions">
+            <button
+              className="button-secondary"
+              disabled={busy}
+              onClick={() =>
+                perform(async (signal) => {
+                  const result = await request(
+                    `/users/${user.id}/group-invitation`,
+                    { token: user.token, method: 'POST', signal },
+                  )
+                  setInvitation(result.code)
+                  setInvitationExpiresAt(result.expires_at)
+                  setInvitationStatus(
+                    'Invitation created. Valid for 10 minutes; creating another replaces it.',
+                  )
+                })
+              }
+            >
+              Create 10-minute group invitation
+            </button>
+            <button
+              className="button-quiet"
+              disabled={busy}
+              onClick={() =>
+                perform(async (signal) => {
+                  await request(`/users/${user.id}/group-invitation`, {
+                    token: user.token,
+                    method: 'DELETE',
+                    signal,
+                  })
+                  setInvitation('')
+                  setInvitationExpiresAt(null)
+                  setInvitationStatus('Invitation revoked.')
+                })
+              }
+            >
+              Revoke invitation
+            </button>
+          </div>
+          {invitation && (
+            <div className="invitation-code">
+              <label className="field-label" htmlFor="group-invitation">
+                Share this temporary invitation
+              </label>
+              <input
+                id="group-invitation"
+                type={invitationVisible ? 'text' : 'password'}
+                aria-label="Group invitation"
+                autoComplete="off"
+                spellCheck={false}
+                readOnly
+                value={invitation}
+                onFocus={(event) => event.target.select()}
+              />
+              <div className="recovery-actions">
+                <button
+                  className="button-secondary"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(invitation)
+                      setInvitationStatus(
+                        'Invitation copied. Share it with your group.',
+                      )
+                    } catch {
+                      setErrorArea('invite')
+                      setError(
+                        'Could not copy. Show the invitation and copy it manually.',
+                      )
+                    }
+                  }}
+                >
+                  Copy invitation
+                </button>
+                <button
+                  className="button-secondary"
+                  aria-pressed={invitationVisible}
+                  onClick={() => setInvitationVisible((value) => !value)}
+                >
+                  {invitationVisible ? 'Hide invitation' : 'Show invitation'}
+                </button>
+              </div>
+            </div>
+          )}
+          {invitationStatus && (
+            <p role="status" className="field-hint">
+              {invitationStatus}
+            </p>
+          )}
+        </div>
+      )}
+      {error && errorArea === 'invite' && (
+        <p role="alert" className="error">
+          {error}
+        </p>
+      )}
+      {!user && (
+        <p className="security-note profile-security">
+          <ShieldCheck size={17} aria-hidden="true" />
+          Your number is not a password. Keep your recovery code private. Group
+          invitations grant temporary recommendation access only.
+        </p>
+      )}
+      <FanartKeySettings open={open} user={user} />
+    </aside>
+  )
 }

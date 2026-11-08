@@ -6,26 +6,65 @@ The scoring mathematics remains unchanged. Production boundaries now require ano
 
 ## Local development
 
-Use Python 3.14 and Node.js 24 (>=22.12 supported by the frontend tools). PowerShell, from the repository root:
+Use Python 3.14 and Node.js 24 (>=22.12 supported by the frontend tools). Install the Python dependencies once, from the repository root:
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install --require-hashes -r requirements-dev.txt
-.\.venv\Scripts\python.exe scripts/prepare_movielens.py --source data --output data/prepared/latest-small-v1
-$env:APP_ENV = 'development'
-$env:MOVIELENS_PREPARED_DIR = 'data/prepared/latest-small-v1'
-.\.venv\Scripts\python.exe -m app.runtime
 ```
 
-Preparation refuses to overwrite an existing directory: skip that command if it already exists and is verified. In a second terminal run `cd frontend`, `npm ci`, and `npm run dev`. Open http://127.0.0.1:5173. Vite proxies `/api` to port 8000. On Linux/macOS use `.venv/bin/python` and `export NAME=value`.
+Then, from `frontend/`, run `npm ci` and `npm run dev`. Stop an older frontend-only Vite process first. Open the exact URL on the launcher's **READY** line (normally http://127.0.0.1:5173). This command prepares/verifies the bundled MovieLens sample, starts FastAPI on loopback port 8000, verifies health and database readiness, then starts Vite and verifies its proxied readiness and decade JSON before printing READY. Ctrl+C stops both services. It deliberately uses a persistent, ignored `.movelle-dev/application.db` SQLite database and `.movelle-dev/prepared/`, overriding inherited cloud/database settings **in its child processes only**. Production build configuration is unchanged. It prepares MovieLens data offline and never contacts Movelle production services. Optional enrichment uses Trakt metadata and Fanart.tv artwork when their server credentials are configured. Existing development data is not overwritten. On Linux/macOS use `.venv/bin/python` for setup.
+
+`npm run dev -- --port 5174` selects a different frontend port. Set `MOVELLE_DEV_API_PORT` in that terminal to choose a different local API port; the launcher supplies the matching proxy target. `MOVELLE_DEV_PYTHON` can select another Python executable with the required dependencies installed. The launcher refuses occupied frontend and API ports before starting either service. It never reuses or stops unknown services. `MOVELLE_DEV_INSTANCE` optionally selects a separate database under `.movelle-dev/instances/<name>/application.db`; only letters, numbers, underscores and hyphens are accepted.
+
+For an independently managed backend, `npm run dev:frontend` starts **only Vite**. Its same-origin `/api` proxy defaults to `http://127.0.0.1:8000`; `API_PROXY_TARGET` is an optional **server-only, loopback HTTP(S) origin** loaded by Vite. It must not contain credentials, paths, or query parameters. Restart Vite after changing its environment. This mode requires you to start and verify the API separately. A missing API returns an actionable HTTP 502; it is not replaced by sample response data. `VITE_API_BASE_URL` is a public build-time setting for direct API access, normally unset in this manual local mode. A direct cross-origin URL requires intentionally configured backend CORS; the local proxy requires no CORS relaxation. Never put secrets into `VITE_*`.
+
+To manage the API yourself, prepare a new output directory with `python scripts/prepare_movielens.py --source data --output data/prepared/latest-small-v1`, set `APP_ENV=development` and `MOVIELENS_PREPARED_DIR` to that output, and run `python -m app.runtime`. Preparation refuses an existing output directory; verify it with `python scripts/prepare_movielens.py --verify PATH` before reusing it. Select an explicit local SQLite `DATABASE_URL` for isolated QA. These manual API commands are unnecessary when using the default `npm run dev` launcher.
 
 For 32M, run `python scripts/load_movielens.py --dataset ml-32m --download`, then `python scripts/prepare_movielens.py --source data/raw/ml-32m --output data/prepared/ml-32m-v1 --dataset ml-32m`, and select that prepared directory. Acquisition and preparation are offline/operator tools, never public endpoints. Retain the upstream README/license. There is no implicit Small fallback.
 
-Direct `python -m uvicorn app.main:app --reload` is supported for development. Both entrypoints verify artifact inventory/checksums; neither runs the full semantic profile/posting scan at startup. Explicit offline verification: `python scripts/prepare_movielens.py --verify PATH`.
+Direct `python -m uvicorn app.main:app --reload --no-access-log` is supported for development. Both entrypoints verify artifact inventory/checksums; neither runs the full semantic profile/posting scan at startup. Explicit offline verification: `python scripts/prepare_movielens.py --verify PATH`.
+
+## Film metadata and imagery
+
+Movelle uses **Trakt** for film metadata and **Fanart.tv** for posters/backdrops. Enrichment is display-only: canonical MovieLens IDs, historical ratings and the recommendation algorithm are unchanged. No Trakt user login or client secret is required. The backend reads `TRAKT_CLIENT_ID` and `FANART_API_KEY` (the Fanart.tv project key); neither belongs in `VITE_*` or the browser bundle. Existing Windows terminals may need these specific user variables loaded before startup:
+
+```powershell
+$env:TRAKT_CLIENT_ID = [Environment]::GetEnvironmentVariable('TRAKT_CLIENT_ID', 'User')
+$env:FANART_API_KEY = [Environment]::GetEnvironmentVariable('FANART_API_KEY', 'User')
+npm run dev
+```
+
+The combined launcher detects a matching MovieLens `links.csv` with sibling `movies.csv`; `MOVELLE_ARTWORK_LINKS` can select another matching pair. Verified IMDb IDs take priority. Without links, only an unambiguous normalized title/alternate-title and exact release-year match is accepted, followed by a Trakt summary check. Wrong IDs, remakes, ambiguous matches and unknown artwork remain unavailable rather than receiving unrelated images.
+
+The catalogue-only `POST /movies/artwork` accepts 1-8 canonical IDs and selected display fields, never arbitrary provider URLs or identifiers. It has additional shared-database quotas of 40 requests/minute/source address and 180/minute globally, alongside general admission. Provider HTTP concurrency is capped at three, with deadlines, one bounded transient retry, rate-limit cooldowns and a conservative 200-request/provider/process/five-minute budget. Metadata and artwork are deduplicated and cached for seven days (missing records six hours); credentials are never cached. Stale public records can cover outages for up to 30 days from fetch. Expired records are removed on access; operators should periodically retire unused cache storage. Director credits load only when film details open.
+
+`MOVELLE_ARTWORK_CACHE_DIR` holds a new `trakt-fanart-v1` namespace; retired provider cache files are never read or converted. New processes without the relevant provider keys do not serve that provider's cache. No retired-provider API, CDN, credential or logo is used by the application. The browser loads only approved `https://assets.fanart.tv` image URLs, using documented preview sizes for poster grids and full images when appropriate. No profile credential or provider key is sent with browser CDN requests.
+
+**Optional personal Fanart.tv key:** Profile ? Artwork access. Ordinary access uses the application project key without requiring a personal key. A profile owner may enter a masked personal key for the current tab. It goes only in a same-application HTTPS JSON request, then a server-to-Fanart.tv `client-key` header alongside `api-key`. It is never a URL parameter, local/session storage entry, database record, log message or disk-cache field. Remove it with **Remove personal key**; reload or profile change also clears it. Personal-tier metadata is held separately in bounded memory for at most ten minutes and is never shared with ordinary access or persisted. The interface confirms key format, not provider acceptance. Same-origin script access remains a browser-memory risk; the key cannot be hidden from its owner's own developer tools.
+
+Credits identify and link both providers and disclaim endorsement. Film details preserve recorded image copyright/source information, including unknown holders. Source links are attribution only, never fetched for enrichment. API access does not transfer image copyright. Keep this deployment free/noncommercial; commercial Fanart.tv use requires written consent. The project owner must keep their Fanart.tv account email current and verify the current API registration terms before public rollout. See [provider setup and policy notes](docs/ARTWORK.md), [Trakt API policy](https://developer.trakt.tv/docs/api-use-policy), [Fanart.tv API documentation](https://api.fanart.tv/), and [image terms](https://fanart.tv/terms-and-conditions/). MovieLens licensing is separate.
+
+## Interface and local preferences
+
+Discover, My ratings, For you, and Groups share film details, search, genre/decade controls, and responsive poster layouts. The header Theme control previews seven dark palettes, including grayscale with off-white text. Preferences are saved locally in `movelle.theme.v1`, independently of profile credentials, and synchronize across tabs. If storage is unavailable, a theme still applies for the visit. Keyboard focus, native dialogs and reduced-motion preferences are supported.
+
+Fonts are served locally with their SIL Open Font License files in `frontend/public/fonts/`. Film images remain provider content; they are not bundled or represented as owned by Movelle.
+
+## Local troubleshooting
+
+- Use the exact READY URL. For isolated concurrent review, set `MOVELLE_DEV_API_PORT` and `MOVELLE_DEV_INSTANCE`, then choose a different Vite `--port`. An occupied port is an error; the launcher never takes over another process.
+- Verify `/api/health`, `/api/ready`, and `/api/movies/decades` through that frontend origin. A 502 indicates an unavailable local API; restart the owning launcher or correct the manual proxy target. `/ready` verifies initialization and database connectivity, not just HTTP liveness.
+- Profiles belong to their issuing database. Keep recovery codes private and use disposable local profiles for QA rather than production credentials.
+- If artwork is unavailable, check the server-only Trakt/Fanart.tv keys, writable cache, matching links CSV, and provider availability. Missing or ambiguous matches are intentionally left without artwork. The Vercel image policy permits only same-origin/data images and `https://assets.fanart.tv`.
+
+A future release needs a compatible frontend and backend, public `VITE_API_BASE_URL`, appropriate backend CORS, and server-side Trakt/Fanart.tv key and cache configuration. The token is never a frontend setting. Changes here do not initiate or authorize a production rollout.
 
 ## Anonymous identity and groups
 
 `POST /users` issues an ID, a random 256-bit bearer credential, and an expiration timestamp (one year). Only SHA-256 hashes of these high-entropy credentials are stored. IDs alone grant no profile access. Profile GETs, ratings, and personalized recommendations require `Authorization: Bearer CREDENTIAL`. Responses containing private data use `Cache-Control: no-store`.
+
+Request-validation errors return only fixed `type`, sanitized `loc`, and fixed `msg` diagnostics. Submitted inputs, validator context, custom messages, and dynamic mapping keys are not serialized. The supported runtime and combined local launcher disable Uvicorn access logging because raw URLs can contain mistakenly pasted credentials. Operators must separately check ingress/platform logging; never log authorization headers, recovery codes, invitation bodies, or full credential-bearing URLs.
 
 The browser stores the credential in localStorage, restores it after refresh, and reacts to identity changes in other tabs. Save the masked **private recovery code** securely before replacing a profile or clearing browser storage. Anyone holding it owns the profile. No email/password account or automatic lost-key recovery is implied. LocalStorage is accessible to same-origin scripts; React text rendering, restricted scripts, dependency updates, and the Vercel CSP reduce risk but do not make stolen credentials harmless.
 
@@ -67,7 +106,15 @@ The frontend preserves HTTP status/Retry-After, times out requests after 45 seco
 | `APP_ENV` | `development` locally; image defaults to `production`. Unknown modes fail. |
 | `DATABASE_URL` | Backend secret. Production requires PostgreSQL with `sslmode=require`, `verify-ca`, or `verify-full`; prefer certificate verification supported by your Neon connection. Missing configuration never falls back to SQLite in production. |
 | `CORS_ALLOWED_ORIGINS` | Exact comma-separated origins, no paths/trailing slash/wildcards. Production requires HTTPS origins. Authorization is independently enforced. |
-| `VITE_API_BASE_URL` | Public backend HTTPS origin, no `/api`; set at frontend build time. Never put a secret in `VITE_*`. Unset means development `/api` proxy; Vercel must supply the real backend origin. |
+| `VITE_API_BASE_URL` | Public backend HTTPS origin, no `/api`; set at frontend build time. Never put a secret in `VITE_*`. Unset means development `/api` proxy; Vercel must supply the real backend origin. The default local launcher explicitly uses `/api` in its Vite child. |
+| `API_PROXY_TARGET` | Manual frontend-only development: loopback HTTP(S) API origin, default `http://127.0.0.1:8000`. Server-only; never bundled as browser configuration. |
+| `MOVELLE_DEV_API_PORT` | Default local launcher only: API port, default 8000. The launcher configures its matching Vite proxy. |
+| `MOVELLE_DEV_INSTANCE` | Optional local database namespace; useful for isolated browser QA. |
+| `MOVELLE_DEV_PYTHON` | Default local launcher only: optional Python executable; otherwise uses the repository `.venv`. |
+| `TRAKT_CLIENT_ID` | Server-only Trakt application client ID for public metadata. No OAuth or client secret required. |
+| `FANART_API_KEY` | Server-only Fanart.tv project API key. Personal keys are optional tab-only user inputs, not deployment variables. |
+| `MOVELLE_ARTWORK_LINKS` | Optional MovieLens links CSV with sibling movies CSV for verified canonical image matching. |
+| `MOVELLE_ARTWORK_CACHE_DIR` | Optional writable public metadata cache; local launcher defaults to `.movelle-dev/artwork`. |
 | `MOVIELENS_PREPARED_DIR` | Prepared reference directory. Image default `/backend/data/reference/ml-32m-v1`. |
 | `MOVIELENS_ARCHIVE_URL` / `MOVIELENS_ARCHIVE_SHA256` | Both required for opt-in pinned bootstrap; omit both for administrator-mounted artifacts. |
 | `TRUSTED_PROXY_IPS` | Explicit trusted forwarding proxies; empty is conservative, wildcard is rejected in production. |
@@ -91,8 +138,12 @@ The image is non-root (UID 10001), contains runtime-only dependencies, uses one 
 .\.venv\Scripts\python.exe -m pytest -q -p no:cacheprovider
 cd frontend
 npm test
+npm run test:dev
+npm run test:browser
 npm run build
 ```
+
+`npm run test:dev` checks real port conflicts and shutdown on owned API failure using ports 5181/8011. `npm run test:browser` uses installed Chrome in a fresh headless context and owns ports 5180/8010 with a fresh isolated SQLite instance per run. It never uses a personal browser profile. Masked screenshots are written to `docs/screenshots/movelle/`; traces and videos are disabled to keep recovery and invitation codes out of artifacts. Screenshots are local review artifacts and are excluded from Git. Set `MOVELLE_SCREENSHOT_DIR` to an absolute directory to save a run separately from existing review captures. Live poster checks require `TRAKT_CLIENT_ID` and `FANART_API_KEY` in the server process. Personal-key browser tests intercept synthetic keys locally rather than submitting fabricated credentials to the provider.
 
 For a disposable localhost PostgreSQL server set `POSTGRES_TEST_URL` only in the test process. CI provisions its own PostgreSQL 17 container. Optional 32M tests read existing local prepared files and never call production services. `scripts/smoke_container.py --image IMAGE --prepared PATH` starts/stops only a newly created disposable container and verifies readiness, ownership, persistence contract, recommendations, UID, and absence of pytest/HTTPX.
 
@@ -132,3 +183,5 @@ The tracked MovieLens Small snapshot is retained for deterministic offline tests
 The original deterministic offline evaluation remains in `scripts/evaluate_recommender.py`. Follow train, validation, select, test phases with a fresh output directory; do not retune against test results. Sparse confidence is evidence, not probability. The reported eight-film scenario and exact baseline timing/output comparisons are recorded in [the recommendation investigation](docs/RECOMMENDATIONS.md).
 
 Dataset citation: F. Maxwell Harper and Joseph A. Konstan (2015), *The MovieLens Datasets: History and Context*, ACM TiiS 5(4), Article 19, https://doi.org/10.1145/2827872. Follow the usage conditions in the upstream [README](data/README.txt), including restrictions on commercial use.
+
+The official [Small license](https://files.grouplens.org/datasets/movielens/ml-latest-small-README.html) and [32M license](https://files.grouplens.org/datasets/movielens/ml-32m-README.html) permit research use subject to attribution, no implied endorsement, and the same conditions on redistributed data or transformations. Commercial or revenue-bearing use requires faculty permission. The [dataset site](https://grouplens.org/datasets/movielens/) also says public redistribution is typically not permitted and provides a permission-request form. Obtain clarification for a public portfolio and its downloadable Small files/prepared 32M release; do not assume an educational label or LinkedIn promotion resolves the scope. Preserve the upstream license with every prepared distribution. Neither GroupLens nor the University of Minnesota endorses Movelle.

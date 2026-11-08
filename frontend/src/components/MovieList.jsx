@@ -1,52 +1,171 @@
 import { useMemo, useState } from 'react'
-import { Star } from 'lucide-react'
+import { Check, Star } from 'lucide-react'
+import MovieCover, { movieTitle } from './MovieCover.jsx'
+import { StarRating } from './ui.jsx'
+import { useFilmActions } from '../artwork.js'
 
 function RatingControl({ movie, savedRating, onRate, pending }) {
   const [value, setValue] = useState(savedRating ?? 3.5)
-
-  function save(event) {
-    event.preventDefault()
-    if (!pending) onRate(movie, Number(value))
-  }
-
   const values = Array.from({ length: 10 }, (_, index) => (index + 1) / 2)
-  if (savedRating !== undefined && !values.includes(savedRating)) values.push(savedRating)
+  if (savedRating !== undefined && !values.includes(savedRating))
+    values.push(savedRating)
   values.sort((a, b) => a - b)
-
-  return <div className="sm:w-52 sm:shrink-0">
-    <form onSubmit={save} className="flex items-end gap-2">
-      <label className="flex-1 text-xs text-stone-600">{savedRating === undefined ? 'Your rating' : `Saved: ${savedRating} / 5`}
-        <select aria-label={`Rating for ${movie.title}`} value={value} onChange={(event) => setValue(event.target.value)} disabled={pending} className="mt-1 w-full">
-          {values.map((rating) => <option key={rating} value={rating}>{String(rating)}</option>)}
+  return (
+    <form
+      onSubmit={(event) => {
+        event.preventDefault()
+        if (!pending) onRate(movie, Number(value))
+      }}
+      className="rating-control"
+    >
+      <div className="rating-control-top">
+        <span className="rating-label">
+          {savedRating === undefined
+            ? 'Your rating'
+            : `Saved: ${savedRating} / 5`}
+        </span>
+        <StarRating value={Number(value)} />
+      </div>
+      <div className="rating-control-actions">
+        <label className="sr-only" htmlFor={`rating-${movie.movie_id}`}>
+          Rating for {movie.title}
+        </label>
+        <select
+          id={`rating-${movie.movie_id}`}
+          aria-label={`Rating for ${movie.title}`}
+          value={value}
+          onChange={(event) => setValue(event.target.value)}
+          disabled={pending}
+        >
+          {values.map((rating) => (
+            <option key={rating} value={rating}>
+              {String(rating)}
+            </option>
+          ))}
         </select>
-      </label>
-      <button className="button-secondary" disabled={pending}>{pending ? 'Saving…' : savedRating === undefined ? 'Save' : 'Update'}</button>
+        <button className="button-secondary" disabled={pending}>
+          {pending ? 'Saving…' : savedRating === undefined ? 'Save' : 'Update'}
+          {savedRating !== undefined && !pending && (
+            <Check size={14} aria-hidden="true" />
+          )}
+        </button>
+      </div>
     </form>
-  </div>
+  )
 }
 
-export default function MovieList({ movies, ratings = [], onRate, userId, pendingRatings = new Set(), ranked = false, showConfidence = false, scoreLabel = 'Score' }) {
-  const ratingMap = useMemo(() => new Map(ratings.map((row) => [row.movie_id, row.rating])), [ratings])
-  return <ol className="divide-y divide-stone-200 border-y border-stone-200">
-    {movies.map((movie, index) => {
-      const savedRating = ratingMap.get(movie.movie_id) ?? movie.rating
-      return <li key={movie.movie_id} className="flex flex-col gap-4 py-5 sm:flex-row sm:items-center">
-        <div className="flex min-w-0 flex-1 gap-4">
-          {ranked && <span className="w-7 shrink-0 pt-1 font-mono text-sm text-stone-400">{String(index + 1).padStart(2, '0')}</span>}
-          <div className="min-w-0">
-            <h3 className="font-semibold leading-snug text-stone-900">{movie.title}</h3>
-            <p className="mt-1 text-sm leading-relaxed text-stone-500">{movie.genres.join(' · ')}</p>
-          </div>
-        </div>
-        {ranked && <div className="shrink-0 text-sm sm:text-right"><div className="flex items-center gap-2 sm:justify-end">
-          <Star size={14} aria-hidden="true" className="text-amber-700" />
-          <span className="font-mono font-semibold">{movie.score.toFixed(2)} <span className="font-sans font-normal text-stone-500">/ 5</span></span>
-          <span className="text-xs text-stone-500">{movie.method === 'popularity_fallback' ? 'Average' : scoreLabel}</span>
-        </div>
-          {showConfidence && <p className="mt-1 text-xs text-stone-500">Confidence: {movie.confidence === null ? 'N/A' : movie.confidence.toFixed(2)}{movie.method === 'popularity_fallback' ? ' · Popularity fallback' : ''}</p>}
-        </div>}
-        {onRate && movie.available !== false && <RatingControl key={`${movie.movie_id}-${savedRating}`} movie={movie} savedRating={savedRating} onRate={onRate} pending={pendingRatings.has(`${userId}:${movie.movie_id}`)} />}
-      </li>
-    })}
-  </ol>
+export default function MovieList({
+  movies,
+  ratings = [],
+  onRate,
+  userId,
+  pendingRatings = new Set(),
+  ranked = false,
+  showConfidence = false,
+  scoreLabel = 'Score',
+  layout = 'cards',
+  onPick,
+  showRank = true,
+}) {
+  const actions = useFilmActions()
+  const ratingMap = useMemo(
+    () => new Map(ratings.map((row) => [row.movie_id, row.rating])),
+    [ratings],
+  )
+  return (
+    <ol
+      className={`movie-grid ${ranked ? 'ranked-grid' : ''} ${layout === 'collection' ? 'collection-list' : layout === 'shelf' ? 'shelf-list' : ''}`}
+    >
+      {movies.map((movie, index) => {
+        const savedRating = ratingMap.get(movie.movie_id) ?? movie.rating
+        const { title, year } = movieTitle(movie.title)
+        return (
+          <li
+            key={movie.movie_id}
+            className="movie-card"
+            data-movie-id={movie.movie_id}
+            style={{ '--i': Math.min(index, 8) }}
+          >
+            <div className="movie-cover-wrap">
+              {onPick || actions?.openFilm ? (
+                <button
+                  className="cover-button"
+                  onClick={() =>
+                    actions?.openFilm ? actions.openFilm(movie) : onPick(movie)
+                  }
+                  aria-label={`Details for ${movie.title}`}
+                >
+                  <MovieCover
+                    movie={movie}
+                    rank={ranked && showRank ? index + 1 : undefined}
+                  />
+                </button>
+              ) : (
+                <MovieCover
+                  movie={movie}
+                  rank={ranked && showRank ? index + 1 : undefined}
+                />
+              )}
+              {savedRating !== undefined && (
+                <span className="rated-badge">
+                  <Check size={12} aria-hidden="true" />
+                  Rated
+                </span>
+              )}
+            </div>
+            <div className="movie-card-body">
+              <div className="movie-meta">
+                {year && <span>{year}</span>}
+                <span>
+                  {movie.genres
+                    .filter((genre) => genre !== '(no genres listed)')
+                    .join(' · ') || 'Genre unavailable'}
+                </span>
+              </div>
+              <h3>{title}</h3>
+              {ranked && (
+                <div className="movie-score">
+                  <div>
+                    <Star size={15} fill="currentColor" aria-hidden="true" />
+                    <strong>{movie.score.toFixed(2)}</strong>
+                    <span>/ 5</span>
+                  </div>
+                  <span>
+                    {movie.method === 'popularity_fallback'
+                      ? 'Average · Fallback'
+                      : scoreLabel}
+                  </span>
+                </div>
+              )}
+              {showConfidence && (
+                <p className="confidence">
+                  Confidence:{' '}
+                  {movie.confidence == null
+                    ? 'N/A'
+                    : movie.confidence.toFixed(2)}
+                  {movie.method === 'popularity_fallback'
+                    ? ' · Popularity fallback'
+                    : ''}
+                </p>
+              )}
+              {onRate && movie.available !== false && (
+                <RatingControl
+                  key={`${movie.movie_id}-${savedRating}`}
+                  movie={movie}
+                  savedRating={savedRating}
+                  onRate={onRate}
+                  pending={pendingRatings.has(`${userId}:${movie.movie_id}`)}
+                />
+              )}
+              {movie.available === false && (
+                <p className="unavailable-label">
+                  No longer in the catalogue. Your rating is kept.
+                </p>
+              )}
+            </div>
+          </li>
+        )
+      })}
+    </ol>
+  )
 }
