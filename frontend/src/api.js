@@ -105,7 +105,7 @@ export async function request(
           headers: {
             ...headers,
             ...(token &&
-            (route.startsWith('/users/') || route === '/recommendations/group' || route === '/movies/artwork')
+            (route.startsWith('/users/') || route === '/recommendations/group')
               ? { Authorization: `Bearer ${token}` }
               : {}),
             ...(body === undefined
