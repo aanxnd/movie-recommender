@@ -303,9 +303,12 @@ class ArtworkStore:
         if not meta and not images:
             return None
         poster, backdrop = (images or {}).get('poster'), (images or {}).get('backdrop')
+        # When no portrait poster exists, show the provider-approved landscape still
+        # in poster slots instead of a blank tile. Preserve its actual attribution.
+        display_poster = poster or backdrop
         return {'movie_id': mid, **(meta or {'imdb_id': imdb, 'match': 'movielens_imdb'}),
-                'poster_path': image_url((poster or {}).get('url')), 'backdrop_path': image_url((backdrop or {}).get('url')),
-                'poster_credit': poster, 'backdrop_credit': backdrop, 'director': director,
+                'poster_path': image_url((display_poster or {}).get('url')), 'backdrop_path': image_url((backdrop or {}).get('url')),
+                'poster_credit': display_poster, 'backdrop_credit': backdrop, 'director': director,
                 'credits_loaded': include_credits, 'source': 'trakt+fanart.tv'}
 
     def batch(self, ids, personal_key=None, include_credits=False):
