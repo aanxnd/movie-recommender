@@ -1,4 +1,4 @@
-"""Catalogue-only Trakt metadata and Fanart.tv artwork; MovieLens IDs stay canonical."""
+"""Catalogue-only metadata and artwork; MovieLens IDs stay canonical."""
 from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
 import csv
@@ -13,17 +13,20 @@ import time
 import unicodedata
 from urllib.parse import urlsplit
 
-from fastapi import APIRouter, Header, Request, Response
+from fastapi import APIRouter, Header, HTTPException, Path as PathParameter, Request, Response
+from typing import Annotated, Literal
 from pydantic import BaseModel, Field, SecretStr, field_validator
 from sqlalchemy.orm import Session
 from app import limits, security
 from app.providers import ProviderClient, ProviderFailure
+from app.artwork_ids import bundled_ids
+from app.artwork_images import ImageCache, trakt_image_url
 from app.schemas import UserId
 
 router = APIRouter()
 IMDB = re.compile(r'^tt[0-9]{7,10}$')
 IMAGE_PATH = re.compile(r'^/fanart/[A-Za-z0-9/_-]+\.(?:jpg|png|webp)$')
-SCHEMA = 'trakt-fanart-v1'
+SCHEMA = 'trakt-fanart-v2'
 
 
 def film_name(title):
@@ -85,6 +88,7 @@ def select_image(rows, kind):
         lang = row.get('lang', '')
         preference = 0 if lang == 'en' else 1 if lang in ('', '00') else 2
         item = {'url': row['url'], 'width': width, 'height': height,
+                'provider': 'fanart.tv', 'kind': kind,
                 'copyright': str(row.get('copyright') or 'Unknown')[:300],
                 'copyright_link': credit_url(row.get('copyright_link'))}
         choices.append(((preference, -likes, -width * height, str(row.get('id', '')), row['url']), item))
@@ -106,15 +110,18 @@ class ArtworkLookup(BaseModel):
 
 class ArtworkStore:
     def __init__(self, catalog, *, trakt_id='', fanart_key='', links=None, cache=None,
-                 fetch=None, clock=time.time, monotonic=time.monotonic):
+                 fetch=None, clock=time.time, monotonic=time.monotonic,
+                 catalog_checksum=None, image_cache=None):
         self.catalog, self.clock, self.monotonic = catalog, clock, monotonic
         self.client = ProviderClient(trakt_id, fanart_key, clock=clock, monotonic=monotonic)
         self.fetch = fetch or self.client.fetch
         self.trakt_id, self.fanart_key = trakt_id, fanart_key
         self.cache = Path(cache) / SCHEMA if cache else None
-        self.memory, self.ids, self.inflight = OrderedDict(), {}, {}
+        self.memory, self.ids, self.inflight = OrderedDict(), bundled_ids(catalog, catalog_checksum), {}
+        self.image_cache = image_cache if image_cache is not None else ImageCache(Path(cache) / 'trakt-images-v1' if cache else None)
         self.lock = Lock()
         if links:
+            verified_ids = dict(self.ids)
             try:
                 source = Path(links)
                 with source.with_name('movies.csv').open(encoding='utf-8-sig', newline='') as f:
@@ -128,7 +135,7 @@ class ArtworkStore:
                         if mid in catalog and titles.get(mid) == catalog[mid].title and IMDB.fullmatch(imdb):
                             self.ids[mid] = imdb
             except (OSError, ValueError, KeyError, csv.Error):
-                self.ids = {}
+                self.ids = verified_ids
 
     @staticmethod
     def _valid_cached_item(layer, item):
@@ -145,6 +152,12 @@ class ArtworkStore:
                     and (item.get('runtime') is None or type(item['runtime']) is int)
                     and (item.get('released') is None or isinstance(item['released'], str))
                     and isinstance(item.get('metadata_genres', []), list)
+                    and item.get('media_type', 'movie') in {'movie', 'show'}
+                    and isinstance(item.get('images', {}), dict)
+                    and all(isinstance(rows, list) and len(rows) <= 3 and all(
+                        trakt_image_url(url, item.get('media_type', 'movie') + 's', item['trakt_id'], kind)
+                        for url in rows) for kind, rows in item.get('images', {}).items() if kind in {'poster', 'fanart'})
+                    and (item.get('tvdb_id') is None or type(item['tvdb_id']) is int and item['tvdb_id'] > 0)
                     and all(isinstance(g, str) for g in item.get('metadata_genres', [])))
         return all(row is None or (isinstance(row, dict) and image_url(row.get('url'))
                                   and type(row.get('width')) is int and type(row.get('height')) is int
@@ -222,35 +235,43 @@ class ArtworkStore:
     def _metadata(self, mid, deadline):
         title, year = film_name(self.catalog[mid].title)
         imdb = self.ids.get(mid)
-        expected_tid = None
-        if imdb:
-            data = self.fetch('trakt', 'movies/' + imdb, {'extended': 'full'}, deadline=deadline)
-            method = 'movielens_imdb'
-        else:
-            if year is None:
-                return None
-            query = re.sub(r'\s*\([^)]*\)', '', title).strip()
-            article = re.match(r'^(.*),\s*(The|An|A)$', query, flags=re.I)
-            if article:
-                query = article[2] + ' ' + article[1]
-            results = self.fetch('trakt', 'search/movie', {'query': query[:120], 'extended': 'full', 'limit': 10}, deadline=deadline)
-            matches = {}
-            for result in results if isinstance(results, list) else []:
-                row = result.get('movie', {}) if isinstance(result, dict) and result.get('type') == 'movie' else {}
-                if not isinstance(row, dict):
+        for media in ('movie', 'show'):
+            expected_tid = None
+            if imdb:
+                data = self.fetch('trakt', f'{media}s/{imdb}', {'extended': 'full'}, deadline=deadline)
+                method = 'movielens_imdb'
+                if data is None:
                     continue
-                if (row.get('year') == year and isinstance(row.get('title'), str)
-                        and title_variants(title) & title_variants(row['title'])):
+            else:
+                if year is None:
+                    return None
+                query = re.sub(r'\s*\([^)]*\)', '', title).strip()
+                article = re.match(r'^(.*),\s*(The|An|A)$', query, flags=re.I)
+                if article:
+                    query = article[2] + ' ' + article[1]
+                results = self.fetch('trakt', 'search/' + media, {'query': query[:120], 'extended': 'full', 'limit': 10}, deadline=deadline)
+                matches = {}
+                for result in results if isinstance(results, list) else []:
+                    row = result.get(media, {}) if isinstance(result, dict) and result.get('type') == media else {}
+                    if (not isinstance(row, dict) or row.get('year') != year
+                            or not isinstance(row.get('title'), str)
+                            or not title_variants(title) & title_variants(row['title'])):
+                        continue
                     ids = row.get('ids')
                     tid = ids.get('trakt') if isinstance(ids, dict) else None
                     if type(tid) is int and tid > 0:
                         matches[tid] = row
-            if len(matches) != 1:
-                return None
-            tid = next(iter(matches))
-            expected_tid = tid
-            data = self.fetch('trakt', f'movies/{tid}', {'extended': 'full'}, deadline=deadline)
-            method = 'exact_title_year'
+                if len(matches) > 1:
+                    return None  # Never evade an ambiguous movie match by guessing a show.
+                if not matches:
+                    continue
+                expected_tid = next(iter(matches))
+                data = self.fetch('trakt', f'{media}s/{expected_tid}', {'extended': 'full'}, deadline=deadline)
+                method = 'exact_title_year'
+            return self._checked_metadata(data, title, year, imdb, expected_tid, method, media)
+        return None
+
+    def _checked_metadata(self, data, title, year, imdb, expected_tid, method, media):
         if not isinstance(data, dict):
             return None
         ids = data.get('ids')
@@ -265,21 +286,42 @@ class ArtworkStore:
                 or (not imdb and not title_variants(title) & title_variants(str(data.get('title', ''))))):
             return None
         runtime, released = data.get('runtime'), data.get('released')
+        images = data.get('images') if isinstance(data.get('images'), dict) else {}
+        safe_images = {}
+        for kind in ('poster', 'fanart'):
+            rows = images.get(kind)
+            safe_images[kind] = list(dict.fromkeys(
+                url for value in (rows[:3] if isinstance(rows, list) else [])
+                if (url := trakt_image_url(value, media + 's', tid, kind))))
+        tvdb = ids.get('tvdb')
+        slug = ids.get('slug')
         return {'imdb_id': matched_imdb, 'trakt_id': tid, 'match': method,
+                'media_type': media, 'tvdb_id': tvdb if type(tvdb) is int and tvdb > 0 else None,
+                'images': safe_images,
+                'trakt_page': f'https://trakt.tv/{media}s/{slug}' if isinstance(slug, str) and re.fullmatch(r'[a-z0-9-]{1,180}', slug) else None,
                 'overview': str(data.get('overview') or '')[:3000],
                 'metadata_genres': [g[:60] for g in data.get('genres', []) if isinstance(g, str)][:20] if isinstance(data.get('genres'), list) else [],
                 'runtime': runtime if type(runtime) is int and 0 < runtime < 2000 else None,
                 'released': released if isinstance(released, str) and re.fullmatch(r'\d{4}-\d{2}-\d{2}', released) else None}
 
-    def _images(self, imdb, personal_key, deadline):
-        data = self.fetch('fanart', 'movies/' + imdb, {'source': 'imdb'}, personal_key=personal_key, deadline=deadline)
-        if not isinstance(data, dict) or data.get('imdb_id') != imdb:
+    def _images(self, imdb, personal_key, deadline, meta=None):
+        show = (meta or {}).get('media_type') == 'show'
+        if show and not (meta or {}).get('tvdb_id'):
             return None
-        return {'poster': select_image(data.get('movieposter'), 'poster'),
-                'backdrop': select_image(data.get('moviebackground'), 'backdrop')}
+        path = f"tv/{meta['tvdb_id']}" if show else 'movies/' + imdb
+        data = self.fetch('fanart', path, None if show else {'source': 'imdb'}, personal_key=personal_key, deadline=deadline)
+        if not isinstance(data, dict):
+            return None
+        if show:
+            if str(data.get('thetvdb_id')) != str(meta['tvdb_id']):
+                return None
+        elif data.get('imdb_id') != imdb:
+            return None
+        return {'poster': select_image(data.get('tvposter' if show else 'movieposter'), 'poster'),
+                'backdrop': select_image(data.get('showbackground' if show else 'moviebackground'), 'backdrop')}
 
-    def _credits(self, tid, deadline):
-        data = self.fetch('trakt', f'movies/{tid}/people', deadline=deadline)
+    def _credits(self, tid, deadline, media='movie'):
+        data = self.fetch('trakt', f'{media}s/{tid}/people', deadline=deadline)
         crew = data.get('crew') if isinstance(data, dict) else None
         rows = crew.get('directing') if isinstance(crew, dict) else None
         names = set()
@@ -298,18 +340,54 @@ class ArtworkStore:
         if not imdb:
             return None
         scope = hashlib.sha256(personal_key.encode()).hexdigest() if personal_key else ''
-        images = self._cached('images', mid, lambda: self._images(imdb, personal_key, deadline), scope=scope, deadline=deadline) if self.fanart_key else None
-        director = self._cached('credits', mid, lambda: self._credits(meta['trakt_id'], deadline), deadline=deadline) if include_credits and meta and self.trakt_id else None
+        images = self._cached('images', mid, lambda: self._images(imdb, personal_key, deadline, meta), scope=scope, deadline=deadline) if self.fanart_key else None
+        director = self._cached('credits', mid, lambda: self._credits(meta['trakt_id'], deadline, meta.get('media_type', 'movie')), deadline=deadline) if include_credits and meta and self.trakt_id else None
         if not meta and not images:
             return None
         poster, backdrop = (images or {}).get('poster'), (images or {}).get('backdrop')
-        # When no portrait poster exists, show the provider-approved landscape still
-        # in poster slots instead of a blank tile. Preserve its actual attribution.
-        display_poster = poster or backdrop
-        return {'movie_id': mid, **(meta or {'imdb_id': imdb, 'match': 'movielens_imdb'}),
-                'poster_path': image_url((display_poster or {}).get('url')), 'backdrop_path': image_url((backdrop or {}).get('url')),
-                'poster_credit': display_poster, 'backdrop_credit': backdrop, 'director': director,
+        trakt_poster = self._trakt_choice(mid, meta, 'poster')
+        trakt_backdrop = self._trakt_choice(mid, meta, 'fanart')
+        choices = [row for row in (self._choice(poster, 'poster'), trakt_poster,
+                                   self._choice(backdrop, 'background'), trakt_backdrop) if row]
+        backgrounds = [row for row in (self._choice(backdrop, 'background'), trakt_backdrop) if row]
+        display = choices[0] if choices else None
+        background = backgrounds[0] if backgrounds else None
+        public_meta = {k: v for k, v in (meta or {'imdb_id': imdb, 'match': 'movielens_imdb'}).items() if k != 'images'}
+        return {'movie_id': mid, **public_meta,
+                'poster_path': display['url'] if display else None, 'backdrop_path': background['url'] if background else None,
+                'poster_credit': display['credit'] if display else None,
+                'backdrop_credit': background['credit'] if background else None,
+                'cover_candidates': choices, 'backdrop_candidates': backgrounds,
+                'cover_kind': display['kind'] if display else None, 'director': director,
                 'credits_loaded': include_credits, 'source': 'trakt+fanart.tv'}
+
+    @staticmethod
+    def _choice(image, kind):
+        if not isinstance(image, dict) or not image_url(image.get('url')):
+            return None
+        return {'url': image['url'], 'kind': kind, 'provider': 'fanart.tv', 'credit': image}
+
+    def _trakt_choice(self, mid, meta, kind):
+        if not meta or not meta.get('images', {}).get(kind) or not self.trakt_id:
+            return None
+        role = 'poster' if kind == 'poster' else 'backdrop'
+        path = f'/movies/artwork-image/{mid}/{role}'
+        credit = {'url': path, 'provider': 'trakt', 'kind': 'poster' if kind == 'poster' else 'background',
+                  'copyright': 'Unknown', 'copyright_link': meta.get('trakt_page')}
+        return {'url': path, 'kind': credit['kind'], 'provider': 'trakt', 'credit': credit}
+
+    def cached_image(self, mid, role):
+        if mid not in self.catalog or not self.trakt_id or role not in {'poster', 'backdrop'}:
+            return None
+        meta = self._cached('metadata', mid, lambda: self._metadata(mid, self.monotonic() + 8))
+        if not meta:
+            return None
+        kind = 'poster' if role == 'poster' else 'fanart'
+        for url in meta.get('images', {}).get(kind, []):
+            checked = trakt_image_url(url, meta.get('media_type', 'movie') + 's', meta['trakt_id'], kind)
+            if checked and (asset := self.image_cache.get(checked)):
+                return asset
+        return None
 
     def batch(self, ids, personal_key=None, include_credits=False):
         with ThreadPoolExecutor(max_workers=3) as pool:
@@ -336,4 +414,22 @@ def configure(application):
     application.state.artwork = ArtworkStore(application.state.catalog,
         trakt_id=os.environ.get('TRAKT_CLIENT_ID', '').strip(),
         fanart_key=os.environ.get('FANART_API_KEY', '').strip(),
-        links=os.environ.get('MOVELLE_ARTWORK_LINKS'), cache=os.environ.get('MOVELLE_ARTWORK_CACHE_DIR'))
+        links=os.environ.get('MOVELLE_ARTWORK_LINKS'), cache=os.environ.get('MOVELLE_ARTWORK_CACHE_DIR'),
+        catalog_checksum=application.state.historical_users.manifest.get('artifact_checksums', {}).get('catalog.json'))
+
+
+@router.get('/movies/artwork-image/{movie_id}/{role}')
+def cached_artwork_image(movie_id: Annotated[int, PathParameter(gt=0, lt=2**63)], role: Literal['poster', 'backdrop'], request: Request,
+                         if_none_match: str | None = Header(default=None, max_length=100)):
+    with Session(request.app.state.engine) as session, session.begin():
+        host = request.client.host if request.client else 'unknown'
+        limits.consume(session, host, 'artwork-image', 60, 60)
+        limits.consume(session, 'all', 'artwork-image-global', 180, 60)
+    asset = request.app.state.artwork.cached_image(movie_id, role)
+    if asset is None:
+        raise HTTPException(404, 'Artwork unavailable', headers={'Cache-Control': 'no-store'})
+    headers = {'Cache-Control': 'public, max-age=86400', 'ETag': asset.etag,
+               'X-Content-Type-Options': 'nosniff'}
+    if if_none_match in {asset.etag, '*'}:
+        return Response(status_code=304, headers=headers)
+    return Response(asset.data, media_type='image/webp', headers=headers)

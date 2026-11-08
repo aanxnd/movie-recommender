@@ -1,32 +1,32 @@
 ﻿import { useEffect, useState } from 'react'
 import { ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react'
 import { request } from '../api.js'
-import { imageUrl, imageSrcSet, useArtwork, useFilmActions } from '../artwork.js'
+import { imageUrl, imageSrcSet, useArtwork, useFilmActions, useImageCandidate } from '../artwork.js'
 import MovieCover, { movieTitle } from './MovieCover.jsx'
 import MovieList from './MovieList.jsx'
 import { Skeletons } from './ui.jsx'
 
 function FeaturedFilm({ movie, onPick }) {
   const artwork = useArtwork(movie)
-  const backdrop = imageUrl(artwork?.backdrop_path, 'fanart')
-  const [failed, setFailed] = useState(false)
+  const { choice, onError } = useImageCandidate(artwork, 'backdrop')
+  const backdrop = imageUrl(choice?.url, 'fanart')
   const { title, year } = movieTitle(movie.title)
-  useEffect(() => setFailed(false), [movie.movie_id, backdrop])
   return (
     <article
-      className={`featured-film ${!backdrop || failed ? 'feature-without-backdrop' : ''}`}
+      className={`featured-film ${!backdrop ? 'feature-without-backdrop' : ''}`}
     >
-      {backdrop && !failed && (
+      {backdrop && (
         <img
           className="feature-backdrop"
-          src={imageUrl(artwork.backdrop_path, 'fanart')}
-          srcSet={imageSrcSet(artwork.backdrop_path, artwork.backdrop_credit, true)}
+          key={backdrop}
+          src={backdrop}
+          srcSet={imageSrcSet(choice.url, choice.credit, true)}
           sizes="(max-width: 767px) 100vw, 1280px"
           width="1280"
           height="720"
           fetchPriority="high"
           alt={`Scene from ${title}`}
-          onError={() => setFailed(true)}
+          onError={onError}
         />
       )}
       <div className="feature-copy">
@@ -47,7 +47,7 @@ function FeaturedFilm({ movie, onPick }) {
           </span>
         </div>
       </div>
-      {(!backdrop || failed) && (
+      {!backdrop && (
         <div className="feature-poster">
           <MovieCover movie={movie} priority />
         </div>

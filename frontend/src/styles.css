@@ -541,6 +541,15 @@
   .movie-cover.image-ready img {
     opacity: 1;
   }
+  .cover-kind {
+    position: absolute;
+    bottom: 8px;
+    left: 8px;
+    padding: 3px 6px;
+    background: #100d12e6;
+    color: #f0e9de;
+    font-size: 10px;
+  }
   .poster-unavailable {
     position: absolute;
     inset: 0;

@@ -1,0 +1,8 @@
+{
+  "schema": 1,
+  "catalog_sha256": "e9a41fe33ee31f142f44d50c0ca2c3f835b424d350f32a3426431b38b5158255",
+  "file_sha256": "f53c85b967cb79066be8988fe78dd76eb509945d7cb77e67b7ece8d6e62311c8",
+  "source_movies_sha256": "b37ca1abc7798de741138ed252b62f69f7e37c84b8a8fab1b82d409b4c6c5cc2",
+  "source_links_sha256": "ef17da7710be76f7d510d5768d1b61826e3af4bf57812b9ca377e4c912123b22",
+  "mapped_movies": 87585
+}

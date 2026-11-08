@@ -255,14 +255,59 @@ def test_trakt_artwork_fallback_when_fanart_has_no_images(tmp_path):
     def fetch(provider, path, *args, **kwargs):
         if provider == 'fanart':
             return images(movieposter=[], moviebackground=[])
-        return metadata(images={'poster': ['walter-r2.trakt.tv/images/movies/000/001/234/posters/thumb/example.webp']})
+        return metadata(images={'poster': ['walter-r2.trakt.tv/images/movies/000/000/481/posters/thumb/example.webp']})
     artwork.fetch = fetch
     item = artwork.get(1)
-    assert item['poster_path'] == '/movies/artwork-image/1'
-    assert item['poster_credit']['copyright'] == 'Trakt'
+    assert item['poster_path'] == '/movies/artwork-image/1/poster'
+    assert item['poster_credit']['copyright'] == 'Unknown'
+    assert item['poster_credit']['provider'] == 'trakt'
+    assert 'walter-r2.trakt.tv' not in json.dumps(item)
 
 
 def test_trakt_artwork_rejects_untrusted_host(tmp_path):
     artwork = store(tmp_path, [])
     artwork.fetch = lambda provider, *args, **kwargs: images(movieposter=[], moviebackground=[]) if provider == 'fanart' else metadata(images={'poster': ['evil.example/images/movies/1/posters/full/evil.webp']})
     assert artwork.get(1)['poster_path'] is None
+
+
+@pytest.mark.parametrize('fanart_poster,trakt_poster,fanart_background,trakt_background,expected', [
+    (True, True, True, True, ['fanart.tv:poster', 'trakt:poster', 'fanart.tv:background', 'trakt:background']),
+    (False, True, True, True, ['trakt:poster', 'fanart.tv:background', 'trakt:background']),
+    (False, False, True, True, ['fanart.tv:background', 'trakt:background']),
+    (False, False, False, True, ['trakt:background']),
+    (False, False, False, False, []),
+])
+def test_all_cover_priorities_and_background_kinds(tmp_path, fanart_poster, trakt_poster, fanart_background, trakt_background, expected):
+    artwork = store(tmp_path, [])
+    def fetch(provider, *a, **kw):
+        if provider == 'fanart': return images(movieposter=[image()] if fanart_poster else [], moviebackground=[image('backdrop')] if fanart_background else [])
+        return metadata(images={'poster': ['media.trakt.tv/movies/481/medium/poster.webp'] if trakt_poster else [],
+            'fanart': ['media.trakt.tv/movies/481/medium/fanart.webp'] if trakt_background else []})
+    artwork.fetch = fetch
+    item = artwork.get(1)
+    assert [row['provider'] + ':' + row['kind'] for row in item['cover_candidates']] == expected
+    assert item['cover_kind'] == (expected[0].split(':')[1] if expected else None)
+    assert 'media.trakt.tv' not in json.dumps(item)
+
+
+def test_series_lookup_uses_verified_imdb_then_tvdb_and_rejects_wrong_tv_identity(tmp_path):
+    artwork = store(tmp_path, [])
+    calls = []
+    def fetch(provider, path, *a, **kw):
+        calls.append((provider, path))
+        if path.startswith('movies/'): return None
+        if provider == 'trakt': return metadata(ids={'imdb': 'tt0133093', 'trakt': 481, 'tvdb': 74205},
+            images={'poster': ['media.trakt.tv/shows/481/medium/poster.webp']})
+        return {'thetvdb_id': '74205', 'tvposter': [image()], 'showbackground': [image('backdrop')]}
+    artwork.fetch = fetch
+    item = artwork.get(1)
+    assert item['media_type'] == 'show' and item['poster_credit']['provider'] == 'fanart.tv'
+    assert calls == [('trakt', 'movies/tt0133093'), ('trakt', 'shows/tt0133093'), ('fanart', 'tv/74205')]
+    assert artwork._images('tt0133093', None, None, {'media_type': 'show', 'tvdb_id': 999}) is None
+
+
+def test_wrong_cdn_identity_and_kind_never_create_cached_image_candidate(tmp_path):
+    artwork = store(tmp_path, [])
+    artwork.fetch = lambda provider, *a, **kw: images(movieposter=[], moviebackground=[]) if provider == 'fanart' else metadata(images={
+        'poster': ['media.trakt.tv/movies/999/medium/poster.webp', 'media.trakt.tv/shows/481/medium/poster.webp', 'media.trakt.tv/movies/481/medium/fanart.webp']})
+    assert artwork.get(1)['cover_candidates'] == []
