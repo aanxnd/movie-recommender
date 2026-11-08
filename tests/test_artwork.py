@@ -248,3 +248,21 @@ def test_no_available_artwork_stays_missing(tmp_path):
     artwork.fetch = lambda provider, *args, **kwargs: images(movieposter=[], moviebackground=[]) if provider == 'fanart' else metadata()
     item = artwork.get(1)
     assert item['poster_path'] is None and item['backdrop_path'] is None
+
+
+def test_trakt_artwork_fallback_when_fanart_has_no_images(tmp_path):
+    artwork = store(tmp_path, [])
+    def fetch(provider, path, *args, **kwargs):
+        if provider == 'fanart':
+            return images(movieposter=[], moviebackground=[])
+        return metadata(images={'poster': ['walter-r2.trakt.tv/images/movies/000/001/234/posters/thumb/example.webp']})
+    artwork.fetch = fetch
+    item = artwork.get(1)
+    assert item['poster_path'] == '/movies/artwork-image/1'
+    assert item['poster_credit']['copyright'] == 'Trakt'
+
+
+def test_trakt_artwork_rejects_untrusted_host(tmp_path):
+    artwork = store(tmp_path, [])
+    artwork.fetch = lambda provider, *args, **kwargs: images(movieposter=[], moviebackground=[]) if provider == 'fanart' else metadata(images={'poster': ['evil.example/images/movies/1/posters/full/evil.webp']})
+    assert artwork.get(1)['poster_path'] is None
