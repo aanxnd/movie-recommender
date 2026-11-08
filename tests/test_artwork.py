@@ -228,3 +228,23 @@ def test_missing_imdb_cell_is_ignored_without_breaking_startup(tmp_path):
     source.write_text('movieId,imdbId\n1\n',encoding='utf-8')
     artwork=ArtworkStore(catalog(),trakt_id='fixture',fanart_key='fixture',links=source,fetch=fetcher([]))
     assert artwork.ids=={} and artwork.get(1)['match']=='exact_title_year'
+
+
+def test_backdrop_fills_missing_poster_without_losing_credit(tmp_path):
+    artwork = store(tmp_path, [])
+    def fetch(provider, path, *args, **kwargs):
+        if provider == 'fanart':
+            return images(movieposter=[], moviebackground=[image('backdrop', copyright='Backdrop holder')])
+        return metadata()
+    artwork.fetch = fetch
+    item = artwork.get(1)
+    assert item['poster_path'] == item['backdrop_path']
+    assert item['poster_path'].endswith('/backdrop.jpg')
+    assert item['poster_credit']['copyright'] == 'Backdrop holder'
+
+
+def test_no_available_artwork_stays_missing(tmp_path):
+    artwork = store(tmp_path, [])
+    artwork.fetch = lambda provider, *args, **kwargs: images(movieposter=[], moviebackground=[]) if provider == 'fanart' else metadata()
+    item = artwork.get(1)
+    assert item['poster_path'] is None and item['backdrop_path'] is None
