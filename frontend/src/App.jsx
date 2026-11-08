@@ -377,7 +377,7 @@ export default function App() {
             <h2>Credits</h2>
             <p>Catalogue and ratings: MovieLens.</p>
             <p>Movelle uses <a href="https://trakt.tv/" target="_blank" rel="noreferrer">Trakt</a> but is not endorsed or certified by Trakt.</p>
-            <p>Movie artwork is sourced through <a href="https://fanart.tv/" target="_blank" rel="noreferrer">Fanart.tv</a>, which does not endorse Movelle. Recorded artwork credits appear in film details.</p>
+            <p>Movie artwork is sourced through <a href="https://fanart.tv/" target="_blank" rel="noreferrer">Fanart.tv</a> and <a href="https://trakt.tv/" target="_blank" rel="noreferrer">Trakt</a>. Neither endorses Movelle. Recorded artwork credits appear in film details.</p>
           </section>
         </footer>
         {notice && (

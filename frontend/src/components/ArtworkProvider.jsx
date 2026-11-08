@@ -5,12 +5,17 @@ import { ArtworkContext } from '../artwork.js'
 
 export default function ArtworkProvider({ children, onFind, user }) {
   const [items, setItems] = useState(new Map())
+  const [selectedCovers, setSelectedCovers] = useState(new Map())
+  const reportCover = useCallback((id, choice) => setSelectedCovers(previous => {
+    if (previous.get(id)?.url === choice.url) return previous
+    return new Map(previous).set(id, choice)
+  }), [])
   const [film, setFilm] = useState(null)
   const [preference, setPreference] = useState(null)
   const personalKey = preference?.owner === user?.token ? preference?.key || '' : ''
   const personalOwner = personalKey ? user?.token : undefined
   const session = useMemo(() => ({
-    controller: new AbortController(), known: new Set(), queue: new Set(), timer: null,
+    controller: new AbortController(), known: new Set(), queue: new Set(), timer: null, running: false,
     personalKey, token: personalOwner,
   }), [personalKey, personalOwner])
   const current = useRef(session)
@@ -19,7 +24,9 @@ export default function ArtworkProvider({ children, onFind, user }) {
     session.controller = new AbortController()
     session.known.clear()
     session.queue.clear()
+    session.running = false
     setItems(new Map())
+    setSelectedCovers(new Map())
     return () => { session.controller.abort(); clearTimeout(session.timer) }
   }, [session])
   // Drop the raw key when its owner changes, even if the previous owner returns.
@@ -61,16 +68,22 @@ export default function ArtworkProvider({ children, onFind, user }) {
     session.queue.add(movie.movie_id)
     clearTimeout(session.timer)
     session.timer = setTimeout(async () => {
-      const ids = [...session.queue]; session.queue.clear()
-      for (let offset = 0; offset < ids.length; offset += 8) {
-        if (session.controller.signal.aborted) return
-        await load(ids.slice(offset, offset + 8))
+      if (session.running) return
+      session.running = true
+      try {
+        while (session.queue.size && !session.controller.signal.aborted) {
+          const ids = [...session.queue].slice(0, 8)
+          for (const id of ids) session.queue.delete(id)
+          await load(ids)
+        }
+      } finally {
+        session.running = false
       }
     }, 15)
   }, [session, load])
   const openFilm = useCallback(movie => { setFilm(movie); load([movie.movie_id], true) }, [load])
   return (
-    <ArtworkContext.Provider value={{ items, enqueue, openFilm, personalKeySet: Boolean(personalKey), canSetPersonalKey: Boolean(user), setPersonalKey: key => setPreference(key && user ? { owner: user.token, key } : null) }}>
+    <ArtworkContext.Provider value={{ items, enqueue, openFilm, selectedCovers, reportCover, personalKeySet: Boolean(personalKey), canSetPersonalKey: Boolean(user), setPersonalKey: key => setPreference(key && user ? { owner: user.token, key } : null) }}>
       {children}
       <FilmDialog movie={film} onClose={() => setFilm(null)} onFind={movie => { setFilm(null); onFind(movie) }} />
     </ArtworkContext.Provider>

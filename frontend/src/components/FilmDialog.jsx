@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { X } from 'lucide-react'
-import { imageUrl, imageSrcSet, useArtwork } from '../artwork.js'
+import { imageUrl, imageSrcSet, useArtwork, useImageCandidate, useFilmActions } from '../artwork.js'
 import { movieTitle } from './MovieCover.jsx'
 import { containDialogFocus } from '../dialog.js'
 
@@ -8,9 +8,12 @@ export default function FilmDialog({ movie, onClose, onFind }) {
   const ref = useRef(null)
   const previous = useRef(null)
   const artwork = useArtwork(movie)
-  const backdrop = imageUrl(artwork?.backdrop_path, 'fanart')
-  const [imageFailed, setImageFailed] = useState(false)
-  useEffect(() => setImageFailed(false), [movie?.movie_id, backdrop])
+  const { choice, loaded, onLoad, onError } = useImageCandidate(artwork, 'backdrop')
+  const backdrop = imageUrl(choice?.url, 'fanart')
+  const selectedCover = useFilmActions()?.selectedCovers?.get(movie?.movie_id)
+  const displayed = [selectedCover, loaded ? choice : null].filter((row, index, rows) =>
+    row && rows.findIndex(other => other?.url === row.url) === index)
+  const providers = [...new Set(displayed.map(row => row.provider))]
   useEffect(() => {
     if (movie) {
       previous.current = document.activeElement
@@ -44,16 +47,18 @@ export default function FilmDialog({ movie, onClose, onFind }) {
           >
             <X size={21} aria-hidden="true" />
           </button>
-          {backdrop && !imageFailed && (
+          {backdrop && (
             <img
               className="film-detail-backdrop"
-              src={imageUrl(artwork.backdrop_path, 'fanart')}
-              srcSet={imageSrcSet(artwork.backdrop_path, artwork.backdrop_credit, true)}
+              key={backdrop}
+              src={backdrop}
+              srcSet={imageSrcSet(choice.url, choice.credit, true)}
               sizes="(max-width: 767px) 100vw, 900px"
               alt={`Scene from ${info.title}`}
               width="780"
               height="439"
-              onError={() => setImageFailed(true)}
+              onLoad={onLoad}
+              onError={onError}
             />
           )}
           <div className="film-detail-copy">
@@ -89,9 +94,11 @@ export default function FilmDialog({ movie, onClose, onFind }) {
             </button>
             {artwork && (
               <div className="film-source">
-                <p>Metadata: <a href="https://trakt.tv/" target="_blank" rel="noreferrer">Trakt</a>. Artwork: <a href="https://fanart.tv/" target="_blank" rel="noreferrer">Fanart.tv</a>.</p>
-                {[['Poster', artwork.poster_credit], ['Backdrop', artwork.backdrop_credit]].map(([label, credit]) => credit && (
-                  <p key={label}>{label} copyright: {credit.copyright || 'Unknown'}.
+                <p>Metadata: <a href="https://trakt.tv/" target="_blank" rel="noreferrer">Trakt</a>.
+                  {providers.length > 0 && <> Artwork: {providers.map((provider, index) => <span key={provider}>{index > 0 && ', '}<a href={provider === 'trakt' ? 'https://trakt.tv/' : 'https://fanart.tv/'} target="_blank" rel="noreferrer">{provider === 'trakt' ? 'Trakt' : 'Fanart.tv'}</a></span>)}.</>}
+                </p>
+                {displayed.map(({ url, kind, credit }) => credit && (
+                  <p key={url}>{kind === 'poster' ? 'Poster' : 'Background'} copyright: {credit.copyright || 'Unknown'}.
                     {safeCreditLink(credit.copyright_link) && <> <a href={credit.copyright_link} target="_blank" rel="noreferrer">Recorded source</a>.</>}
                   </p>
                 ))}

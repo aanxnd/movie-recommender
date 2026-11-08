@@ -523,6 +523,14 @@ test('real posters and film details keep canonical IDs; image failure uses an ho
   await page.reload()
   await expect(
     page.locator('.shelf-list .movie-card').first().locator('.movie-cover'),
+  ).toHaveAttribute('data-artwork', 'loaded')
+  await expect(
+    page.locator('.shelf-list .movie-card').first().locator('img'),
+  ).toHaveAttribute('src', /\/api\/movies\/artwork-image\/318\/poster$/)
+  await page.route('**/api/movies/artwork-image/**', (route) => route.abort())
+  await page.reload()
+  await expect(
+    page.locator('.shelf-list .movie-card').first().locator('.movie-cover'),
   ).toHaveAttribute('data-artwork', 'unavailable')
   await expect(
     page
