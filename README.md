@@ -4,6 +4,10 @@ A portfolio movie recommender: React/Vite/Tailwind on Vercel, FastAPI on Azure C
 
 The scoring mathematics remains unchanged. Production boundaries now require anonymous profile credentials, explicit group invitations, bounded workloads, and versioned migrations. See [deployment and rollback](docs/DEPLOYMENT.md), [audit resolution](docs/AUDIT_RESOLUTION.md), and [recommendation evidence](docs/RECOMMENDATIONS.md).
 
+The planned Supabase authentication launch is governed by the
+[architecture contract and open validation gates](docs/AUTH_ARCHITECTURE.md).
+PR 2A records decisions and adds PR-size CI only; Supabase auth is not implemented.
+
 ## Local development
 
 Use Python 3.14 and Node.js 24 (>=22.12 supported by the frontend tools). Install the Python dependencies once, from the repository root:
