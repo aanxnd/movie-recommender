@@ -2,13 +2,14 @@ import { createContext, useContext, useEffect } from 'react'
 
 export const ArtworkContext = createContext(null)
 export function imageUrl(path, size = 'bigpreview') {
+  if (typeof path === 'string' && /^\/movies\/artwork-image\/[1-9][0-9]*$/.test(path)) return path.startsWith('/') ? `${import.meta.env?.VITE_API_BASE_URL?.replace(/\/+$/, '') || '/api'}${path}` : null
   if (typeof path !== 'string' || !/^https:\/\/assets\.fanart\.tv\/fanart\/[A-Za-z0-9/_-]+\.(jpg|png|webp)$/.test(path) || path.includes('..')) return null
   const variant = ['preview', 'bigpreview', 'fanart'].includes(size) ? size : 'bigpreview'
   return path.replace('/fanart/', `/${variant}/`)
 }
 
 export function imageSrcSet(path, credit, full = false) {
-  if (!imageUrl(path)) return undefined
+  if (!imageUrl(path) || path.startsWith('/')) return undefined
   const width = Number(credit?.width), height = Number(credit?.height)
   if (!(width >= 100 && height >= 100)) return undefined
   const variants = [['preview', 200], ['bigpreview', 400]]
