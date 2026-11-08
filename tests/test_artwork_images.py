@@ -112,7 +112,7 @@ def test_singleflight_and_only_two_outbound_image_requests(tmp_path):
     started = Event(); release = Event(); calls = []
     def slow(*a, **kw): calls.append(1); started.set(); release.wait(2); return WEBP
     cache = ImageCache(tmp_path, fetch=slow)
-    with ThreadPoolExecutor(max_workers=8) as pool:
+    with ThreadPoolExecutor(max_workers=9) as pool:
         first = pool.submit(cache.get, URL)
         assert started.wait(1)
         duplicates = [pool.submit(cache.get, URL) for _ in range(6)]
@@ -122,6 +122,8 @@ def test_singleflight_and_only_two_outbound_image_requests(tmp_path):
             if len(calls) == 2: break
             Event().wait(.005)
         third = pool.submit(cache.get, URL.replace('/481/', '/483/'))
+        with pytest.raises(TimeoutError):
+            third.result(timeout=.03)
         assert len(calls) == 2
         release.set()
         assert first.result().data == WEBP and second.result().data == WEBP
