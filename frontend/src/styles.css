@@ -2137,7 +2137,4 @@ html[data-theme]:not([data-theme="cinema"]) ::selection {
   }
 }
 
-.fanart-settings { margin-top: 1.5rem; padding-top: 1rem; }
-.fanart-settings h3 { font: 600 1rem var(--font-sans); margin-bottom: .65rem; }
-.fanart-settings form { display: grid; gap: .6rem; margin-top: 1rem; }
-.film-source a, .film-credits a, .fanart-settings a { text-decoration: underline; text-underline-offset: .2em; }
+.film-source a, .film-credits a { text-decoration: underline; text-underline-offset: .2em; }

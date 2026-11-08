@@ -17,36 +17,32 @@ test('provider credits and rendered images use Fanart and retain real artwork cr
   expect([...hosts].some(host => /tmdb|themoviedb/.test(host))).toBe(false)
 })
 
-test('personal artwork key stays masked, tab-only, and removable without contacting Fanart with a fake key', async ({ page }) => {
-  const personalRequests = []
+test('profile creation and recovery remain available without artwork-key controls or artwork credentials', async ({ page }) => {
+  const artworkRequests = []
   await page.route('**/api/movies/artwork', async route => {
-    const body = route.request().postDataJSON()
-    if (!body.personal_key) return route.continue()
-    personalRequests.push({ body, authorization: route.request().headers().authorization })
-    return route.fulfill({ json: { items: [], configured: true, provider: 'trakt+fanart.tv' } })
+    artworkRequests.push({ body: route.request().postDataJSON(), authorization: route.request().headers().authorization })
+    await route.continue()
   })
   await page.goto('/')
   await page.getByRole('button', { name: 'Your profile', exact: true }).click()
+  const dialog = page.locator('#profile-dialog')
+  const noArtworkSettings = async () => {
+    await expect(dialog.getByRole('heading', { name: 'Artwork access', exact: true })).toHaveCount(0)
+    await expect(dialog.locator('#fanart-personal-key, .fanart-settings')).toHaveCount(0)
+    await expect(dialog.getByRole('button', { name: /personal key/i })).toHaveCount(0)
+    await expect(dialog).not.toContainText('Using standard project access.')
+  }
+  await noArtworkSettings()
   await page.getByRole('button', { name: 'Create new user', exact: true }).click()
   await expect(page.locator('#profile-recovery-code')).toBeVisible()
-  const key = '0123456789abcdef'.repeat(2)
-  const input = page.getByLabel('Personal Fanart.tv key (optional)', { exact: true })
-  await expect(input).toHaveAttribute('type', 'password')
-  await input.fill(key)
-  await page.getByRole('button', { name: 'Use personal key', exact: true }).click()
-  await expect.poll(() => personalRequests.length).toBeGreaterThan(0)
-  expect(personalRequests.every(row => row.body.personal_key === key && row.authorization?.startsWith('Bearer '))).toBe(true)
-  await expect(input).toHaveValue('')
-  expect(await page.evaluate(value => JSON.stringify(localStorage).includes(value) || JSON.stringify(sessionStorage).includes(value), key)).toBe(false)
-  await page.getByRole('button', { name: 'Remove personal key', exact: true }).click()
-  await expect(page.getByRole('button', { name: 'Remove personal key', exact: true })).toHaveCount(0)
-  await expect(page.getByText('Using standard project access.', { exact: true })).toBeVisible()
-  await input.fill(key)
-  await page.getByRole('button', { name: 'Use personal key', exact: true }).click()
+  await expect(page.locator('#profile-recovery-code')).toHaveAttribute('type', 'password')
+  await noArtworkSettings()
   await page.reload()
   await page.getByRole('button', { name: 'Your profile', exact: true }).click()
-  await expect(input).toHaveValue('')
-  await expect(page.getByRole('button', { name: 'Remove personal key', exact: true })).toHaveCount(0)
+  await expect(page.locator('#profile-recovery-code')).toBeVisible()
+  await noArtworkSettings()
+  await expect.poll(() => artworkRequests.length).toBeGreaterThan(0)
+  expect(artworkRequests.every(row => !('personal_key' in row.body) && !row.authorization)).toBe(true)
 })
 
 

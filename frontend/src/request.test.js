@@ -8,6 +8,17 @@ const json = (status, detail, headers = {}) =>
     headers: { 'Content-Type': 'application/json', ...headers },
   })
 
+test('public artwork requests never forward a profile credential', async t => {
+  t.mock.method(globalThis, 'fetch', async (_, options) => {
+    assert.equal(options.headers.Authorization, undefined)
+    assert.deepEqual(JSON.parse(options.body), { movie_ids: [1], include_credits: true })
+    return json(200, { provider: 'trakt+fanart.tv', items: [] })
+  })
+  await request('/movies/artwork', {
+    method: 'POST', token: 'a'.repeat(43), body: { movie_ids: [1], include_credits: true },
+  })
+})
+
 test('busy recommendation retries are bounded and preserve authentication with query strings', async (t) => {
   let calls = 0
   t.mock.method(Math, 'random', () => 0)

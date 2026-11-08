@@ -10,7 +10,6 @@ import {
 } from 'lucide-react'
 import { request } from '../api.js'
 import { parseRecoveryCode, readIdentity, sameIdentity } from '../identity.js'
-import FanartKeySettings from './FanartKeySettings.jsx'
 
 function RecoveryCode({ code, unsaved, open }) {
   const [visible, setVisible] = useState(false)
@@ -355,7 +354,6 @@ export default function UserPanel({ user, onSelect, open = true }) {
           invitations grant temporary recommendation access only.
         </p>
       )}
-      <FanartKeySettings open={open} user={user} />
     </aside>
   )
 }

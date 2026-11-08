@@ -276,7 +276,6 @@ export default function App() {
 
   return (
     <ArtworkProvider
-      user={user}
       onFind={(movie) => {
         navigate('discover')
         setFilmSearchRequest({ movie })

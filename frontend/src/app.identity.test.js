@@ -1217,36 +1217,23 @@ test('malformed group input asks for a temporary invitation rather than a privat
 })
 
 
-test('personal artwork keys stay masked and tab-only, use owner auth, and are removed on profile changes', async t => {
+test('profile has no artwork-key controls and public artwork requests stay credential-free across profile changes', async t => {
   const h = harness(t)
   await h.mount(identity(1), { strict: true })
   await act(async () => new Promise(resolve => setTimeout(resolve, 50)))
   assert.ok(h.calls.some(call => call.path === '/movies/artwork'), 'Strict Mode must finish initial artwork work')
   await h.click('Your profile')
-  const key = '0123456789abcdef'.repeat(2)
-  const field = document.getElementById('fanart-personal-key')
-  assert.equal(field.type, 'password')
-  await h.input('#fanart-personal-key', key)
-  await h.click('Use personal key')
-  await act(async () => new Promise(resolve => setTimeout(resolve, 50)))
-  const request = h.calls.findLast(call => call.path === '/movies/artwork' && JSON.parse(call.body).personal_key)
-  assert.ok(request)
-  assert.equal(JSON.parse(request.body).personal_key, key)
-  assert.equal(request.headers.Authorization, `Bearer ${identity(1).token}`)
-  assert.equal(field.value, '')
-  assert.equal(document.body.textContent.includes(key), false)
-  assert.equal(JSON.stringify(window.localStorage).includes(key), false)
-  await h.click('Remove personal key')
-  await act(async () => new Promise(resolve => setTimeout(resolve, 50)))
-  assert.equal(JSON.parse(h.calls.findLast(call => call.path === '/movies/artwork').body).personal_key, undefined)
-  await h.input('#fanart-personal-key', key)
-  await h.click('Use personal key')
-  const start = h.calls.length
-  await h.change(identity(2))
-  await act(async () => new Promise(resolve => setTimeout(resolve, 50)))
-  assert.equal([...document.querySelectorAll('button')].some(button => button.textContent === 'Remove personal key'), false)
-  assert.equal(h.calls.slice(start).filter(call => call.path === '/movies/artwork').every(call => !JSON.parse(call.body).personal_key), true)
-  await h.input('#fanart-personal-key', key)
-  await h.change(identity(1))
-  assert.equal(document.getElementById('fanart-personal-key').value, '', 'Unsubmitted keys must also clear on owner changes')
+  for (const next of [identity(1), identity(2), null]) {
+    await h.change(next)
+    assert.equal(document.getElementById('fanart-personal-key'), null)
+    assert.equal(document.querySelector('.fanart-settings'), null)
+    assert.doesNotMatch(document.getElementById('profile-dialog').textContent, /Artwork access|personal key|standard project access/i)
+  }
+  const artworkRequests = h.calls.filter(call => call.path === '/movies/artwork')
+  assert.ok(artworkRequests.length > 0)
+  for (const request of artworkRequests) {
+    assert.equal(request.headers.Authorization, undefined)
+    assert.equal(JSON.parse(request.body).personal_key, undefined)
+    assert.deepEqual(Object.keys(JSON.parse(request.body)).sort(), ['movie_ids'])
+  }
 })
