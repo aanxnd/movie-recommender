@@ -6,7 +6,9 @@ The scoring mathematics remains unchanged. Production boundaries now require ano
 
 The planned Supabase authentication launch is governed by the
 [architecture contract and open validation gates](docs/AUTH_ARCHITECTURE.md).
-PR 2A records decisions and adds PR-size CI only; Supabase auth is not implemented.
+The approved launch design uses optional standard TOTP with a second independent
+TOTP factor for backup recovery. Native MFA recovery codes are rejected for initial
+launch; Gmail SMTP production readiness remains open. Supabase auth is not implemented.
 
 ## Local development
 
