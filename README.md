@@ -19,6 +19,8 @@ The [dormant FastAPI dependency](docs/AUTH_ARCHITECTURE.md#prompt-3c-dormant-fas
 composes these foundations only in tests; protected-route activation remains blocked on security-policy review.
 See [policy evidence and unresolved gates](docs/AUTH_POLICY_EVIDENCE.md): fresh provider
 email confirmation alone does not establish mailbox proof, active sessions or MFA.
+The [configuration audit and action policy](docs/AUTH_CONFIG_AUDIT.md) records final
+owner requirements, unknown hosted settings, read-only owner checks and launch blockers.
 
 ## Local development
 
