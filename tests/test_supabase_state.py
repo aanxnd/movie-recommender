@@ -1,12 +1,14 @@
 """Real local signatures + PG17; hosted connections replaced BEFORE observer calls."""
 from dataclasses import FrozenInstanceError
 import traceback
+import hashlib
+import json
 
 import psycopg
 import pytest
 
 from app import supabase_state as auth
-from test_auth_state_sql import auth_cluster, auth_db, mutate, READER
+from test_auth_state_sql import auth_cluster, auth_db, mutate, grow_catalog, READER
 from test_supabase_claims import evidence
 from test_supabase_jwt import ORIGIN
 
@@ -17,23 +19,24 @@ DSN = f'host=db.{ORIGIN.removeprefix("https://")} dbname=postgres user={READER} 
 @pytest.fixture
 def observer(auth_db, evidence, monkeypatch):
     original = psycopg.connect
-    with original(**auth_db[0], autocommit=True) as c:
-        c.execute('SET SESSION AUTHORIZATION movelle_auth_state_reader')
+    with original(**auth_db[4], autocommit=True) as c:
+        assert c.pgconn.used_password and c.info.user == READER
         approved = auth._catalog_digest(c.execute(auth._CATALOG).fetchall())
     calls = []
     def connect(**params):
         if params.get('host') == 'db.' + ORIGIN.removeprefix('https://'):
             assert params['user'] == READER and params['sslmode'] == 'verify-full'
             calls.append('local-only')
-            c = original(**auth_db[0], autocommit=True)
-            c.execute('SET SESSION AUTHORIZATION movelle_auth_state_reader')
+            c = original(**{**auth_db[4], 'user':params['user'], 'password':params['password']}, autocommit=True)
+            assert c.pgconn.used_password and c.info.user == READER
             return c
         # Fixture mutations use ONLY the already-validated loopback connection.
         assert params['host'] == auth_db[0]['host'] and params['dbname'] == auth_db[0]['dbname']
         return original(**params)
     monkeypatch.setattr(auth.psycopg, 'connect', connect)
     monkeypatch.setattr(auth, 'SupabaseTokenVerifier', lambda *a, **kw: evidence.verifier)
-    instance = auth.SupabaseStateObserver(ORIGIN, database_url=DSN, approved_catalog_sha256=approved)
+    instance = auth.SupabaseStateObserver(ORIGIN, database_url=psycopg.conninfo.make_conninfo(
+        DSN,password=auth_db[4]['password']), approved_catalog_sha256=approved)
     token = evidence.sign({'sub':str(auth_db[1]), 'session_id':str(auth_db[2])})
     assert calls == []
     return instance, token, calls
@@ -90,8 +93,7 @@ def test_permission_or_definition_drift_denies(observer, auth_db, command):
     'GRANT EXECUTE ON FUNCTION movelle_auth_private.observe_state(uuid,uuid) TO PUBLIC'])
 def test_known_unsafe_grants_cannot_be_approved_by_a_digest(observer, auth_db, command):
     mutate(auth_db,command)
-    with psycopg.connect(**auth_db[0],autocommit=True) as c:
-        c.execute('SET SESSION AUTHORIZATION movelle_auth_state_reader')
+    with psycopg.connect(**auth_db[4],autocommit=True) as c:
         observer[0]._approved = auth._catalog_digest(c.execute(auth._CATALOG).fetchall())
     unavailable(observer)  # Hard constraints remain independent of the snapshot.
 
@@ -174,5 +176,56 @@ def test_no_unapproved_fingerprint_or_oversize_catalog(monkeypatch):
     for approved in (None,'','client-asserted', '0'*63):
         with pytest.raises(ValueError):
             auth.SupabaseStateObserver(ORIGIN,database_url=DSN,approved_catalog_sha256=approved)
-    for rows in ([], [('x','y')]*5001, [('x','y'*2097152)]):
+    for rows in ([], [('x','y'*2097152)]):
         with pytest.raises(ValueError): auth._catalog_digest(rows)
+
+
+def test_streaming_preserves_full_digest_and_rejects_incomplete_reads():
+    rows = [('routine',str(i)+'x'*400) for i in range(6000)]
+    assert auth._catalog_digest(iter(rows)) == hashlib.sha256(json.dumps(rows,separators=(',',':')).encode()).hexdigest()
+    before = auth._catalog_digest(iter(rows))
+    rows[-1] = ('routine','changed beyond old limits')
+    assert auth._catalog_digest(iter(rows)) != before
+    def incomplete():
+        yield from rows
+        raise OSError('Synthetic interrupted catalog stream')
+    with pytest.raises(OSError): auth._catalog_digest(incomplete())
+
+
+def test_catalog_timeout_denies(observer, monkeypatch):
+    monkeypatch.setattr(auth,'_CATALOG',"SELECT 'routine','synthetic' FROM pg_catalog.pg_sleep(1)")
+    unavailable(observer)
+
+
+def test_runtime_password_is_really_authenticated(observer):
+    observer[0]._params['password'] = 'deliberately-wrong-local-only'
+    unavailable(observer)
+
+
+def test_supabase_style_catalog_capacity(observer, auth_db):
+    def measured():
+        stats = [0,2,0]
+        with psycopg.connect(**auth_db[4],autocommit=True) as c, c.transaction(), c.cursor(name='capacity') as cur:
+            cur.itersize = 64
+            cur.execute(auth._CATALOG)
+            def counted():
+                for row in cur:
+                    stats[1] += len(json.dumps(row,separators=(',',':')).encode()) + bool(stats[0])
+                    stats[0] += 1
+                    if 'managed_extension_function_03500' in row[1]: stats[2] = stats[0]
+                    yield row
+            digest = auth._catalog_digest(counted())
+        return digest,stats
+    _, baseline = measured()
+    grow_catalog(auth_db,400,40)  # Synthetic managed schemas + ordinary extension envelope.
+    _, managed = measured()
+    mutate(auth_db,'DROP SCHEMA zz_catalog_fixture CASCADE')  # Replace only owned synthetic objects.
+    grow_catalog(auth_db,3500,128)
+    digest, large = measured()
+    assert managed[0] > baseline[0] and large[0] > 5000 and large[1] > 2097152 and large[2] > 5000
+    observer[0]._approved = digest  # Synthetic fixture only, never hosted TOFU.
+    assert observer[0].observe(observer[1]).binding_present
+    mutate(auth_db,'ALTER FUNCTION zz_catalog_fixture.managed_extension_function_03500() SET search_path=public')
+    assert measured()[0] != digest
+    unavailable(observer)
+    print(f'PG17 synthetic catalog rows/bytes: stock={baseline[:2]}, managed={managed[:2]}, large={large[:2]}')

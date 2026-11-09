@@ -272,7 +272,7 @@ def grow_catalog(db, routines, tables):
     """Synthetic managed-schema/extension envelope, NOT hosted Supabase contents."""
     with psycopg.connect(**db[0], autocommit=True) as c, psycopg.ClientCursor(c) as cur:
         c.execute('SET ROLE postgres; CREATE SCHEMA zz_catalog_fixture')
-        path = 'pg_catalog,public,extensions,auth,storage,realtime,graphql,graphql_public,vault,' + 'synthetic_managed_schema_'*6
+        path = 'pg_catalog,public,extensions,auth,storage,realtime,graphql,graphql_public,vault,' + ','.join('synthetic_managed_schema_'+str(i) for i in range(6))
         cur.execute("""DO $fixture$ BEGIN
           FOR i IN 1..%s LOOP
             EXECUTE pg_catalog.format('CREATE FUNCTION zz_catalog_fixture.managed_extension_function_%%s() '

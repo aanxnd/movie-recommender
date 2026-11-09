@@ -21,7 +21,7 @@ _GUARD = """
 SELECT p.prosrc, p.proconfig, p.prosecdef, p.proowner::pg_catalog.regrole::pg_catalog.text, n.nspowner::pg_catalog.regrole::pg_catalog.text,
  current_user=session_user AND current_user='movelle_auth_state_reader'
  AND NOT (r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls)
- AND r.rolconnlimit=1 AND p.provolatile='s' AND p.proparallel='u'
+ AND r.rolcanlogin AND r.rolconnlimit=1 AND p.provolatile='s' AND p.proparallel='u'
  AND p.prolang=(SELECT oid FROM pg_catalog.pg_language WHERE lanname='plpgsql')
  AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_auth_members WHERE member=r.oid)
  AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_database d WHERE pg_catalog.has_database_privilege(r.oid,d.oid,'CREATE'))
@@ -72,15 +72,25 @@ SELECT kind, value::pg_catalog.text FROM (
  UNION ALL SELECT 'extension',pg_catalog.jsonb_build_array(extname,extowner,extnamespace,extversion) FROM pg_catalog.pg_extension
  UNION ALL SELECT 'largeobject',pg_catalog.jsonb_build_array(oid,lomowner,lomacl) FROM pg_catalog.pg_largeobject_metadata
  UNION ALL SELECT 'settings',pg_catalog.jsonb_build_array(setdatabase,setrole,pg_catalog.sha256(pg_catalog.convert_to(setconfig::pg_catalog.text,'UTF8'))) FROM pg_catalog.pg_db_role_setting
-) entries ORDER BY kind,value::pg_catalog.text LIMIT 5001
+) entries ORDER BY kind,value::pg_catalog.text
 """
 
 
 def _catalog_digest(rows):
-    encoded = json.dumps(rows, separators=(',', ':')).encode()
-    if not rows or len(rows) > 5000 or len(encoded) > 2097152:
+    # Preserve the original canonical JSON digest while consuming every row once.
+    digest, count = hashlib.sha256(b'['), 0
+    for row in rows:
+        encoded = json.dumps(row, separators=(',', ':')).encode()
+        if len(encoded) > 2097152:  # Per-entry cap; never silently truncate/skip.
+            raise ValueError
+        if count:
+            digest.update(b',')
+        digest.update(encoded)
+        count += 1
+    if not count:
         raise ValueError
-    return hashlib.sha256(encoded).hexdigest()
+    digest.update(b']')
+    return digest.hexdigest()
 
 
 @dataclass(frozen=True, slots=True, repr=False)
@@ -138,9 +148,13 @@ class SupabaseStateObserver:
                 c.execute("SET LOCAL statement_timeout='750ms'; SET LOCAL lock_timeout='250ms'; SET LOCAL transaction_timeout='1500ms'")
                 guard = c.execute(_GUARD).fetchone()
                 if (guard is None or hashlib.sha256(guard[0].encode()).hexdigest() != _BODY_SHA256
-                        or guard[1] != ['search_path=""', 'row_security=off'] or guard[2:] != (True,'postgres','postgres',True)
-                        or _catalog_digest(c.execute(_CATALOG).fetchall()) != self._approved):
+                        or guard[1] != ['search_path=""', 'row_security=off'] or guard[2:] != (True,'postgres','postgres',True)):
                     raise ValueError
+                with c.cursor(name='movelle_catalog') as catalog:
+                    catalog.itersize = 64
+                    catalog.execute(_CATALOG)
+                    if _catalog_digest(catalog) != self._approved:
+                        raise ValueError
                 rows = c.execute(_CALL, (claims.subject, claims.session_id)).fetchall()
                 if (len(rows) != 1 or len(rows[0]) != 5 or any(type(v) is not bool for v in rows[0][:4])
                         or type(rows[0][4]) is not datetime or rows[0][4].utcoffset() is None):

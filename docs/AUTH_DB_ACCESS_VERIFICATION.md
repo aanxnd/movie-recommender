@@ -64,7 +64,8 @@ Stacked review-branch CI is enabled without altering the manual production relea
 `SupabaseStateObserver.observe(raw_jwt)` verifies ES256 using the existing verifier,
 then opens a fresh, bounded PG17 READ COMMITTED READ ONLY transaction. Configuration
 pins the direct project DB host, reader username and verify-full TLS/root trust;
-ambient libpq overrides and poolers are unsupported. No env configuration or routes
+ambient libpq overrides and poolers are unsupported. LOGIN/current_user/session_user
+must all agree on the reader; no impersonation. No env configuration or routes
 instantiate it. One connection/check per instance, no positive state cache.
 
 Before reading markers it enforces owner/body/search-path/ACL/role invariants and
@@ -85,10 +86,31 @@ mandatory trusted sources. No genuine mailbox, MFA recency or ownership bypass.
 Socket connect/server statement/transaction limits and a three-second post-check
 budget fail closed; they are not hard cancellation during a network partition.
 DB/app clock tolerance is three seconds, not proof of instantaneous revocation.
-Local stack validation: **487 security/regression tests passed**, including 29 SQL
-and 32 observer cases; 10 PR-budget tests passed. These are offline passes only.
+Fresh local SCRAM connections now test the reader's real password exchange and
+wrong-password denial. No hosted password exists; provisioning is a separate gate.
+Review validation: **493 local security/regression tests passed**, including 31 SQL
+and 36 observer cases. These are offline results, not hosted authentication evidence.
 Stacked PRs must be reviewed in order; after each squash merge, rebase the child
 onto updated main before retargeting and rerun its complete-PR budget/CI checks.
+
+### Catalog capacity review (offline envelopes, not hosted object counts)
+
+Stock PG17 alone is insufficient: Supabase supports catalog-expanding
+[extensions such as PostGIS](https://supabase.com/docs/guides/database/extensions/postgis).
+We measure stock PG17 + Auth fixture, then 400 routines/40 tables with policies,
+then an extension/application-heavy envelope of 3,500 routines/128 tables/policies.
+Both synthetic profiles use realistic catalog types/settings, never hosted rows.
+Local PG17.11 measurements (rows / canonical bytes): stock+Auth fixture
+3,599 / 618,726; managed-style 4,080 / 859,529; large 7,356 / 2,674,610.
+These are reproducible envelopes, not measured Supabase-project catalog sizes.
+The large profile exceeds the old 5,000-row/2 MiB total limits; those limits were
+an unsupported compatibility assumption, not proof that a Supabase catalog fits.
+The replacement hashes the complete ordered stream using 64-row server-cursor
+batches, preserving canonical SHA-256 output for earlier supported inventories.
+No LIMIT, sampling or prefix approval; interrupted streams never yield a digest.
+The 2 MiB cap now applies per entry, with unchanged statement/transaction/total
+deadlines; oversized entries or late reads still deny. A mutation beyond row 5,000
+must change the digest and deny. Hosted scan latency remains an acceptance gate.
 
 Use an empty isolated PostgreSQL 17 fixture database with synthetic tables/UUIDs
 and mock API roles; never a Supabase/Neon URL. Reproduce managed/PUBLIC defaults.
