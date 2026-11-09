@@ -2,6 +2,7 @@
 import os
 from pathlib import Path
 import re
+import secrets
 from uuid import uuid4
 
 import psycopg
@@ -17,12 +18,17 @@ APIS = ('anon', 'authenticated', 'service_role', 'authenticator')
 CALL = 'SELECT * FROM movelle_auth_private.observe_state(%s::pg_catalog.uuid,%s::pg_catalog.uuid)'
 
 
+class LocalParams(dict):
+    def __repr__(self): return '<isolated PostgreSQL connection parameters>'
+
+
 @pytest.fixture(scope='module')
 def auth_cluster():
     if not os.environ.get('POSTGRES_TEST_URL'):
         pytest.skip('Disposable loopback PostgreSQL 17 not configured')
     parsed = local_test_url(os.environ['POSTGRES_TEST_URL']).set(drivername='postgresql')
-    params = psycopg.conninfo.conninfo_to_dict(parsed.render_as_string(hide_password=False))
+    params = LocalParams(psycopg.conninfo.conninfo_to_dict(parsed.render_as_string(hide_password=False)))
+    params.runtime_password = secrets.token_urlsafe(32)  # Never persisted, logged or operational.
     created = []
     with psycopg.connect(**params, autocommit=True) as admin:
         assert 170000 <= admin.info.server_version < 180000
@@ -39,6 +45,9 @@ def auth_cluster():
                 else:
                     admin.execute(sql.SQL('CREATE ROLE {} NOLOGIN NOINHERIT').format(sql.Identifier(role)))
                 created.append(role)
+            verifier = admin.pgconn.encrypt_password(params.runtime_password.encode(), READER.encode(), b'scram-sha-256').decode()
+            assert verifier.startswith('SCRAM-SHA-256$')
+            admin.execute(sql.SQL('ALTER ROLE {} PASSWORD {}').format(sql.Identifier(READER), sql.Literal(verifier)))
             # Synthetic definer only; NEVER grant this membership to runtime.
             admin.execute('GRANT pg_read_all_data TO movelle_fixture_plain_owner WITH INHERIT TRUE')
             yield params
@@ -55,7 +64,7 @@ def install(connection, database):
     program, n = re.subn(r'DO \$guard\$.*?END; \$guard\$;', '', program, count=1, flags=re.S)
     assert n == 1
     program, n = re.subn(r'CREATE ROLE movelle_auth_state_reader.*?;', '', program, count=1, flags=re.S)
-    assert n == 1  # The module fixture owns this cluster-wide NOLOGIN role.
+    assert n == 1  # The module fixture owns this cluster-wide LOGIN role.
     program = program.replace('"<privately_inspected_database>"', sql.Identifier(database).as_string(connection))
     connection.execute('SET ROLE postgres')
     try:
@@ -70,7 +79,7 @@ def install(connection, database):
 @pytest.fixture
 def auth_db(auth_cluster):
     name = 'movelle_auth_fixture_' + uuid4().hex
-    params = {**auth_cluster, 'dbname': name}
+    params = LocalParams({**auth_cluster, 'dbname': name})
     with psycopg.connect(**auth_cluster, autocommit=True) as admin:
         admin.execute(sql.SQL('CREATE DATABASE {} OWNER postgres').format(sql.Identifier(name)))
         try:
@@ -87,16 +96,23 @@ def auth_db(auth_cluster):
                 subject, session, other = uuid4(), uuid4(), uuid4()
                 c.execute('INSERT INTO auth.users(id) VALUES (%s),(%s)', (subject, other))
                 c.execute('INSERT INTO auth.sessions(id,user_id) VALUES (%s,%s)', (session, subject))
-            yield params, subject, session, other
+            runtime = LocalParams({**params, 'user': READER, 'password': auth_cluster.runtime_password, 'connect_timeout': 2})
+            yield params, subject, session, other, runtime
         finally:
             assert re.fullmatch(r'movelle_auth_fixture_[0-9a-f]{32}', name)
             admin.execute(sql.SQL('DROP DATABASE {} WITH (FORCE)').format(sql.Identifier(name)))
 
 
 def observe(db, subject=None, session=None, role=READER, readonly=True, setup=None, stale=False):
-    params, default_subject, default_session, _ = db
-    with psycopg.connect(**params, autocommit=True) as c:
-        c.execute(sql.SQL('SET SESSION AUTHORIZATION {}').format(sql.Identifier(role)))
+    params, default_subject, default_session, _, runtime = db
+    # Positive/runtime tests must authenticate; only NOLOGIN API-role simulations impersonate.
+    selected = runtime if role == READER else params
+    with psycopg.connect(**selected, autocommit=True) as c:
+        if role == READER:
+            assert c.pgconn.used_password and c.info.user == READER
+            assert c.execute('SELECT current_user,session_user').fetchone() == (READER, READER)
+        else:
+            c.execute(sql.SQL('SET SESSION AUTHORIZATION {}').format(sql.Identifier(role)))
         if setup:
             c.execute(setup)
         with c.transaction():
@@ -120,6 +136,18 @@ def test_binding_and_fresh_reads(auth_db):
         assert observe(auth_db, subject, session)[0][:4] == (False,)*4
     mutate(auth_db, 'DELETE FROM auth.sessions')
     assert observe(auth_db)[0][:4] == (False,)*4
+
+
+def test_real_scram_login_and_wrong_password(auth_db):
+    with psycopg.connect(**auth_db[4], autocommit=True) as c:
+        assert c.pgconn.used_password and c.info.user == READER
+        assert c.execute('SELECT current_user,session_user').fetchone() == (READER, READER)
+        assert c.execute('SELECT rolcanlogin,rolsuper,rolcreatedb,rolcreaterole,rolreplication,rolbypassrls '
+                         'FROM pg_roles WHERE rolname=current_user').fetchone() == (True, False, False, False, False, False)
+        assert c.execute('SELECT count(*) FROM pg_auth_members WHERE member=current_user::regrole').fetchone() == (0,)
+    wrong = LocalParams({**auth_db[4], 'password': secrets.token_urlsafe(32)})
+    with pytest.raises(psycopg.OperationalError):
+        psycopg.connect(**wrong).close()
 
 
 @pytest.mark.parametrize('command,index', [
@@ -154,7 +182,7 @@ def test_api_roles_cannot_invoke(auth_db, role):
 
 @pytest.mark.parametrize('command', ['SELECT id FROM auth.users', 'SELECT id FROM auth.sessions',
     'CREATE TABLE movelle_auth_private.unsafe(id int)', 'SET ROLE postgres',
-    'UPDATE auth.users SET deleted_at=now()'])
+    'SET SESSION AUTHORIZATION postgres', 'UPDATE auth.users SET deleted_at=now()'])
 def test_runtime_privilege_isolation(auth_db, command):
     with pytest.raises(psycopg.errors.InsufficientPrivilege):
         observe(auth_db, setup=command)
@@ -192,7 +220,7 @@ def test_write_or_stale_transaction_rejected(auth_db):
 @pytest.mark.parametrize('field', [0, 1])
 @pytest.mark.parametrize('value', [None, '00000000-0000-0000-0000-000000000000', 'malformed'])
 def test_invalid_subject_or_session_rejected(auth_db, field, value):
-    with psycopg.connect(**auth_db[0], autocommit=True) as c, c.transaction():
+    with psycopg.connect(**auth_db[4], autocommit=True) as c, c.transaction():
         c.execute('SET TRANSACTION READ ONLY')
         with pytest.raises((psycopg.errors.InvalidParameterValue, psycopg.errors.InvalidTextRepresentation)):
             values = [auth_db[1], auth_db[2]]
@@ -201,7 +229,7 @@ def test_invalid_subject_or_session_rejected(auth_db, field, value):
 
 
 def test_equal_absolute_expiry_is_denied(auth_db):
-    # One protocol message shares statement_timestamp, with a new READ ONLY txn.
+    # Boundary-only impersonation shares a protocol clock; it is NOT login evidence.
     with psycopg.connect(**auth_db[0], autocommit=True) as c, psycopg.ClientCursor(c) as cur:
         cur.execute('UPDATE auth.sessions SET not_after=statement_timestamp(); COMMIT; '
                     'SET SESSION AUTHORIZATION movelle_auth_state_reader; BEGIN READ ONLY; '
@@ -238,3 +266,22 @@ def test_privileged_set_paths_abort_install(auth_db, grant, revoke):
                 install(c, auth_db[0]['dbname'])
         finally:
             c.execute(revoke)
+
+
+def grow_catalog(db, routines, tables):
+    """Synthetic managed-schema/extension envelope, NOT hosted Supabase contents."""
+    with psycopg.connect(**db[0], autocommit=True) as c, psycopg.ClientCursor(c) as cur:
+        c.execute('SET ROLE postgres; CREATE SCHEMA zz_catalog_fixture')
+        path = 'pg_catalog,public,extensions,auth,storage,realtime,graphql,graphql_public,vault,' + 'synthetic_managed_schema_'*6
+        cur.execute("""DO $fixture$ BEGIN
+          FOR i IN 1..%s LOOP
+            EXECUTE pg_catalog.format('CREATE FUNCTION zz_catalog_fixture.managed_extension_function_%%s() '
+              'RETURNS int LANGUAGE sql STABLE SET search_path=%%L AS %%L',
+              pg_catalog.lpad(i::text,5,'0'), %s, 'SELECT 1');
+          END LOOP;
+          FOR i IN 1..%s LOOP
+            EXECUTE pg_catalog.format('CREATE TABLE zz_catalog_fixture.managed_%%s(id int PRIMARY KEY, value text)',i);
+            EXECUTE pg_catalog.format('ALTER TABLE zz_catalog_fixture.managed_%%s ENABLE ROW LEVEL SECURITY',i);
+            EXECUTE pg_catalog.format('CREATE POLICY managed_read ON zz_catalog_fixture.managed_%%s USING (false)',i);
+          END LOOP;
+        END $fixture$;""", (routines,path,tables))
