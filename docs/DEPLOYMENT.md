@@ -56,6 +56,11 @@ Prompt 3B's resolver adds no schema or route changes and retains these release
 restrictions. Merging dormant foundations does not authorize hosted account links,
 schema migration, authentication cutover or Azure deployment.
 
+Prompt 3C adds an unattached dependency, not a production authentication cutover.
+Keep existing routes unchanged until verified-email/session/MFA/resource policies
+and operational release gates are separately reviewed. A successful token/link
+test is not production-access approval; no hosted settings change is authorized.
+
 Main includes PR 24 at `4150652ff5414279517e5f8618270c7be4edb6e1`.
 [GitHub deployment 7641485212](https://api.github.com/repos/aanxnd/movie-recommender/deployments/7641485212)
 records a successful Vercel **Production** deployment of that commit after merge
