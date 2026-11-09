@@ -53,6 +53,11 @@ client booleans or bypass email/session/MFA gates to make integration convenient
 
 ## Final policy and remaining activation gates
 
+Prompt 3D.3 adds [typed, signature-verified JWT evidence](AUTH_ARCHITECTURE.md#prompt-3d3-dormant-typed-verified-token-evidence),
+including session UUID, issued/expiry times, AAL and optional AMR. It performs no
+live state or provenance check and confers no access. Existing consumers still
+use `verify() -> UUID`; this closes only the typed parsing foundation below.
+
 1. Owner requires genuine current-email challenge evidence; uncertain implicit/admin
    provenance must be reverified before activation. Current settings/history remain
    unknown in the audit. This marker alone must not qualify protected access.
