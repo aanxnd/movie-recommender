@@ -154,6 +154,11 @@ API, backfill, hosted mapping, email/MFA flow or deployment is authorized here.
 
 ## Open launch gates
 
+Prompt 3D adds only [fresh provider email-confirmation evidence](AUTH_POLICY_EVIDENCE.md).
+Current-account/session and MFA enforcement are stopped pending the documented
+decisions; provider confirmation is not a claim of mailbox proof under all settings.
+The dependency and existing routes remain unchanged and activation stays BLOCKED.
+
 ### Prompt 3C: dormant FastAPI dependency (activation BLOCKED)
 
 `app/supabase_auth.py` exports `make_supabase_auth_dependency(project_url=...,
@@ -290,6 +295,7 @@ Record compensating controls and unresolved gaps; never claim full compliance.
 | Control/reference | Current evidence | Responsibility and remaining gap ($0 constraint) |
 |---|---|---|
 | Identity binding / application authorization | Schema 3 constraints plus `test_user_identities.py` and `test_supabase_identity.py` cover uniqueness and dormant existing-link resolution. | Movelle: implement verified, atomic legacy linking and route authorization; resolution alone grants no access. |
+| Email-confirmation evidence | `test_supabase_email.py` covers fresh provider markers and fail-closed rejection; see [policy review](AUTH_POLICY_EVIDENCE.md). | Confirmation configuration/provisioning audit and current-state/MFA decisions remain unresolved; no protected access is enabled. |
 | Passwords (§3.1.1), throttling | Owner-reported disposable password login; existing legacy rate-limit tests do not prove Supabase policy. | Supabase + Movelle: validate length, Unicode, screening, enumeration and abuse controls; Free lacks built-in leaked-password protection. |
 | OTP (§3.1.4/3.1.5), authenticator management (§4) | Backup TOTP design approved; hosted recovery-code probe rejected. | Supabase + Movelle: test independent factors, replacement, reset enforcement and lockout disclosure; TOTP is not phishing-resistant. |
 | Session management (§5) | Dormant JWT and `test_supabase_auth.py` adversarial/lifecycle tests; SPA exposure documented; existing routes remain legacy-only. | Movelle: establish verified email, session/revocation/MFA policy and resource authorization before activation; Free timeout gaps remain. |

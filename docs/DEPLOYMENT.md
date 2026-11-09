@@ -61,6 +61,10 @@ Keep existing routes unchanged until verified-email/session/MFA/resource policie
 and operational release gates are separately reviewed. A successful token/link
 test is not production-access approval; no hosted settings change is authorized.
 
+Prompt 3D's provider-confirmation reader also remains dormant. Its configuration,
+account/session and MFA decisions in [the evidence review](AUTH_POLICY_EVIDENCE.md)
+must be resolved separately; no existing dependency, route or hosted setting changes.
+
 Main includes PR 24 at `4150652ff5414279517e5f8618270c7be4edb6e1`.
 [GitHub deployment 7641485212](https://api.github.com/repos/aanxnd/movie-recommender/deployments/7641485212)
 records a successful Vercel **Production** deployment of that commit after merge

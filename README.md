@@ -8,7 +8,7 @@ The planned Supabase authentication launch is governed by the
 [architecture contract and open validation gates](docs/AUTH_ARCHITECTURE.md).
 The approved launch design uses optional standard TOTP with a second independent
 TOTP factor for backup recovery. Native MFA recovery codes are rejected for initial
-launch; Gmail SMTP production readiness remains open. Supabase auth is not implemented.
+launch; Gmail SMTP production readiness remains open. Supabase auth is not active on application routes.
 Schema version 3 adds dormant UUID/username identity mappings without changing legacy
 credentials, numeric IDs or ratings; no user linking or Supabase login runs yet.
 The standalone JWT verifier and existing-link identity resolver are dormant and grant no application access;
@@ -17,6 +17,8 @@ Read the [identity-resolution trust boundary](docs/AUTH_ARCHITECTURE.md#prompt-3
 before future route integration; UUID type checking is not proof of authentication.
 The [dormant FastAPI dependency](docs/AUTH_ARCHITECTURE.md#prompt-3c-dormant-fastapi-dependency-activation-blocked)
 composes these foundations only in tests; protected-route activation remains blocked on security-policy review.
+See [policy evidence and unresolved gates](docs/AUTH_POLICY_EVIDENCE.md): fresh provider
+email confirmation alone does not establish mailbox proof, active sessions or MFA.
 
 ## Local development
 
