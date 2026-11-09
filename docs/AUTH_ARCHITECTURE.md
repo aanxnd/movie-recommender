@@ -113,6 +113,46 @@ Email verification, revocation/disabled-user checks, identity binding, MFA polic
 and JWT-sized authorization headers remain later PRs. Legacy bearer handling,
 owner checks, group invitations and schema version 3 are unchanged by Prompt 3A.
 
+## Prompt 3D.3: dormant typed verified token evidence
+
+`SupabaseTokenVerifier.verify_claims(token)` uses the same pinned ES256/JWKS and
+issuer/audience/signature/time/role/subject checks as `verify(token) -> UUID`.
+It adds frozen, slotted `VerifiedTokenClaims` with hidden repr fields:
+
+| Field | Validation / meaning |
+|---|---|
+| `subject`, `session_id` | Canonical lowercase, hyphenated RFC UUIDs; zero UUIDs rejected. The session ID is signed evidence, not proof that its row exists or belongs to a currently active session. |
+| `expires_at`, `issued_at` | Exact nonnegative signed-64-bit integer Unix seconds from `exp`/`iat`; no bool/string/fraction coercion. Expiry must follow issuance; expired/future-issued tokens and future optional `nbf` fail without clock leeway. Present `nbf` also obeys integer bounds. |
+| `aal` | Exactly `aal1` or `aal2`; required. AAL2 is historical assurance, not recent MFA or authorization. |
+| `amr` | Optional: absent becomes `None`, empty array becomes `()`. Present entries must contain exactly `method` and `timestamp`, becoming frozen `AuthenticationMethodReference` objects in a tuple. |
+
+Reviewed [Supabase JWT claim formats](https://supabase.com/docs/guides/auth/jwt-fields)
+document optional AMR method/timestamp pairs, session UUIDs and the two AAL values.
+Movelle deliberately accepts only that page's twelve reviewed method names;
+unknown names/extensions, duplicate methods, malformed arrays/entries or duplicate
+JSON payload keys (including nested keys) fail closed. AMR timestamps must be
+nonnegative integer Unix seconds below `2**63` and no later than `iat`. These are
+strict parser limits, not new provider guarantees. Additional fields/methods need
+review; a `recovery` method name does not approve native MFA recovery codes.
+
+No public method accepts claim dictionaries, decoded browser data or assurance
+booleans. Signature verification precedes typed parsing, with one verification per
+call; the existing key-cache/rotation/timeouts apply. UUID-only `verify()` preserves
+its existing claim requirements and does not acquire session/AAL/AMR requirements.
+The email component, identity resolver and FastAPI dependency keep using that API.
+Fixed errors/log-free operation and hidden result/nested reprs protect diagnostics;
+never log JWTs, evidence fields or exception locals. Python types/immutability do
+not prove provenance: trusted callers must obtain results from `verify_claims`.
+
+This result does not establish genuine email verification, live/revoked session
+state, current MFA enrollment, recent step-up, local account ownership/suspension,
+group permissions or an access decision. A signed arbitrary session UUID and old
+AMR can pass offline verification. No live user/session/factor or database lookup
+occurs, no routes consume this result, and no generic access/active/recent flag is
+provided. [Policy and launch gates](AUTH_CONFIG_AUDIT.md) remain mandatory.
+`test_supabase_claims.py` covers local signatures, strict parsing, tampering,
+immutability, stale evidence, key rotation/outages and sanitized diagnostics.
+
 ## Prompt 3B: dormant identity resolution
 
 `app/supabase_identity.py` exposes `resolve_verified_subject(session, subject)`.

@@ -1,9 +1,11 @@
 """Dormant verification only: no identity linking, verified-email proof or access grant."""
 import json
 import re
+from dataclasses import dataclass
 from http.client import HTTPException
 from threading import Lock
 from time import monotonic
+from typing import Literal
 from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
 from uuid import RFC_4122, UUID
 
@@ -16,6 +18,61 @@ class InvalidAccessToken(ValueError):
 
 class SigningKeysUnavailable(RuntimeError):
     """No usable trusted key set; never fall back to unverified claims."""
+
+
+@dataclass(frozen=True, slots=True, repr=False)
+class AuthenticationMethodReference:
+    """Signed historical method/time only, never a recent-MFA predicate."""
+
+    method: str
+    timestamp: int
+
+
+@dataclass(frozen=True, slots=True, repr=False)
+class VerifiedTokenClaims:
+    """Token evidence only; obtain exclusively via verify_claims, not client objects.
+
+    No live session, mailbox, local ownership, suspension or recent-MFA proof.
+    Python types/immutability do not themselves establish evidence provenance.
+    """
+
+    subject: UUID
+    session_id: UUID
+    expires_at: int
+    issued_at: int
+    aal: Literal["aal1", "aal2"]
+    amr: tuple[AuthenticationMethodReference, ...] | None
+
+
+# Reviewed Supabase JWT Claims Reference methods; new methods need explicit review.
+_AMR_METHODS = frozenset({"oauth", "password", "otp", "totp", "recovery", "invite",
+                         "sso/saml", "magiclink", "email/signup", "email_change",
+                         "token_refresh", "anonymous"})
+
+
+def _timestamp(value):
+    # Exact integer Unix seconds: no bool, string, fraction, negative or overflow.
+    if type(value) is not int or not 0 <= value < 2**63:
+        raise ValueError
+    return value
+
+
+def _session_uuid(value):
+    if not isinstance(value, str):
+        raise ValueError
+    parsed = UUID(value)
+    if str(parsed) != value or parsed.variant != RFC_4122:
+        raise ValueError
+    return parsed
+
+
+def _unique_object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError
+        result[key] = value
+    return result
 
 
 class _NoRedirect(HTTPRedirectHandler):
@@ -87,6 +144,50 @@ class SupabaseTokenVerifier:
 
     def verify(self, token) -> UUID:
         """Return only the canonical UUID subject; deliberately confer no authorization."""
+        return UUID(self._verified_payload(token)["sub"])
+
+    def verify_claims(self, token: str) -> VerifiedTokenClaims:
+        """Verify the JWT before parsing typed session/AAL/AMR evidence; no access grant.
+
+        AAL2/AMR do not prove recent MFA; expiry/session UUID do not prove a live
+        session. Signed email cannot establish genuine mailbox verification.
+        No user/factor/session lookup, account linking or authorization occurs.
+        """
+        claims = self._verified_payload(token)
+        try:
+            # Signature already verified: reject ambiguous JSON, including nested AMR.
+            json.loads(jwt.utils.base64url_decode(token.split(".")[1]), object_pairs_hook=_unique_object)
+            issued, expires = _timestamp(claims["iat"]), _timestamp(claims["exp"])
+            if "nbf" in claims:
+                _timestamp(claims["nbf"])
+            session_id = _session_uuid(claims["session_id"])
+            aal = claims["aal"]
+            if not isinstance(aal, str) or aal not in ("aal1", "aal2"):
+                raise ValueError
+            amr = None
+            if "amr" in claims:
+                entries, methods = claims["amr"], set()
+                if not isinstance(entries, list):
+                    raise ValueError
+                parsed = []
+                for entry in entries:
+                    if not isinstance(entry, dict) or set(entry) != {"method", "timestamp"}:
+                        raise ValueError
+                    method = entry["method"]
+                    if not isinstance(method, str) or method not in _AMR_METHODS or method in methods:
+                        raise ValueError
+                    timestamp = _timestamp(entry["timestamp"])
+                    if timestamp > issued:
+                        raise ValueError
+                    methods.add(method)
+                    parsed.append(AuthenticationMethodReference(method, timestamp))
+                amr = tuple(parsed)
+            return VerifiedTokenClaims(UUID(claims["sub"]), session_id, expires, issued, aal, amr)
+        except (ValueError, TypeError, KeyError, OverflowError, RecursionError):
+            raise InvalidAccessToken("Invalid access token") from None
+
+    def _verified_payload(self, token):
+        """Shared cryptographic checks; never accept an already-decoded payload."""
         try:
             if not isinstance(token, str) or not 1 <= len(token) <= 8192:
                 raise ValueError
@@ -108,6 +209,6 @@ class SupabaseTokenVerifier:
             subject = UUID(claims["sub"])
             if str(subject) != claims["sub"] or subject.variant != RFC_4122:
                 raise ValueError
-            return subject
+            return claims
         except (jwt.PyJWTError, ValueError, TypeError, OverflowError, RecursionError):
             raise InvalidAccessToken("Invalid access token") from None
