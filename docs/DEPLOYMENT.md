@@ -43,6 +43,15 @@ Use a fresh prepared directory when changing the archive digest. Never overwrite
 
 ### Observed merge behavior (2026-11-08)
 
+Prompt 3A review (2026-11-09 UTC): the latest recorded successful Azure release is
+[run 42446546547](https://github.com/aanxnd/movie-recommender/actions/runs/42446546547),
+commit `3b2189b`, whose migration/startup requires schema 2. Its migration and deploy
+steps succeeded; no later Azure release appears in the reviewed workflow history.
+Live Azure/Neon state was not directly queried, so this is release evidence, not a
+live schema assertion. Main requires schema 3. The dormant JWT PR is safe to merge
+after CI/review, but deployment requires separately approved schema verification,
+migration rehearsal and compatible rollback preparation. It authorizes no rollout.
+
 Main includes PR 24 at `4150652ff5414279517e5f8618270c7be4edb6e1`.
 [GitHub deployment 7641485212](https://api.github.com/repos/aanxnd/movie-recommender/deployments/7641485212)
 records a successful Vercel **Production** deployment of that commit after merge
