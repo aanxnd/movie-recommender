@@ -53,6 +53,11 @@ client booleans or bypass email/session/MFA gates to make integration convenient
 
 ## Final policy and remaining activation gates
 
+Prompt 3D.5 implements [native email-OTP redemption](EMAIL_PROVENANCE.md) with
+verified identity/address binding. It deliberately produces no mailbox attestation:
+issuance provenance, durable replay control and all-change invalidation remain
+blocked pending an approved supported workflow. Existing interfaces still deny.
+
 Prompt 3D.4 implements [dormant fail-closed composition](AUTH_ARCHITECTURE.md#prompt-3d4-dormant-provenancelive-state-composition)
 with fresh public user lookup and separate mandatory trusted mailbox/live-state
 interfaces. No concrete challenge ledger or authoritative session adapter exists;
