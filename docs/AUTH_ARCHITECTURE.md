@@ -254,6 +254,12 @@ API, backfill, hosted mapping, email/MFA flow or deployment is authorized here.
 
 ## Open launch gates
 
+Prompt 3D.5 adds a [native email-OTP redemption component](EMAIL_PROVENANCE.md),
+not a concrete `MailboxSource`. Native credential acceptance cannot distinguish
+approved inbox delivery from administrative token generation or establish all
+address-change history. The new component is dormant; genuine provenance and
+authoritative live-state sources remain required before protected access.
+
 Prompt 3D adds only [fresh provider email-confirmation evidence](AUTH_POLICY_EVIDENCE.md).
 Prompt 3D.2 records [final owner requirements and the configuration audit](AUTH_CONFIG_AUDIT.md).
 Current-account/session and MFA enforcement remain blocked on evidence and design
