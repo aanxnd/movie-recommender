@@ -59,6 +59,37 @@ extracts the guarded proposal only into fresh loopback databases with mock roles
 no hosted installation or lifecycle result follows. PUBLIC TEMP remains observable.
 Stacked review-branch CI is enabled without altering the manual production release.
 
+### Dormant Python observer (Prompt 11)
+
+`SupabaseStateObserver.observe(raw_jwt)` verifies ES256 using the existing verifier,
+then opens a fresh, bounded PG17 READ COMMITTED READ ONLY transaction. Configuration
+pins the direct project DB host, reader username and verify-full TLS/root trust;
+ambient libpq overrides and poolers are unsupported. No env configuration or routes
+instantiate it. One connection/check per instance, no positive state cache.
+
+Before reading markers it enforces owner/body/search-path/ACL/role invariants and
+compares a bounded SHA-256 catalog fingerprint to an explicitly owner-approved
+server configuration. Roles/memberships, database/schema/table/column grants,
+function bodies/ACLs, policies, defaults, extensions, large-object ACLs and settings
+are covered. Metadata only: no Auth row/credential inventory. No hosted fingerprint
+is approved or supplied; never auto-approve the first observed snapshot. Any drift
+(including benign/unrelated changes) denies pending review. API exposure settings
+remain a separate hosted gate; the catalog cannot prove every external service's
+configuration or eliminate concurrent administrator changes.
+
+Results are frozen, repr-hidden verified claims/issuer/nonce/DB time plus four
+independent binding/marker flags. They are NOT LiveAccountSession/LiveStateSource:
+no invented email evidence, enabled/present state or full revocation guarantee.
+Existing AuthenticationEvidencePolicy is unchanged and still denies without its
+mandatory trusted sources. No genuine mailbox, MFA recency or ownership bypass.
+Socket connect/server statement/transaction limits and a three-second post-check
+budget fail closed; they are not hard cancellation during a network partition.
+DB/app clock tolerance is three seconds, not proof of instantaneous revocation.
+Local stack validation: **486 security/regression tests passed**, including 29 SQL
+and 31 observer cases; 10 PR-budget tests passed. These are offline passes only.
+Stacked PRs must be reviewed in order; after each squash merge, rebase the child
+onto updated main before retargeting and rerun its complete-PR budget/CI checks.
+
 Use an empty isolated PostgreSQL 17 fixture database with synthetic tables/UUIDs
 and mock API roles; never a Supabase/Neon URL. Reproduce managed/PUBLIC defaults.
 
