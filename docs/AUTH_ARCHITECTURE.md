@@ -1,6 +1,6 @@
 # Authentication architecture contract
 
-Status: **Prompt 2B identity foundation; no Supabase authentication implementation.**
+Status: **Identity foundation plus dormant JWT verification; no Supabase endpoint authentication.**
 Owner decisions and Prompt 1 / Prompt 1B / Prompt 1C evidence: 2026-11-08.
 The owner-approved backup TOTP decision supersedes the earlier recovery-code
 requirement. Runtime authentication and public signup activation need separate authorization.
@@ -84,6 +84,33 @@ origin before launch. The owner-reported `http://localhost:3000` default is not 
 production configuration. No callback route, environment value or hosted setting
 is created here. References: [JWT validation](https://supabase.com/docs/guides/auth/jwts),
 [redirect allowlists](https://supabase.com/docs/guides/auth/redirect-urls).
+
+## Prompt 3A: dormant JWT verifier
+
+`app/supabase_jwt.py` is not imported by application startup, routes or legacy
+security. Construct one shared `SupabaseTokenVerifier(SUPABASE_URL)` explicitly in
+a later integration; use the project origin, not `/rest/v1/`. No hosted settings
+or environment values are activated here. Owner reports current ECC/P-256 signing;
+credential-free JWKS inspection on 2026-11-09 UTC confirmed `EC`, `P-256`, `ES256`,
+`sig`, `verify` at [the project-pinned endpoint](https://jsbulnrcxtvslvvxjizq.supabase.co/auth/v1/.well-known/jwks.json).
+
+Only ES256/P-256 public signing keys are accepted. Exact issuer and a single
+expected audience (default `authenticated`) are checked, with required `iss`,
+`aud`, integer `exp`/`iat`, canonical RFC UUID `sub` and `role=authenticated`.
+Optional integer `nbf` is enforced; no clock leeway is granted. Token size is 8 KiB;
+JWKS is limited to 64 KiB/16 keys, with TLS validation, no redirects, and three-second
+socket-operation timeouts (not a whole-request deadline). Cache lifetime is five
+minutes; refresh attempts are serialized and limited to once per 30 seconds,
+including unknown `kid` and failures. New keys may wait for that cooldown. Expired
+cache fails closed; refresh replaces the full set. Provider-side JWKS caching adds
+revocation latency: [Supabase verification guidance](https://supabase.com/docs/guides/auth/jwts).
+
+`verify()` returns only a UUID, never verified-email status or Movelle authorization.
+Fixed exceptions contain no tokens/claims; later synchronous FastAPI dependencies
+must map invalid tokens to 401 and key unavailability to 503 without diagnostics.
+Email verification, revocation/disabled-user checks, identity binding, MFA policy
+and JWT-sized authorization headers remain later PRs. Legacy bearer handling,
+owner checks, group invitations and schema version 3 are unchanged by Prompt 3A.
 
 ## Open launch gates
 
@@ -185,7 +212,7 @@ Record compensating controls and unresolved gaps; never claim full compliance.
 | Identity binding / application authorization | Schema 3 constraints and `tests/test_user_identities.py` protect one-to-one mapping and case-insensitive names. | Movelle: implement verified, atomic legacy linking and JWT authorization; schema alone authenticates nobody. |
 | Passwords (§3.1.1), throttling | Owner-reported disposable password login; existing legacy rate-limit tests do not prove Supabase policy. | Supabase + Movelle: validate length, Unicode, screening, enumeration and abuse controls; Free lacks built-in leaked-password protection. |
 | OTP (§3.1.4/3.1.5), authenticator management (§4) | Backup TOTP design approved; hosted recovery-code probe rejected. | Supabase + Movelle: test independent factors, replacement, reset enforcement and lockout disclosure; TOTP is not phishing-resistant. |
-| Session management (§5) | SPA token exposure documented; no Supabase runtime sessions yet. | Movelle: validate email, JWTs, revocation, reauthentication and secret-safe logging; Free timeout gaps remain. |
+| Session management (§5) | Dormant JWT signature/adversarial tests in `test_supabase_jwt.py`; SPA exposure documented; no runtime sessions yet. | Movelle: integrate JWTs, verified email, revocation, reauthentication and secret-safe logging; Free timeout gaps remain. |
 
 Official references, reviewed 2026-11-08 (not live validation):
 
