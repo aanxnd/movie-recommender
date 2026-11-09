@@ -153,6 +153,12 @@ reject the launch if the owner cannot accept that window.
 
 ### Conditional server-only read-only adapter (proposal, not authorized setup)
 
+**Prompt 11 decision hold:** [owner-reported hosted inspection](AUTH_DB_ACCESS_INSPECTION.md)
+rejects direct Auth grants (no grantable schema USAGE). The historical direct-grant
+and narrow definer-owner ideas below are superseded by a review-only postgres-owned
+private capability proposal, conditional on existing RLS access and owner acceptance.
+No setup is approved; omit email fields and defer `aal` for a state-only reader.
+
 If hosted public validation cannot supply explicit session binding/current AAL or
 ban/deletion status, propose one parameterized query joining exactly
 `auth.users.id = auth.sessions.user_id`, constrained by **both** verified subject
