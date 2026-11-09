@@ -1,9 +1,9 @@
 # Authentication architecture contract
 
-Status: **Architecture correction before Prompt 2B; no authentication implementation.**
+Status: **Prompt 2B identity foundation; no Supabase authentication implementation.**
 Owner decisions and Prompt 1 / Prompt 1B / Prompt 1C evidence: 2026-11-08.
 The owner-approved backup TOTP decision supersedes the earlier recovery-code
-requirement. Implementation and public signup activation need separate authorization.
+requirement. Runtime authentication and public signup activation need separate authorization.
 
 ## Decisions and boundaries
 
@@ -23,7 +23,7 @@ audience, expiry and subject using maintained libraries and bounded signing-key
 refresh. Server-side authorization must enforce verified email and the required
 MFA assurance, not trust browser state or numeric IDs. Neon will map a unique
 Supabase subject to the existing numeric user ID and enforce normalized username
-uniqueness transactionally. Exact username normalization is a later reviewed contract.
+uniqueness transactionally under the identity schema contract below.
 
 Legacy linking must require both valid legacy ownership proof and the intended
 verified Supabase identity, with one-time atomic linking and uniqueness checks.
@@ -31,6 +31,31 @@ Linked profiles must reject legacy authentication and operator credential reissu
 Expand existing bearer-header limits for JWTs in a later PR. Rehearse migrations
 and schema-compatible rollback: an additive schema is not automatically compatible
 with binaries that require an exact schema version. Never restore legacy bypasses.
+
+## Identity foundation: schema version 3
+
+The inspected schema has numeric `users.id` only, with no stored usernames.
+Add `user_identities`; do not alter or backfill `users` or its relationships:
+
+| Column/constraint | Contract |
+|---|---|
+| `user_id` | Primary key and foreign key to `users.id`; at most one identity row per existing numeric user. |
+| `supabase_subject` | Nullable unique UUID (`sub`); native PostgreSQL UUID, canonical 32-character lowercase hex storage on SQLite. No fabricated legacy subjects. |
+| `username` | Nullable, case-preserving ASCII `[A-Za-z0-9_]`, 3–30 characters; database checks reject other values rather than trimming or renaming. |
+| `uq_identity_username_ci` | Unique index on `lower(username)`; PostgreSQL `C` collation makes ASCII folding independent of server locale. `Alice` and `aLiCe` conflict, including concurrent writes. |
+
+Legacy users need no identity row; multiple null subjects/usernames are permitted.
+There are no existing database usernames to normalize or collide. Any externally
+supplied names need a later ownership/collision review; never silently import or
+rename them. Numeric IDs, sequences, ratings, recommendation inputs, credentials
+and group invitations remain untouched. Referential integrity rejects orphan links.
+
+This PR adds no linking writers, endpoints or authorization consumers. Do not
+populate hosted mappings until the separately reviewed verified linking and legacy
+credential cutover are ready. An identity row alone grants no access. Legacy
+authentication remains unchanged. Migrations from versions 1/2 are additive,
+transactional and serialized; an unexpected pre-existing identity table stops
+migration for inspection. See [release and rollback restrictions](DEPLOYMENT.md).
 
 ## Configuration contract (names only; not implemented or configured)
 
@@ -42,11 +67,29 @@ with binaries that require an exact schema version. Never restore legacy bypasse
 | Gmail SMTP | Candidate `smtp.gmail.com:587` with STARTTLS, actual authenticated Gmail From address, full Gmail username and dedicated app password; enter secrets privately in Supabase, never source control or browser configuration. |
 | Administrative access | No service-role key in the browser. Any future backend admin capability needs explicit scope review; ordinary JWT verification does not require it. |
 
+Future JWT validation must pin issuer `SUPABASE_URL + /auth/v1` and its
+`/.well-known/jwks.json` endpoint for the approved project, audience `authenticated`,
+approved signing algorithms, UUID `sub`, expiry and any `nbf`. Bound key caching
+and rotation refresh; reject unknown keys and token-supplied key URLs. Confirm the
+project uses supported asymmetric signing keys before relying on JWKS; do not
+infer verified-email status from an email string or a browser claim. Define a
+supported server-side verification check and session/revocation policy before access.
+Supabase owns passwords, email verification, sessions and factors; Neon stores
+application identity mappings/data, never copies passwords, refresh tokens or TOTP secrets.
+
+For later owner-approved redirect configuration, use exact callback URLs for
+localhost development, each approved preview, and HTTPS production; avoid wildcard
+allowlists and user-controlled redirects. Set Site URL to the approved application
+origin before launch. The owner-reported `http://localhost:3000` default is not a
+production configuration. No callback route, environment value or hosted setting
+is created here. References: [JWT validation](https://supabase.com/docs/guides/auth/jwts),
+[redirect allowlists](https://supabase.com/docs/guides/auth/redirect-urls).
+
 ## Open launch gates
 
 **Gmail SMTP production readiness and future MFA acceptance remain OPEN launch gates.**
-Recovery codes are no longer a prerequisite for Prompt 2B. Its implementation
-requires separate owner authorization after review of this architecture correction.
+Recovery codes are no longer a prerequisite for Prompt 2B. This PR implements only
+its identity foundation; runtime authentication requires a later reviewed PR.
 Use disposable users and controlled recipient mailboxes; no production-data testing.
 Record date, SDK/provider version, Free-plan settings, sanitized results and reviewer.
 Failure leaves the requirement unresolved; it is not permission to weaken it.
@@ -96,7 +139,7 @@ Later implementation must test independent primary/backup enrollment, fresh logi
 and backup-only recovery, replacement/removal, wrong-factor/account rejection,
 throttling, session expiry/revocation, password-reset MFA enforcement and secret
 redaction. Validate Google Authenticator and Duo Mobile interoperability. These
-flows have not been implemented or validated by this documentation correction.
+flows have not been implemented or validated by the identity foundation.
 
 ## Decision and validation history
 
@@ -137,6 +180,13 @@ and lockout risks. TOTP is not phishing-resistant. Browser token exposure remain
 Free does not include built-in leaked-password protection or session timeouts.
 Record compensating controls and unresolved gaps; never claim full compliance.
 
+| Control/reference | Current evidence | Responsibility and remaining gap ($0 constraint) |
+|---|---|---|
+| Identity binding / application authorization | Schema 3 constraints and `tests/test_user_identities.py` protect one-to-one mapping and case-insensitive names. | Movelle: implement verified, atomic legacy linking and JWT authorization; schema alone authenticates nobody. |
+| Passwords (§3.1.1), throttling | Owner-reported disposable password login; existing legacy rate-limit tests do not prove Supabase policy. | Supabase + Movelle: validate length, Unicode, screening, enumeration and abuse controls; Free lacks built-in leaked-password protection. |
+| OTP (§3.1.4/3.1.5), authenticator management (§4) | Backup TOTP design approved; hosted recovery-code probe rejected. | Supabase + Movelle: test independent factors, replacement, reset enforcement and lockout disclosure; TOTP is not phishing-resistant. |
+| Session management (§5) | SPA token exposure documented; no Supabase runtime sessions yet. | Movelle: validate email, JWTs, revocation, reauthentication and secret-safe logging; Free timeout gaps remain. |
+
 Official references, reviewed 2026-11-08 (not live validation):
 
 - [Supabase Free features](https://supabase.com/pricing), [SMTP restrictions](https://supabase.com/docs/guides/auth/auth-smtp), [email notifications](https://supabase.com/docs/guides/auth/auth-email-templates).
@@ -159,8 +209,8 @@ history, read-only permissions and no service secrets. The owner reports a GitHu
 ruleset with required CI checks is configured; preserve it. Repository code cannot
 stop an administrator bypass. No settings are changed here.
 
-PR 2A added the contract and PR-size CI. This correction changes documentation only:
-no auth code, dependencies, database changes, external configuration, public signup
-activation, deployment or automatic release. Native recovery codes do not block
+PR 2A added the contract and PR-size CI; PR 24 approved backup TOTP. Prompt 2B adds
+only the dormant schema foundation and configuration contract, with no runtime auth,
+external configuration, public signup activation or production migration. Native recovery codes do not block
 Prompt 2B; Gmail production readiness and later security acceptance block launch.
 Keep [deployment/rollback controls](DEPLOYMENT.md) for later authorized rollout.
