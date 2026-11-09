@@ -53,6 +53,12 @@ client booleans or bypass email/session/MFA gates to make integration convenient
 
 ## Final policy and remaining activation gates
 
+Prompt 3D.4 implements [dormant fail-closed composition](AUTH_ARCHITECTURE.md#prompt-3d4-dormant-provenancelive-state-composition)
+with fresh public user lookup and separate mandatory trusted mailbox/live-state
+interfaces. No concrete challenge ledger or authoritative session adapter exists;
+default configuration denies all success. Offline mocks prove binding and failure
+behavior only. Hosted provenance, revocation and MFA gates below remain open.
+
 Prompt 3D.3 adds [typed, signature-verified JWT evidence](AUTH_ARCHITECTURE.md#prompt-3d3-dormant-typed-verified-token-evidence),
 including session UUID, issued/expiry times, AAL and optional AMR. It performs no
 live state or provenance check and confers no access. Existing consumers still
