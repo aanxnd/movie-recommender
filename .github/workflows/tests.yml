@@ -5,7 +5,7 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+    branches: [main, docs/prompt-11-auth-db-inspection, test/prompt-11-auth-state-sql]
 
 permissions:
   contents: read

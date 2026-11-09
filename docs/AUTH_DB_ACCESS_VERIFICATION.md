@@ -54,6 +54,11 @@ implementation scope, within Prompt 11. No PR, hosted execution or Prompt 12 now
 
 ## Verification tests — approved offline; hosted tests require separate authorization
 
+Offline SQL fixture result: **29 passed on local PostgreSQL 17.11**. The harness
+extracts the guarded proposal only into fresh loopback databases with mock roles;
+no hosted installation or lifecycle result follows. PUBLIC TEMP remains observable.
+Stacked review-branch CI is enabled without altering the manual production release.
+
 Use an empty isolated PostgreSQL 17 fixture database with synthetic tables/UUIDs
 and mock API roles; never a Supabase/Neon URL. Reproduce managed/PUBLIC defaults.
 
