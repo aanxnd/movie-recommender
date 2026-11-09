@@ -145,12 +145,12 @@ class SupabaseStateObserver:
                 if (len(rows) != 1 or len(rows[0]) != 5 or any(type(v) is not bool for v in rows[0][:4])
                         or type(rows[0][4]) is not datetime or rows[0][4].utcoffset() is None):
                     raise ValueError
-                now = datetime.now(timezone.utc)
-                if (abs((now-rows[0][4]).total_seconds()) > 3 or now.timestamp() >= claims.expires_at
-                        or monotonic()-started > 3):
-                    raise ValueError
                 result = AuthStateObservation(claims,self._verifier.issuer,uuid4(),rows[0][4],*rows[0][:4])
-            return result  # Transaction/connection cleanup must succeed too.
+            now = datetime.now(timezone.utc)  # Include transaction/socket cleanup in the budget.
+            if (abs((now-result.observed_at).total_seconds()) > 3 or now.timestamp() >= claims.expires_at
+                    or monotonic()-started > 3):
+                raise ValueError
+            return result
         except InvalidAccessToken:
             raise AuthenticationEvidenceDenied('Authentication evidence rejected') from None
         except Exception:

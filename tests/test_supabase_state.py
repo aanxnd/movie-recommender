@@ -145,6 +145,20 @@ def test_no_row_denied(observer, monkeypatch):
     unavailable(observer)
 
 
+def test_cleanup_time_is_inside_deadline(observer, monkeypatch):
+    connect, clock = auth.psycopg.connect, [0]
+    class SlowClose:
+        def __init__(self, connection): self.connection = connection
+        def __enter__(self): return self
+        def __getattr__(self, name): return getattr(self.connection,name)
+        def __exit__(self,*args):
+            self.connection.__exit__(*args)
+            clock[0] = 4
+    monkeypatch.setattr(auth.psycopg,'connect',lambda **kw: SlowClose(connect(**kw)))
+    monkeypatch.setattr(auth,'monotonic',lambda: clock[0])
+    unavailable(observer)
+
+
 @pytest.mark.parametrize('change', [
     'host=remote.example.invalid', 'hostaddr=127.0.0.1', 'service=untrusted',
     'options=-csearch_path=public', 'user=postgres', 'sslmode=require', 'dbname=host=remote',

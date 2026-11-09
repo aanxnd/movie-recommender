@@ -85,8 +85,8 @@ mandatory trusted sources. No genuine mailbox, MFA recency or ownership bypass.
 Socket connect/server statement/transaction limits and a three-second post-check
 budget fail closed; they are not hard cancellation during a network partition.
 DB/app clock tolerance is three seconds, not proof of instantaneous revocation.
-Local stack validation: **486 security/regression tests passed**, including 29 SQL
-and 31 observer cases; 10 PR-budget tests passed. These are offline passes only.
+Local stack validation: **487 security/regression tests passed**, including 29 SQL
+and 32 observer cases; 10 PR-budget tests passed. These are offline passes only.
 Stacked PRs must be reviewed in order; after each squash merge, rebase the child
 onto updated main before retargeting and rerun its complete-PR budget/CI checks.
 
