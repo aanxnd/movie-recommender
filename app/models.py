@@ -1,6 +1,8 @@
 """Application database models, separate from MovieLens reference users."""
 
-from sqlalchemy import BigInteger, CheckConstraint, Float, ForeignKey, Integer, String
+from uuid import UUID
+
+from sqlalchemy import BigInteger, CheckConstraint, Float, ForeignKey, Index, Integer, String, Uuid, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -16,6 +18,29 @@ class User(Base):
     __table_args__ = {"sqlite_autoincrement": True}
 
     id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True)
+
+
+class UserIdentity(Base):
+    """Dormant identity foundation; only a later verified linking flow may populate it."""
+
+    __tablename__ = "user_identities"
+    __table_args__ = (
+        CheckConstraint("username IS NULL OR length(username) BETWEEN 3 AND 30", name="ck_identity_username_length"),
+        CheckConstraint("username IS NULL OR (instr(username, char(0)) = 0 AND username NOT GLOB '*[^A-Za-z0-9_]*')",
+                        name="ck_identity_username_ascii").ddl_if(dialect="sqlite"),
+        CheckConstraint("username IS NULL OR username ~ '^[A-Za-z0-9_]+$'",
+                        name="ck_identity_username_ascii").ddl_if(dialect="postgresql"),
+        CheckConstraint("supabase_subject IS NULL OR (instr(supabase_subject, char(0)) = 0 AND length(supabase_subject) = 32 AND "
+                        "supabase_subject NOT GLOB '*[^0-9a-f]*')",
+                        name="ck_identity_subject_hex").ddl_if(dialect="sqlite"),
+    )
+
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    supabase_subject: Mapped[UUID | None] = mapped_column(Uuid, unique=True)
+    # C collation makes ASCII lower() deterministic even on non-English PostgreSQL locales.
+    username: Mapped[str | None] = mapped_column(String(30).with_variant(String(30, collation="C"), "postgresql"))
+
+    __table_args__ += (Index("uq_identity_username_ci", func.lower(username), unique=True),)
 
 
 class Movie(Base):

@@ -41,6 +41,24 @@ Use a fresh prepared directory when changing the archive digest. Never overwrite
 
 ## Release sequence
 
+### Observed merge behavior (2026-11-08)
+
+Main includes PR 24 at `4150652ff5414279517e5f8618270c7be4edb6e1`.
+[GitHub deployment 7641485212](https://api.github.com/repos/aanxnd/movie-recommender/deployments/7641485212)
+records a successful Vercel **Production** deployment of that commit after merge
+(20:37 UTC). Main merges automatically build/deploy through the Vercel integration.
+Live-domain auto-assignment/promotion settings were not independently verified;
+treat a merge as potentially serving the new frontend, not as safely staged.
+The hold procedure below is an operator prerequisite for coordinated releases,
+not evidence that a hold is currently configured. No Vercel settings changed here.
+
+Azure's `publish-image.yml` has only `workflow_dispatch`; merging does not trigger
+its image publication, Neon migration or Azure deployment. Recorded successful
+main CI runs and the separate manual release are consistent with that boundary.
+The identity foundation changes no frontend files or environment values, so its
+automatic Vercel build retains the existing frontend/backend contract. Backend
+deployment and schema migration remain separately authorized operator actions.
+
 Before merging a frontend/backend change, hold Vercel domain promotion. In the existing Vercel project, use **Settings -> Environments -> Production -> Branch Tracking -> Auto-assign Custom Production Domains**, and disable automatic assignment. Confirm this also keeps the existing production `*.vercel.app` URL on the current deployment; if the project cannot hold that URL, stop before merging and arrange an approved maintenance/release window. Keep Production branch tracking on `main`. A merge can build a staged production deployment; it must not serve visitors before the compatible backend is ready. These are operator actions, not changes made by this repository. See [Vercel's staged production instructions](https://vercel.com/docs/deployments/promoting-a-deployment).
 
 Before public rollout, review Trakt API policy, Fanart.tv registration/image rights and MovieLens portfolio/redistribution scope. See README and ARTWORK.md. A successful preview or an API key does not transfer third-party image copyright. Keep Fanart.tv use noncommercial and the project account email accurate.
@@ -49,7 +67,7 @@ Before public rollout, review Trakt API policy, Fanart.tv registration/image rig
 2. Prepare a Vercel preview from the same source commit. Root directory `frontend`, Node 24, install `npm ci`, build `npm run build`, output `dist`. Set **public** `VITE_API_BASE_URL` to the real backend HTTPS origin without `/api`, and set backend CORS to the intended preview/production origins. No database URL or credential belongs in `VITE_*`. The included Vercel CSP permits HTTPS connections; tighten `connect-src` to the exact backend origin once known.
 3. After an approved merge, dispatch **Controlled production release** on `main`. Azure deployment is manual through this workflow; Vercel's separate Git integration may still build on `main`, with domain assignment held as above. The workflow reruns reusable CI for that exact event SHA, builds/publishes a uniquely tagged GHCR image, then smoke-tests the **published digest**. Publishing an image alone does not deploy it.
 4. The protected deployment job rejects a SHA that is no longer `main` before cloud changes. Runs are serialized and never canceled halfway through migration. Approve the protected environment only after checking the preview and the tested SHA/digest.
-5. After approval and the stale-SHA guard, the runner logs into GHCR, runs the migration container from that exact digest with the protected database secret and CORS variable, and requires exit status zero. Only then does Azure OIDC login run and the deployment action update `movie-recommender-api` using the same `image@sha256:DIGEST`. Production startup checks schema version 2; it does not attempt DDL. This flow works with the existing Express environment and performs no Container Apps Job operation.
+5. After approval and the stale-SHA guard, the runner logs into GHCR, runs the migration container from that exact digest with the protected database secret and CORS variable, and requires exit status zero. Only then does Azure OIDC login run and the deployment action update `movie-recommender-api` using the same `image@sha256:DIGEST`. Production startup checks schema version 3; it does not attempt DDL. This flow works with the existing Express environment and performs no Container Apps Job operation.
 6. Coordinate the first authentication cutover: pause public promotion/put the old UI behind maintenance if needed, route API traffic entirely to the secure new revision, and retire old unauthenticated revisions. **Do not split traffic between authenticated and old unauthenticated backends.** An old frontend receives authorization errors; it must never trigger an insecure compatibility mode. Once the secure API is healthy, select the staged **Production-target** Vercel build for that same source SHA and use its deployment menu -> Promote. Verify its production `VITE_API_BASE_URL` first; promoting a Preview artifact does not rebuild it with Production settings.
 7. Verify `/health` and `/ready`, profile creation, refresh restoration, cross-profile denial, fractional save, group invitation/revocation, capacity behavior, and two independent client networks for rate-limit attribution. Check logs/metrics for startup/probe failures, 401/403/429/503 rates, transaction/pool waits, duration and RSS. Do not log Authorization headers, bodies containing invitation codes, or recovery files.
 8. Verify the database restore procedure and alert/cost limits before broad public sharing. Record the application digest, schema version, reference manifest identity, and frontend commit. Azure/Neon/Vercel behavior remains unverified until these operator checks pass.
@@ -68,7 +86,7 @@ Replace `RUN_ID` with the new dispatch's actual run ID. Review the exact SHA/dig
 
 - **Production exits before bootstrap:** validate APP_ENV, PostgreSQL/TLS URL, exact HTTPS CORS origins, and proxy trust configuration without printing secrets.
 - **Migration configuration missing:** privately check that `PRODUCTION_DATABASE_URL` is a secret in the `production` environment and `CORS_ALLOWED_ORIGINS` is a variable in that environment. Do not print their values into Actions logs. An environment/repository value with a different name is not a fallback.
-- **Schema migration required or runner migration failed:** inspect the fixed failure category, Neon connectivity/role/TLS settings, and existing private database diagnostics. Container output is intentionally suppressed. Reproduce against an isolated branch with the same image before a new approved release; never bypass the migration step, switch to SQLite, reset Neon, or expose the production secret through debug output. Migration 1/2 is additive and idempotent under a DB lock. A timeout or lost response does not prove rollback: verify schema state privately before retrying. Successful migration followed by deployment failure leaves the additive schema in place; do not downgrade it.
+- **Schema migration required or runner migration failed:** inspect the fixed failure category, Neon connectivity/role/TLS settings, and existing private database diagnostics. Container output is intentionally suppressed. Reproduce against an isolated branch with the same image before a new approved release; never bypass the migration step, switch to SQLite, reset Neon, or expose the production secret through debug output. Migrations through version 3 are additive and idempotent under a DB lock. A timeout or lost response does not prove rollback: verify schema state privately before retrying. Successful migration followed by deployment failure leaves the additive schema in place; do not downgrade it.
 - **Old profile inaccessible:** old IDs are intentionally locked. Recover only after out-of-band ownership verification. Use an operator shell with the correct backend secret environment and `python -m app.manage recover-profile --user-id ID --output PRIVATE_PATH.credentials.json`. This also supports expired credentials, refuses live claimed credentials, revokes old group invitations, and preserves ratings. Treat a failed recovery output as untrusted until checked; files are not overwritten on retry.
 - **Archive mismatch:** choose a fresh versioned prepared directory; do not edit verification markers or disable checks. Missing/changed pinned provenance is a failure, not permission to relabel existing data.
 - **503 capacity busy:** expected overload; Retry-After is exposed to the browser and bounded retries apply. Workload-timeout 503s are not automatically retried. Reduce workload or measure/adjust finite capacity.
@@ -78,11 +96,21 @@ Replace `RUN_ID` with the new dispatch's actual run ID. Review the exact SHA/dig
 
 ## Rollback
 
-Stop further release dispatches and retain the failed revision's sanitized diagnostics. Route traffic to the last known **secure, schema-compatible immutable digest**, then restore the matching compatible frontend. Do not use `latest`, rerun an old unauthenticated deployment, or downgrade/drop tables. Additive version 1/2 tables can remain during an application rollback. If the only previous revision is unauthenticated, keep the service in maintenance and fix forward rather than reopening access to all profiles. Database restore is a separate, explicitly authorized recovery action with data-loss implications; do not automate it as application rollback.
+Stop further release dispatches and retain the failed revision's sanitized diagnostics. Route traffic to the last known **secure, schema-compatible immutable digest**, then restore the matching compatible frontend. Do not use `latest`, rerun an old unauthenticated deployment, or downgrade/drop tables. Retain additive tables only with a schema-compatible binary. If the only previous revision is unauthenticated, keep the service in maintenance and fix forward rather than reopening access to all profiles. Database restore is a separate, explicitly authorized recovery action with data-loss implications; do not automate it as application rollback.
+
+Schema 3 adds only `user_identities` and updates the version marker; no identity
+rows or legacy data are rewritten. Rehearse versions 1/2 -> 3 and failure rollback
+on an isolated database before any approved production release. Before migration,
+leave the schema-2 service/database untouched if aborting. After migration, old
+schema-2 binaries reject schema 3 at startup; they are **not** a valid rollback.
+Prepare a schema-3-compatible legacy-behavior image or fix forward. If migration
+succeeds but deployment fails, do not drop the table or decrement the marker;
+use that compatible image and coordinate readiness/traffic explicitly. A failed
+transaction rolls DDL and version back; a lost response still needs inspection.
 
 For a frontend-only regression, roll Vercel back to a compatible frontend while keeping the patched backend running. A backend rollback to an older validation handler can restore credential disclosure; require an explicit security decision before using such a revision. Prefer fixing forward. In multi-revision Azure mode, record and verify explicit traffic weights; in single-revision mode, follow the approved previous-image revision procedure rather than assuming an inactive revision can receive traffic. Do not change revision mode automatically.
 
-The validation/attribution correction adds no migration: schema version 2 remains required. The release workflow still runs the existing additive/idempotent migration entrypoint, and startup registers reference movie IDs. Therefore the rollout is not guaranteed to make zero database writes. Verify a restore point and the intended database privately before approval. The application runtime disables access logs; confirm platform diagnostics do not record confidential headers, bodies, or URL query strings independently.
+The earlier validation/attribution correction added no migration; this identity foundation requires schema 3. The release workflow runs the additive/idempotent migration entrypoint, and startup registers reference movie IDs. A later approved rollout therefore performs database writes. Verify a restore point and the intended database privately before approval. The application runtime disables access logs; confirm platform diagnostics do not record confidential headers, bodies, or URL query strings independently.
 
 ## Boundaries of local verification
 

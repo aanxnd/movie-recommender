@@ -9,6 +9,8 @@ The planned Supabase authentication launch is governed by the
 The approved launch design uses optional standard TOTP with a second independent
 TOTP factor for backup recovery. Native MFA recovery codes are rejected for initial
 launch; Gmail SMTP production readiness remains open. Supabase auth is not implemented.
+Schema version 3 adds dormant UUID/username identity mappings without changing legacy
+credentials, numeric IDs or ratings; no user linking or Supabase login runs yet.
 
 ## Local development
 
@@ -132,7 +134,7 @@ Pinned prepared release: `https://github.com/aanxnd/movie-recommender/releases/d
 
 ## Migrations and operations
 
-`python -m app.manage migrate` runs additive, versioned migrations under a PostgreSQL transaction advisory lock or SQLite BEGIN IMMEDIATE. Version 1 adds ownership/invitations/schema tracking; version 2 adds admission counters. No existing ratings are removed. Development migrates automatically; production only checks the required schema. Incompatible future changes need an explicit new migration and a compatible rollout.
+`python -m app.manage migrate` runs additive, versioned migrations under a PostgreSQL transaction advisory lock or SQLite BEGIN IMMEDIATE. Version 1 adds ownership/invitations/schema tracking; version 2 adds admission counters; version 3 adds optional identity mappings. No existing ratings are removed. Development migrates automatically; production only checks the required schema. Older schema-2 binaries reject schema 3; follow the [compatible rollback strategy](docs/DEPLOYMENT.md#rollback).
 
 `/health` is cheap liveness. `/ready` checks initialization plus a single-flight, deadline-bounded database probe: success is cached 30 seconds, failure two seconds. Concurrent callers share the result. Probe subprocess isolation/termination remains to bound stalled database drivers, but requests no longer spawn a process each time. Readiness can lag a database failure by the cache interval; it is not a check of every application write permission or a guarantee of spare recommendation capacity.
 
