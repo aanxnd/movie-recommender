@@ -23,7 +23,7 @@ were not supplied. Decisions below are complete for scope, not a hosted inventor
 | PUBLIC custom/extension relations, DML or routines (especially SECURITY DEFINER) | No blanket allowance. Unknown/unreviewed reachable entries block hosted setup, not offline implementation. Vault presence does not authorize its data/functions. |
 | Managed-role default grants | Q9 confirmed generally, exact grantees unspecified. Preserve existing global/provider ACLs; revoke/guard only new owned objects. |
 | New private schema/function | Only postgres owner + reader USAGE/exact EXECUTE; no PUBLIC/API-role access or grant option for reader. Draft aborts on other default grantees. |
-| New reader | Only intended grants plus accepted PUBLIC baseline; no memberships, broad flags, privileged SET paths or ownership. Actual Q5/Q8 check follows separately authorized creation. |
+| New reader | Dedicated LOGIN, PASSWORD NULL until separately approved private provisioning; intended grants + accepted PUBLIC baseline only. No memberships, broad flags, privileged SET paths or ownership; verify after authorized creation. |
 
 [PUBLIC guidance](https://supabase.com/kb/troubleshooting/custom-role-inherits-privileges-that-were-not-explicitly-granted-ddaa1c): NOINHERIT cannot remove the baseline.
 Only vault was present among checked optional extensions; reachable-routine safety is unproven.
@@ -54,9 +54,9 @@ implementation scope, within Prompt 11. No PR, hosted execution or Prompt 12 now
 
 ## Verification tests — approved offline; hosted tests require separate authorization
 
-Offline SQL fixture result: **29 passed on local PostgreSQL 17.11**. The harness
-extracts the guarded proposal only into fresh loopback databases with mock roles;
-no hosted installation or lifecycle result follows. PUBLIC TEMP remains observable.
+Offline SQL fixtures use fresh SCRAM-authenticated LOGIN connections (not runtime impersonation).
+The harness extracts the guarded proposal only into fresh loopback databases with mock roles;
+Ephemeral fixture passwords stay in memory; no hosted credential or lifecycle claim. PUBLIC TEMP remains observable.
 Stacked review-branch CI is enabled without altering the manual production release.
 
 ### Dormant Python observer (Prompt 11)

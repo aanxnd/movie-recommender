@@ -53,12 +53,12 @@ that administrator. A compromised caller can probe arbitrary UUID pairs for the
 limited observations; the function itself cannot prove JWT origin.
 
 The [review-only SQL](sql/auth_state_role_proposal.sql) proposes a new private
-schema and NOLOGIN caller, CONNECT + private-schema USAGE + exact function EXECUTE.
+schema and dedicated LOGIN caller: CONNECT + private-schema USAGE + exact EXECUTE.
 No direct Auth grants, memberships, schema CREATE, DML or elevated caller flags.
 The body has no writes, dynamic SQL, callbacks or caller-controlled identifiers;
 all objects/types/functions are qualified with an empty search path. It binds both
 UUIDs and returns separate binding/deletion/ban/absolute-expiry flags and DB time,
-not row data, email, AAL, authorization or a generic "active" result.
+not row data, email, AAL or authorization. PASSWORD NULL requires separate private provisioning.
 
 Create/restrict privileges atomically; revoke PUBLIC and API-role rights on **new
 owned objects only**. Stop on any other default grantee; do not globally revoke
