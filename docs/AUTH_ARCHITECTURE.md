@@ -1,6 +1,6 @@
 # Authentication architecture contract
 
-Status: **Identity foundation plus dormant JWT verification; no Supabase endpoint authentication.**
+Status: **Dormant JWT verification and linked-identity resolution; no Supabase endpoint authentication.**
 Owner decisions and Prompt 1 / Prompt 1B / Prompt 1C evidence: 2026-11-08.
 The owner-approved backup TOTP decision supersedes the earlier recovery-code
 requirement. Runtime authentication and public signup activation need separate authorization.
@@ -112,6 +112,46 @@ Email verification, revocation/disabled-user checks, identity binding, MFA polic
 and JWT-sized authorization headers remain later PRs. Legacy bearer handling,
 owner checks, group invitations and schema version 3 are unchanged by Prompt 3A.
 
+## Prompt 3B: dormant identity resolution
+
+`app/supabase_identity.py` exposes `resolve_verified_subject(session, subject)`.
+Only trusted server code may supply the UUID returned by the configured project's
+`SupabaseTokenVerifier.verify()`. UUID objects carry no proof of provenance: never
+construct the input from request JSON, a path, email, username or numeric user ID.
+The resolver rejects strings and other types rather than parsing/coercing them.
+It does not repeat signature verification or make hosted authentication requests.
+
+A single joined SELECT matches `UserIdentity.supabase_subject` and confirms its
+`User` exists, returning a frozen `AuthenticatedIdentity(subject, user_id)` with
+no identifiers in its repr. No client-selected target ID is accepted. Unknown,
+unlinked, orphaned, ambiguous or invalid local identities fail closed. Existing
+schema-3 uniqueness/FK guarantees remain unchanged; there are no schema changes.
+
+The caller supplies a short-lived session/transaction. Resolution suppresses
+autoflush, uses database columns instead of stale ORM objects, and never creates,
+links, flushes, commits, rolls back or closes anything. It sees the statement's
+database snapshot, not future revocation/deletion; do not cache results across
+requests. Later resource checks/writes need coordinated transaction semantics.
+
+Future dependencies must map every `UnresolvedIdentity` to the same generic 401
+response, without exposing link/account existence. `IdentityResolutionUnavailable`
+maps to a generic 503; the caller's transaction manager must roll back failures.
+Neither exception contains database diagnostics or subjects; do not log tokens,
+identifiers or internal exception contexts. This is not a constant-time guarantee.
+
+| Later integration gate | What the dormant foundations establish / remaining requirement |
+|---|---|
+| Verified token | PR 3A verifies signatures and token claims; callers must use its configured project. |
+| Linked local identity | PR 3B reads an already-established UUID-to-numeric-ID link; secure linking/ownership verification is still separate work. |
+| Verified email and MFA | Neither UUID nor resolved identity proves email verification, current account/session state or required MFA assurance. Obtain supported server evidence and apply policy separately. |
+| Resource authorization | A resolved ID grants no endpoint access. Check ownership and group/invitation permissions independently; request IDs never select the caller's identity. |
+
+No route/startup imports or dependencies activate these components. Legacy bearer,
+owner, group, invitation and operator flows remain unchanged. A later cutover must
+choose its authentication policy explicitly; never retry legacy authentication as
+a fallback after Supabase verification/resolution fails. No claiming or linking
+API, backfill, hosted mapping, email/MFA flow or deployment is authorized here.
+
 ## Open launch gates
 
 **Gmail SMTP production readiness and future MFA acceptance remain OPEN launch gates.**
@@ -209,7 +249,7 @@ Record compensating controls and unresolved gaps; never claim full compliance.
 
 | Control/reference | Current evidence | Responsibility and remaining gap ($0 constraint) |
 |---|---|---|
-| Identity binding / application authorization | Schema 3 constraints and `tests/test_user_identities.py` protect one-to-one mapping and case-insensitive names. | Movelle: implement verified, atomic legacy linking and JWT authorization; schema alone authenticates nobody. |
+| Identity binding / application authorization | Schema 3 constraints plus `test_user_identities.py` and `test_supabase_identity.py` cover uniqueness and dormant existing-link resolution. | Movelle: implement verified, atomic legacy linking and route authorization; resolution alone grants no access. |
 | Passwords (§3.1.1), throttling | Owner-reported disposable password login; existing legacy rate-limit tests do not prove Supabase policy. | Supabase + Movelle: validate length, Unicode, screening, enumeration and abuse controls; Free lacks built-in leaked-password protection. |
 | OTP (§3.1.4/3.1.5), authenticator management (§4) | Backup TOTP design approved; hosted recovery-code probe rejected. | Supabase + Movelle: test independent factors, replacement, reset enforcement and lockout disclosure; TOTP is not phishing-resistant. |
 | Session management (§5) | Dormant JWT signature/adversarial tests in `test_supabase_jwt.py`; SPA exposure documented; no runtime sessions yet. | Movelle: integrate JWTs, verified email, revocation, reauthentication and secret-safe logging; Free timeout gaps remain. |

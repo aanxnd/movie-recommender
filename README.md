@@ -11,8 +11,10 @@ TOTP factor for backup recovery. Native MFA recovery codes are rejected for init
 launch; Gmail SMTP production readiness remains open. Supabase auth is not implemented.
 Schema version 3 adds dormant UUID/username identity mappings without changing legacy
 credentials, numeric IDs or ratings; no user linking or Supabase login runs yet.
-The standalone JWT verifier is dormant and grants no application access;
-[its verification limits](docs/AUTH_ARCHITECTURE.md#prompt-3a-dormant-jwt-verifier) apply to later integration.
+The standalone JWT verifier and existing-link identity resolver are dormant and grant no application access;
+[JWT verification limits](docs/AUTH_ARCHITECTURE.md#prompt-3a-dormant-jwt-verifier) apply to later integration.
+Read the [identity-resolution trust boundary](docs/AUTH_ARCHITECTURE.md#prompt-3b-dormant-identity-resolution)
+before future route integration; UUID type checking is not proof of authentication.
 
 ## Local development
 
