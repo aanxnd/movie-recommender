@@ -1,6 +1,6 @@
 # Authentication architecture contract
 
-Status: **Dormant JWT verification and linked-identity resolution; no Supabase endpoint authentication.**
+Status: **Dormant FastAPI token/link authentication foundation; existing routes remain legacy-only.**
 Owner decisions and Prompt 1 / Prompt 1B / Prompt 1C evidence: 2026-11-08.
 The owner-approved backup TOTP decision supersedes the earlier recovery-code
 requirement. Runtime authentication and public signup activation need separate authorization.
@@ -154,6 +154,46 @@ API, backfill, hosted mapping, email/MFA flow or deployment is authorized here.
 
 ## Open launch gates
 
+### Prompt 3C: dormant FastAPI dependency (activation BLOCKED)
+
+`app/supabase_auth.py` exports `make_supabase_auth_dependency(project_url=...,
+audience=..., session_factory=...)`; all arguments are trusted server configuration.
+Construct it once per process, never per request. Construction/import makes no
+network/database calls and reads no environment variables. It creates the existing
+ES256 verifier with the explicit project/audience; no alternate JWKS URL or keys.
+Nothing imports or attaches this factory in production route/startup registration.
+
+The returned synchronous function is for FastAPI `Depends`, which runs blocking
+dependencies in a worker: [FastAPI concurrency contract](https://fastapi.tiangolo.com/async/#dependencies).
+Do not call it directly from an async handler. It requires exactly one raw
+Authorization field, case-insensitive Bearer scheme, one ASCII space and one
+unpadded three-segment JWT (maximum 8 KiB). Duplicates, coalesced/multiple credentials,
+whitespace ambiguity and legacy 43-character credentials fail before verification.
+It never reads identity from query/path/body/cookies or retries legacy auth.
+
+JWT verification runs before any database session. Only its returned UUID reaches
+the existing resolver. `session_factory` must create a fresh owned Session; its
+read transaction commits on success, rolls back on failure and closes in the same
+worker before returning frozen `SupabaseAuthContext(user_id)`. No ORM objects or
+sessions escape, and no subject/claims are included in the result or its repr.
+This independent auth snapshot is not a transaction covering later resource writes.
+
+Invalid headers/tokens/unresolved identities receive the same generic 401 and
+Bearer challenge. Signing-key/database failures receive generic 503 with a fixed
+Retry-After; no fallback or stale-key weakening. Errors carry `Cache-Control: no-store`;
+the injected success response is marked likewise. Later handlers/middleware must
+preserve that policy, including when returning custom Response objects. Known exception diagnostics are suppressed;
+the component logs nothing. Platform/APM logging must not capture headers, tokens,
+query credentials or exception locals. Existing middleware/rate limits are unchanged.
+
+**Do not activate this dependency on protected routes yet.** It establishes only
+token validity plus an existing link, not verified email, current account/session
+status, MFA assurance or resource/security-setting permissions. Neither an email
+string nor this context satisfies those gates. Supported server evidence, freshness,
+revocation, assurance and transaction/resource policies require later review; no
+hosted configuration or architectural shortcut is approved to close those gaps.
+Gmail production deliverability, backup-TOTP acceptance and NIST gaps remain open.
+
 **Gmail SMTP production readiness and future MFA acceptance remain OPEN launch gates.**
 Recovery codes are no longer a prerequisite for Prompt 2B. This PR implements only
 its identity foundation; runtime authentication requires a later reviewed PR.
@@ -252,7 +292,7 @@ Record compensating controls and unresolved gaps; never claim full compliance.
 | Identity binding / application authorization | Schema 3 constraints plus `test_user_identities.py` and `test_supabase_identity.py` cover uniqueness and dormant existing-link resolution. | Movelle: implement verified, atomic legacy linking and route authorization; resolution alone grants no access. |
 | Passwords (§3.1.1), throttling | Owner-reported disposable password login; existing legacy rate-limit tests do not prove Supabase policy. | Supabase + Movelle: validate length, Unicode, screening, enumeration and abuse controls; Free lacks built-in leaked-password protection. |
 | OTP (§3.1.4/3.1.5), authenticator management (§4) | Backup TOTP design approved; hosted recovery-code probe rejected. | Supabase + Movelle: test independent factors, replacement, reset enforcement and lockout disclosure; TOTP is not phishing-resistant. |
-| Session management (§5) | Dormant JWT signature/adversarial tests in `test_supabase_jwt.py`; SPA exposure documented; no runtime sessions yet. | Movelle: integrate JWTs, verified email, revocation, reauthentication and secret-safe logging; Free timeout gaps remain. |
+| Session management (§5) | Dormant JWT and `test_supabase_auth.py` adversarial/lifecycle tests; SPA exposure documented; existing routes remain legacy-only. | Movelle: establish verified email, session/revocation/MFA policy and resource authorization before activation; Free timeout gaps remain. |
 
 Official references, reviewed 2026-11-08 (not live validation):
 

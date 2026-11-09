@@ -15,6 +15,8 @@ The standalone JWT verifier and existing-link identity resolver are dormant and 
 [JWT verification limits](docs/AUTH_ARCHITECTURE.md#prompt-3a-dormant-jwt-verifier) apply to later integration.
 Read the [identity-resolution trust boundary](docs/AUTH_ARCHITECTURE.md#prompt-3b-dormant-identity-resolution)
 before future route integration; UUID type checking is not proof of authentication.
+The [dormant FastAPI dependency](docs/AUTH_ARCHITECTURE.md#prompt-3c-dormant-fastapi-dependency-activation-blocked)
+composes these foundations only in tests; protected-route activation remains blocked on security-policy review.
 
 ## Local development
 
