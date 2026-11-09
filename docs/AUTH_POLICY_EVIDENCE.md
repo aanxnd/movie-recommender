@@ -1,8 +1,9 @@
 # Authentication policy evidence and activation gates
 
 Reviewed 2026-11-09. Prompt 3D completes **provider-reported email confirmation only**.
-Current-account/session and MFA enforcement are **STOPPED pending the decisions
-below**. No protected route is activated, and no full-access predicate is provided.
+Prompt 3D.2 records the [final owner policy and configuration audit](AUTH_CONFIG_AUDIT.md).
+Current-account/session and MFA enforcement remain **BLOCKED on evidence and
+implementation gates**. No protected route or full-access predicate is provided.
 
 ## Provider guarantees and limits
 
@@ -50,25 +51,21 @@ authorization, schema or hosted configuration. Later composition must preserve
 JWT/subject binding before the existing dependency discards them; do not retrofit
 client booleans or bypass email/session/MFA gates to make integration convenient.
 
-## Owner decisions required before further enforcement or activation
+## Final policy and remaining activation gates
 
-1. Audit Confirm Email and historic provisioning/admin confirmation. Define how
-   implicitly/admin-confirmed legacy records obtain actual mailbox proof. Until
-   that audit and any needed re-verification, this marker must not qualify users
-   for protected account access.
-2. Define disabled-account semantics (Auth ban/deletion versus Movelle suspension)
-   and the required revocation delay. Review live `getUser()` validation on the
-   hosted version using separately authorized disposable tests. If stronger
-   `auth.users`/`auth.sessions` inspection is required, design a narrowly scoped,
-   read-only server adapter/RPC with explicit subject/session binding. Auth's schema
-   is separate from Neon. No privileged connection, SQL function or credential is
-   requested, created or activated here. [Admin getUserById](https://supabase.com/docs/reference/javascript/auth-admin-getuserbyid)
-   and user ban/update/delete operations require trusted server privileges; they
-   are not ordinary user APIs or a complete per-session revocation check.
-3. Decide which actions require `aal2`, the recent-MFA window and factor-removal
-   behavior. The current verifier exposes only UUIDs, so a reviewed typed verified-
-   claims interface and live/session/factor policy are needed before MFA enforcement.
-   `aal1`, missing or spoofed assurance must never satisfy an `aal2` requirement.
+1. Owner requires genuine current-email challenge evidence; uncertain implicit/admin
+   provenance must be reverified before activation. Current settings/history remain
+   unknown in the audit. This marker alone must not qualify protected access.
+2. Owner requires live provider state on every protected request and fail-closed
+   denial on unavailable checks. Hosted session/ban behavior, session binding,
+   local suspension semantics and measured revocation limits remain unresolved.
+   The audit specifies a conditional minimal server-only read adapter; no privileged
+   credential, function, connection or infrastructure is created or activated.
+3. Owner requires AAL1+ for ordinary browsing/ratings/recommendations and recent
+   AAL2 for sensitive account/MFA operations. The audit recommends five minutes,
+   with a fresh challenge protocol, and identifies direct provider-API enforcement
+   and first-factor bootstrap blockers. Window/exception approval and hosted
+   evidence are still required. Missing, stale or spoofed AAL2 cannot pass.
 
 Fail closed while any required gate is unresolved or its provider is unavailable.
 Resource ownership and group/invitation authorization remain independent mandatory
