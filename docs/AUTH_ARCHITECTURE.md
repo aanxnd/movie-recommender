@@ -153,6 +153,65 @@ provided. [Policy and launch gates](AUTH_CONFIG_AUDIT.md) remain mandatory.
 `test_supabase_claims.py` covers local signatures, strict parsing, tampering,
 immutability, stale evidence, key rotation/outages and sanitized diagnostics.
 
+## Prompt 3D.4: dormant provenance/live-state composition
+
+`app/supabase_evidence.py` adds `AuthenticationEvidencePolicy.check(token)`.
+Its only request input is a raw JWT; it calls the existing `verify_claims`, then
+fresh same-project `GET /auth/v1/user` with a public publishable key and user JWT.
+It reuses the existing bounded TLS/no-proxy/no-redirect transport without changing
+the email component. Exact subject/audience/role, non-anonymous user, current email
+and aware nonfuture confirmation are required; reported deletion or active ban
+denies. None of these fields alone proves genuine mailbox history or every live
+session property. See [provider user data](https://supabase.com/docs/reference/javascript/auth-getuser)
+and [session-record limitations](https://supabase.com/docs/guides/auth/sessions).
+
+Two **server-configured trusted interfaces** are mandatory; neither has a concrete
+provider/ledger implementation here. Missing sources/records deny; no allow-by-default.
+
+- `MailboxSource.read(issuer, subject, email, confirmed_at)` returns an internal
+  `MailboxChallenge` attestation from a future genuine challenge workflow. Exact
+  issuer/subject/current address/confirmation-marker binding, challenge completion
+  and expiry are checked. Confirmation time is only an additional binding, never
+  proof of a challenge. The source must enforce challenge origin, protected writes,
+  revocation and invalidation on every address change, including A -> B -> A;
+  current snapshots cannot prove that complete history. Marker-only, admin-confirmed
+  or historically unproven accounts cannot supply this attestation automatically.
+  No ledger/writer, email delivery, expiry policy or challenge mechanism is invented
+  or deployed here. Future workflow and address-change tracking need review.
+- `LiveStateSource.read(issuer, subject, session_id, nonce)` must perform an
+  authoritative fresh account/session read, enforcing existence, ownership,
+  revocation/expiry and defined ban/deletion/disable semantics. Internal
+  `LiveAccountSession` must match issuer, both UUIDs, a new per-call nonce and the
+  provider email/confirmation snapshot. Observation must fall inside this check;
+  stale/future/naive times and replayed records fail. Adapters must stamp local
+  observation time only after the authoritative read;
+  a nonce/timestamp must never be used to relabel cached claims as live state.
+  These are internal contracts, **not undocumented fields or guarantees of `/user`**. No privileged adapter,
+  credential, database function or schema change is supplied. Default configuration
+  therefore cannot produce successful authentication evidence.
+
+Only trusted backend code may configure adapters; never deserialize these records
+from client JSON or treat their Python types as proof of origin. Mock adapters in
+tests establish conditional composition correctness, not hosted enforcement.
+Unknown/forged/mismatched records receive a fixed denial; provider/adapter failures,
+429/5xx, unexpected responses and malformed JSON receive fixed unavailable errors.
+No raw errors, credentials, user JSON or evidence fields are logged; result and
+record reprs hide fields. Future HTTP mapping must remain generic and no-store.
+
+Every call reads anew; only the existing signing-key cache remains. Completion
+after token expiry or a three-second elapsed budget fails closed; this budget
+rejects late results but cannot cancel blocked synchronous I/O. Existing transport
+socket-operation timeouts are not a hard total deadline. Provider propagation,
+address-history tracking, concrete trusted sources and cross-service races remain
+activation gates; no immediate-revocation guarantee is established.
+
+The frozen result contains verified token claims and observation time only.
+It grants no resource access, local ownership, group permissions, current AAL or
+recent MFA. No consumer/route, legacy authentication, email reader or Neon data
+changes. `test_supabase_evidence.py` exercises only offline local signatures and
+mock providers/sources. Genuine email provenance and live state remain unproven
+for hosted accounts until supported sources and acceptance evidence are approved.
+
 ## Prompt 3B: dormant identity resolution
 
 `app/supabase_identity.py` exposes `resolve_verified_subject(session, subject)`.
