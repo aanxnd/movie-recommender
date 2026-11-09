@@ -1,6 +1,6 @@
 /*
 PROMPT 11 — NOT APPROVED FOR EXECUTION. Entire file is deliberately a comment.
-Review-only successor to REJECTED direct Auth grants. No credentials or LOGIN.
+Dedicated LOGIN identity; no credential supplied. Hosted provisioning NOT approved.
 Prerequisites: explicit owner approval; new names; private schema unexposed;
 postgres's EXISTING RLS bypass/owner access demonstrated; exact UUID/timestamp
 types checked; default ACL/PUBLIC/SET-role risks accepted. No managed changes.
@@ -10,8 +10,8 @@ BEGIN;
 DO $guard$ BEGIN
   RAISE EXCEPTION 'NOT APPROVED FOR EXECUTION'; -- retain until separately reviewed
 END; $guard$;
-CREATE ROLE movelle_auth_state_reader NOLOGIN NOSUPERUSER NOCREATEDB
-  NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS CONNECTION LIMIT 1;
+CREATE ROLE movelle_auth_state_reader LOGIN NOSUPERUSER NOCREATEDB
+  NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS CONNECTION LIMIT 1 PASSWORD NULL;
 CREATE SCHEMA movelle_auth_private AUTHORIZATION postgres;
 REVOKE ALL ON SCHEMA movelle_auth_private FROM PUBLIC, anon, authenticated, service_role;
 
@@ -54,7 +54,8 @@ GRANT EXECUTE ON FUNCTION movelle_auth_private.observe_state(uuid, uuid)
 DO $acl$
 DECLARE reader_oid oid := 'movelle_auth_state_reader'::regrole;
 BEGIN
-  IF current_user <> 'postgres' OR EXISTS (
+  IF current_user <> 'postgres'
+  OR NOT (SELECT rolcanlogin FROM pg_catalog.pg_roles WHERE oid=reader_oid) OR EXISTS (
     SELECT 1 FROM pg_catalog.pg_auth_members WHERE member = reader_oid
   ) OR EXISTS (
     SELECT 1 FROM pg_catalog.pg_roles r
@@ -87,7 +88,7 @@ All four flags true means ONLY the documented binding/markers at the snapshot.
 No email/AAL/session-inactivity/authorization promise. Missing/multiple rows,
 malformed output, permission errors or failures must not yield positive evidence.
 No positive cache, arbitrary SQL, RPC exposure or alternate/legacy credential path.
-LOGIN/secret storage/rotation, verified TLS and any installation are separate approvals.
+Private password provisioning/storage/rotation, TLS and hosted installation need separate approval.
 Rollback after a future installation: remove only these new function/schema/grants
 and caller after dependency review, never CASCADE or provider objects.
 */
