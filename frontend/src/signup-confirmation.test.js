@@ -3,6 +3,7 @@ import test from 'node:test'
 import { createHash } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { JSDOM } from 'jsdom'
+import { createClient } from '@supabase/supabase-js'
 import { createSignupConfirmation } from './signup-confirmation.js'
 
 const origin = 'https://movelle.test'
@@ -21,13 +22,14 @@ function environment(t, path = '/', mode = 'ok') {
   let challenge, used = false
   const config = { projectUrl: project, publishableKey: 'sb_publishable_offline', appOrigin: origin,
     browser: dom.window, fetcher: async (url, init) => {
-      const target = new URL(url), body = JSON.parse(init.body)
+      const target = new URL(url), body = init.body ? JSON.parse(init.body) : {}
       assert.equal(target.origin, project)
       assert.equal(init.redirect, 'error')
       assert.equal(init.referrerPolicy, 'no-referrer')
       calls.push(target.pathname)
-      if (target.pathname === '/auth/v1/signup') {
-        assert.equal(target.searchParams.get('redirect_to'), origin + '/')
+      if (target.pathname === '/auth/v1/user' && init.method === 'GET') return response(user)
+      if (['/auth/v1/signup', '/auth/v1/otp', '/auth/v1/recover', '/auth/v1/user'].includes(target.pathname)) {
+        if (target.pathname === '/auth/v1/signup') assert.equal(target.searchParams.get('redirect_to'), origin + '/')
         assert.equal(body.code_challenge_method, 's256')
         challenge = body.code_challenge
         return response(mode === 'immediate' ? session() : { ...user, email_confirmed_at: null })
@@ -48,11 +50,12 @@ function environment(t, path = '/', mode = 'ok') {
       return response(session(marker))
     } }
   const flow = createSignupConfirmation(config)
-  return { dom, flow, config, calls, callback: () => dom.window.history.replaceState(null, '', '/?code=' + code) }
+  return { dom, flow, config, calls, setChallenge: value => { challenge = value },
+    callback: () => dom.window.history.replaceState(null, '', '/?code=' + code) }
 }
 function session(marker = user.email_confirmed_at) {
   const encode = value => Buffer.from(JSON.stringify(value)).toString('base64url')
-  return { access_token: encode({ alg: 'ES256' }) + '.' + encode({ sub: user.id, exp: issued+3600 }) + '.synthetic',
+  return { access_token: encode({ alg: 'ES256' }) + '.' + encode({ sub: user.id, exp: issued+3600 }) + '.c3ludGhldGlj',
     refresh_token: 'synthetic-refresh', token_type: 'bearer', expires_in: 3600,
     user: { ...user, email_confirmed_at: marker } }
 }
@@ -67,7 +70,7 @@ test('native SDK signup uses S256 and fixed redirect; callback is once-only and 
   assert.equal(e.dom.window.location.search, '') // Before awaiting SDK or rendering anything.
   assert.equal(e.flow.confirm(), first)
   assert.equal(createSignupConfirmation(e.config).confirm(), first)
-  assert.deepEqual(await first, { status: 'confirmed', destination: '/' })
+  assert.deepEqual(await first, { status: 'unproven', destination: '/' })
   assert.equal(e.calls.filter(x => x.endsWith('/token')).length, 1)
   assert.equal(e.dom.window.localStorage.getItem('movelle.identity.v1'), 'legacy-untouched')
   // A fresh document/reload at the scrubbed URL cannot redeem again.
@@ -100,7 +103,7 @@ for (const mode of ['expired', 'network', 'outage', 'malformed', 'unconfirmed', 
     await e.flow.signUp(user.email, 'synthetic-password')
     e.callback()
     const value = await e.flow.confirm()
-    assert.notEqual(value.status, 'confirmed')
+    assert.equal(value.status, ['expired', 'unconfirmed', 'future', 'badmarker'].includes(mode) ? 'invalid' : 'unavailable')
     assert.equal(await e.flow.confirm(), value)
     assert.equal(e.calls.filter(x => x.endsWith('/token')).length, 1)
     for (const secret of [code, user.id, user.email, session().access_token, 'synthetic-password', 'synthetic-refresh', 'private'])
@@ -155,14 +158,31 @@ test('missing Web Crypto cannot silently downgrade PKCE', async t => {
   assert.deepEqual(e.calls, [])
 })
 
-test('SDK recovery-marked verifier is not accepted as signup confirmation', async t => {
+for (const kind of ['signup', 'recovery', 'magiclink', 'oauth', 'email_change']) {
+ test('real SDK cross-flow hint cannot prove signup: ' + kind, async t => {
   const e = environment(t)
-  await e.flow.signUp(user.email, 'synthetic-password')
+  const sdk = createClient(project, e.config.publishableKey, { auth: { flowType: 'pkce',
+    storage: e.dom.window.localStorage, storageKey: 'movelle.signup-confirmation',
+    detectSessionInUrl: false, autoRefreshToken: false }, global: { fetch: (url, init) =>
+      e.config.fetcher(url, { ...init, redirect: 'error', referrerPolicy: 'no-referrer' }) } })
+  if (kind === 'signup') await e.flow.signUp(user.email, 'synthetic-password')
+  if (kind === 'recovery') await sdk.auth.resetPasswordForEmail(user.email)
+  if (kind === 'magiclink') await sdk.auth.signInWithOtp({ email: user.email })
+  if (kind === 'email_change') {
+    assert.equal((await sdk.auth.setSession(session())).error, null)
+    assert.equal((await sdk.auth.updateUser({ email: 'new@example.invalid' })).error, null)
+  }
+  if (kind === 'oauth') {
+    const { data } = await sdk.auth.signInWithOAuth({ provider: 'github', options: { skipBrowserRedirect: true } })
+    e.setChallenge(new URL(data.url).searchParams.get('code_challenge'))
+  }
   const key = 'movelle.signup-confirmation-code-verifier', storage = e.dom.window.localStorage
-  storage.setItem(key, JSON.stringify(JSON.parse(storage.getItem(key)) + '/recovery'))
+  assert.equal(JSON.parse(storage.getItem(key)).split('/')[1] ?? null, kind === 'recovery' ? 'recovery' : null)
   e.callback()
-  assert.equal((await e.flow.confirm()).status, 'invalid')
-})
+  assert.equal((await e.flow.confirm()).status, kind === 'recovery' ? 'invalid' : 'unproven')
+  assert.equal(e.dom.window.location.href, origin + '/')
+ })
+}
 
 for (const change of [{ projectUrl: 'https://evil.invalid' }, { publishableKey: 'service_role' },
   { appOrigin: origin + '/' }, { appOrigin: undefined }, { storage: {} },

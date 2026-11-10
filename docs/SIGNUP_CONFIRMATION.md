@@ -20,10 +20,17 @@ session callback. Experimental overlapping-flow options are not enabled.
 `confirm()` synchronously replaces the URL/history state with `/` before SDK
 construction or I/O. It accepts only one UUIDv4 code, matching the reviewed
 [Auth flow-state source](https://github.com/supabase/auth/blob/master/internal/models/flow_state.go),
-then calls `exchangeCodeForSession`. Native returned email confirmation is required
-for the UI status; URL email/IDs/flags/sessions and recovery-marked flows do not qualify.
+then calls `exchangeCodeForSession`. Success returns `unproven`, never `confirmed`:
+[`redirectType`](https://github.com/supabase/supabase-js/blob/v2.119.0/packages/core/auth-js/src/GoTrueClient.ts#L1972-L2008)
+is a client-stored recovery hint, not a provider assertion. [Signup and other
+non-recovery flows](https://github.com/supabase/supabase-js/blob/v2.119.0/packages/core/auth-js/src/lib/helpers.ts#L455-L470)
+share null; a historical `email_confirmed_at` cannot identify this link's flow.
+Recovery/non-null hints deny. A namespaced verifier is not a signup attestation.
 All results contain only `status` and fixed `destination: '/'`, never credentials.
-Statuses are `check-email`, `confirmed`, `missing`, `invalid`, `unavailable`.
+Statuses are `check-email`, `unproven`, `missing`, `invalid`, `unavailable`.
+A signup-specific success UI remains blocked pending owner review of a supported
+flow-specific workflow. No custom ledger or new backend policy is introduced;
+the approved native account-email policy is unchanged.
 
 The per-document promise deduplicates concurrent/StrictMode consumers, including
 failures. Reload at the clean URL cannot redeem again. Reopening an original link

@@ -61,10 +61,11 @@ export function createSignupConfirmation({ projectUrl, publishableKey, appOrigin
             return result('invalid')
           const { data, error } = await configuredClient().auth.exchangeCodeForSession(url.searchParams.get('code'))
           if (error) return failure(error)
-          if (data.redirectType) return result('invalid') // Recovery belongs to its own future flow.
+          if (data.redirectType !== null) return result('invalid') // Recovery hint is not signup proof.
           const marker = data.user?.email_confirmed_at
           const time = typeof marker === 'string' ? Date.parse(marker) : NaN
-          return result(data.session && Number.isFinite(time) && time <= Date.now() ? 'confirmed' : 'invalid')
+          // Null is shared across flows; a historical marker cannot prove this link confirmed signup.
+          return result(data.session && Number.isFinite(time) && time <= Date.now() ? 'unproven' : 'invalid')
         } catch { return result('unavailable') }
       })
       // Includes failures: StrictMode/repeated consumers cannot retry a possibly consumed code.
