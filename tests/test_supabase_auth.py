@@ -12,11 +12,13 @@ from cryptography.hazmat.primitives.asymmetric import ec
 from fastapi import Depends, FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import event
+from sqlalchemy import delete
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from app import security, supabase_auth as auth, supabase_policy
 from app.main import create_app
+from app.models import User, UserIdentity
 from test_api import api_paths
 from test_postgresql_concurrency import pg_engine
 from test_supabase_identity import engine, linked
@@ -29,8 +31,15 @@ from test_validation_redaction import no_secrets
 def environment(engine, linked, evidence, monkeypatch):
     verifier, sign, calls = evidence.verifier, evidence.sign, evidence.calls
     state = SimpleNamespace(engine=engine, verifier=verifier, calls=calls, sessions=[], subjects=linked,
-                            failure=None, worker_threads=set(), loop_threads=set())
-    state.token = lambda changes=None, **kwargs: sign({"sub": str(linked[0]), **(changes or {})}, **kwargs)
+                            failure=None, worker_threads=set(), loop_threads=set(), principals=[],
+                            provider_requests=[], overrides={}, omitted=set(), raw=None, error=None, order=[])
+    subjects_by_token = {}
+    def token(changes=None, **kwargs):
+        claims = {"sub": str(linked[0]), **(changes or {})}
+        value = sign(claims, **kwargs)
+        subjects_by_token[value] = claims["sub"]
+        return value
+    state.token = token
     state.subject = str(linked[0])
     def unavailable():
         raise OperationalError("private SQL", {}, Exception("private diagnostics"))
@@ -55,6 +64,7 @@ def environment(engine, linked, evidence, monkeypatch):
     original_verify = verifier.verify_claims
     def verify(token):
         state.worker_threads.add(get_ident())
+        state.order.append("jwt")
         return original_verify(token)
     monkeypatch.setattr(verifier, "verify_claims", verify)
     def configured(*, project_url, audience, publishable_key):
@@ -63,10 +73,22 @@ def environment(engine, linked, evidence, monkeypatch):
         policy._verifier = verifier
         return policy
     def read_user(*args):
+        state.order.append("provider")
+        state.provider_requests.append(args)
+        assert args[:2] == (ORIGIN + "/auth/v1/user", "sb_publishable_offline")
         if state.failure == "provider": raise TimeoutError("private diagnostics")
-        return json.dumps(dict(id=str(verifier.verify(args[2])), aud="authenticated", role="authenticated",
+        if state.error: raise state.error
+        user = dict(id=subjects_by_token[args[2]], aud="authenticated", role="authenticated", is_anonymous=False,
             email="offline@example.invalid", email_confirmed_at=None if state.failure == "email" else
-            "2026-01-01T00:00:00Z", factors=[])).encode()
+            "2026-01-01T00:00:00Z", factors=[])
+        user.update(state.overrides)
+        for name in state.omitted: user.pop(name, None)
+        return state.raw if state.raw is not None else json.dumps(user).encode()
+    original_resolve = auth.resolve_verified_subject
+    def resolve(session, subject):
+        state.order.append("identity")
+        return original_resolve(session, subject)
+    monkeypatch.setattr(auth, "resolve_verified_subject", resolve)
     monkeypatch.setattr(supabase_policy, "_read_user", read_user)
     monkeypatch.setattr(auth, "SupabaseAccessPolicy", configured)
     dependency = auth.make_supabase_auth_dependency(project_url=ORIGIN, audience="authenticated",
@@ -76,6 +98,7 @@ def environment(engine, linked, evidence, monkeypatch):
     @application.get("/probe")
     async def probe(context: auth.SupabaseAuthContext = Depends(dependency)):
         state.loop_threads.add(get_ident())
+        state.principals.append(context)
         with pytest.raises(FrozenInstanceError): context.user_id = 207
         return {"user_id": context.user_id}
     @application.get("/ping")
@@ -95,6 +118,109 @@ def test_valid_context_cannot_select_another_user(environment):
     assert result.headers["cache-control"] == "no-store"
     assert state.sessions[0].committed == 1
     assert state.worker_threads.isdisjoint(state.loop_threads)
+
+
+@pytest.mark.parametrize("aal", ["aal1", "aal2"])
+def test_principal_uses_current_email_and_verified_binding_once_per_request(environment, aal, caplog):
+    state = environment
+    state.overrides.update(new_email="pending@example.invalid", email_change_sent_at="2026-01-01T00:00:00Z")
+    token = state.token({"aal": aal, "email": "stale@example.invalid"})
+    with TestClient(state.app) as client, caplog.at_level(logging.DEBUG):
+        for _ in range(2):
+            result = client.get("/probe?user_id=207",
+                                headers={"Authorization": "Bearer " + token, "X-User-Id": "207",
+                                         "X-User-Email": "pending@example.invalid"})
+            assert result.status_code == 200 and result.json() == {"user_id": 104}
+    principal = state.principals[-1]
+    assert (principal.subject, principal.user_id, principal.email, principal.aal) == (
+        state.subjects[0], 104, "offline@example.invalid", aal)
+    assert not hasattr(principal, "__dict__") and not hasattr(principal, "token")
+    for field in ("subject", "email", "aal"):
+        with pytest.raises(FrozenInstanceError): setattr(principal, field, None)
+    no_secrets(repr(principal) + caplog.text, [token, state.subject, principal.email, "pending@example.invalid"])
+    assert state.order == ["jwt", "provider", "identity"] * 2
+    assert len(state.provider_requests) == 2 and len(state.calls) == 1
+
+
+@pytest.mark.parametrize("change", [
+    {"id": str(uuid4())}, {"email_confirmed_at": None}, {"email_confirmed_at": "invalid"},
+    {"email_confirmed_at": "2999-01-01T00:00:00Z"}, {"new_email": None},
+    {"is_anonymous": True}, {"is_anonymous": None}, {"is_anonymous": 0},
+    {"banned_until": "2999-01-01T00:00:00Z"}, {"deleted_at": "2026-01-01T00:00:00Z"},
+    {"role": "service_role"}, {"aud": "other"}, {"factors": None}, {"factors": {}}, {"factors": [None]},
+])
+def test_ineligible_or_incomplete_provider_evidence_denies_before_neon(environment, change):
+    state = environment
+    state.overrides.update(change)
+    with TestClient(state.app) as client:
+        result = client.get("/probe", headers={"Authorization": "Bearer " + state.token({"aal": "aal2"})})
+    assert result.status_code == 401 and result.json() == {"detail": "Invalid authentication credentials"}
+    assert state.order == ["jwt", "provider"] and state.sessions == [] and state.principals == []
+
+
+@pytest.mark.parametrize("field", ["is_anonymous", "factors", "email", "email_confirmed_at"])
+def test_omitted_security_evidence_never_becomes_permission(environment, field):
+    state = environment
+    state.omitted.add(field)
+    with TestClient(state.app) as client:
+        assert client.get("/probe", headers={"Authorization": "Bearer " + state.token()}).status_code == 401
+    assert state.sessions == []
+
+
+@pytest.mark.parametrize("status,aal,allowed", [("verified", "aal1", False), ("verified", "aal2", True),
+                                                ("unverified", "aal1", True)])
+def test_principal_enforces_totp_assurance(environment, status, aal, allowed):
+    state = environment
+    state.overrides["factors"] = [dict(id=str(uuid4()), factor_type="totp", status=status)]
+    with TestClient(state.app) as client:
+        result = client.get("/probe", headers={"Authorization": "Bearer " + state.token({"aal": aal})})
+    assert result.status_code == (200 if allowed else 401)
+    assert len(state.sessions) == int(allowed)
+    if allowed: assert state.principals[-1].aal == aal
+
+
+@pytest.mark.parametrize("raw,status", [(b"invalid", 503), (b"[]", 401), (b'{"email":"a","email":"b"}', 503)])
+def test_unusable_provider_json_has_generic_errors(environment, raw, status, caplog):
+    state = environment
+    state.raw = raw
+    token = state.token()
+    with TestClient(state.app) as client, caplog.at_level(logging.DEBUG):
+        result = client.get("/probe", headers={"Authorization": "Bearer " + token})
+    assert result.status_code == status and state.sessions == []
+    no_secrets(result.text + caplog.text, [token, state.subject, "offline@example.invalid"])
+
+
+@pytest.mark.parametrize("status", [403, 429, 500])
+def test_provider_rejection_or_outage_never_reuses_a_prior_principal(environment, status):
+    from urllib.error import HTTPError
+    state = environment
+    token = state.token()
+    with TestClient(state.app) as client:
+        assert client.get("/probe", headers={"Authorization": "Bearer " + token}).status_code == 200
+        state.error = HTTPError("redacted", status, "private diagnostics", {}, None)
+        result = client.get("/probe", headers={"Authorization": "Bearer " + token})
+    assert result.status_code == (401 if status == 403 else 503)
+    assert len(state.principals) == len(state.sessions) == 1 and len(state.provider_requests) == 2
+
+
+@pytest.mark.parametrize("delete_user", [False, True])
+def test_removed_mapping_or_user_cannot_reuse_prior_principal(environment, delete_user):
+    state = environment
+    with Session(state.engine) as session, session.begin():
+        session.execute(delete(UserIdentity).where(UserIdentity.user_id == 104))
+        if delete_user: session.execute(delete(User).where(User.id == 104))
+    with TestClient(state.app) as client:
+        assert client.get("/probe", headers={"Authorization": "Bearer " + state.token()}).status_code == 401
+    assert state.order == ["jwt", "provider", "identity"] and state.principals == []
+
+
+def test_token_expiring_during_local_lookup_cannot_return_principal(environment, evidence, monkeypatch):
+    state = environment
+    monkeypatch.setattr(auth, "time", lambda: evidence.now + 601)
+    with TestClient(state.app) as client:
+        assert client.get("/probe", headers={"Authorization": "Bearer " + state.token()}).status_code == 401
+    assert state.order == ["jwt", "provider", "identity"] and len(state.sessions) == 1
+    assert state.principals == []
 
 
 def test_unconfirmed_email_denied_before_local_identity_lookup(environment):
@@ -193,6 +319,7 @@ def test_existing_app_requires_no_supabase_configuration_or_new_dependency(api_p
     application = create_app(*api_paths)
     assert "/probe" not in application.openapi()["paths"]
     with TestClient(application) as client:
+        assert client.get("/movies/search?q=First").status_code == 200
         created = client.post("/users").json()
         result = client.get("/users/me", headers={"Authorization": "Bearer " + created["token"]})
         assert result.status_code == 200 and result.json() == {"id": created["id"]}

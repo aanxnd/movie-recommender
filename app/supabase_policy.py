@@ -6,7 +6,8 @@ import re
 from urllib.error import HTTPError
 from uuid import UUID
 
-from app.supabase_email import EmailConfirmationDenied, _confirmed_current_email, _read_user
+from app.supabase_email import (EmailConfirmationDenied, ProviderEmailConfirmation,
+                                _confirmed_current_email, _read_user)
 from app.supabase_jwt import (InvalidAccessToken, SigningKeysUnavailable, SupabaseTokenVerifier,
                               VerifiedTokenClaims, _unique_object)
 
@@ -34,15 +35,20 @@ class SupabaseAccessPolicy:
         self._url, self._key = self._verifier.issuer + "/user", publishable_key
 
     def check(self, token: str) -> VerifiedTokenClaims:
+        """Compatibility entry point; reuse the same checks, discarding email evidence."""
+        return self.check_with_email(token)[0]
+
+    def check_with_email(self, token: str) -> tuple[VerifiedTokenClaims, ProviderEmailConfirmation]:
+        """One signature verification and one fresh user read; no resource access grant."""
         try:
             claims = self._verifier.verify_claims(token)
             user = json.loads(_read_user(self._url, self._key, token), object_pairs_hook=_unique_object)
             now = datetime.now(timezone.utc)
             if (not isinstance(user, dict) or user.get("id") != str(claims.subject)
                     or user.get("aud") != "authenticated" or user.get("role") != "authenticated"
-                    or user.get("is_anonymous", False) is not False or user.get("deleted_at") is not None):
+                    or user.get("is_anonymous") is not False or user.get("deleted_at") is not None):
                 raise AccessDenied
-            _confirmed_current_email(user, claims.subject, now)
+            email = _confirmed_current_email(user, claims.subject, now)
             if user.get("banned_until") is not None:
                 if self._timestamp(user["banned_until"]) > now:
                     raise AccessDenied
@@ -65,7 +71,7 @@ class SupabaseAccessPolicy:
                 verified |= factor["status"] == "verified"
             if (verified and claims.aal != "aal2") or claims.expires_at <= now.timestamp():
                 raise AccessDenied
-            return claims
+            return claims, email
         except (AccessDenied, InvalidAccessToken, EmailConfirmationDenied):
             raise AccessDenied("Authentication evidence rejected") from None
         except HTTPError as error:

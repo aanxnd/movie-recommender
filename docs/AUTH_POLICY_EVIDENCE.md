@@ -12,6 +12,11 @@ owner/ChatGPT; this technical policy does not replace either.
 project issuer, audience and JWKS, then reads fresh same-project Auth user data
 using only the public publishable key and that user's token. It returns immutable
 verified token claims, never an authorization flag or client-selected user ID.
+Prompt 14's additive `check_with_email` returns those claims and existing native
+email evidence from the same checks/read. The central
+[FastAPI dependency and principal](AUTH_ARCHITECTURE.md#prompt-14-central-principal-and-verification-order-dormant)
+combine them with existing-link resolution, without repeat verification/fetches.
+Provider `is_anonymous` must explicitly be false; omission/null is not evidence.
 
 Native `email_confirmed_at` is the approved confirmation authority. It must be
 aware, nonfuture and bound to the exact verified subject and a nonempty current

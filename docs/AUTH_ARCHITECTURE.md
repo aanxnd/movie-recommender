@@ -229,9 +229,51 @@ JWT and native email/MFA policy checks run before any database session. Only
 the verified subject UUID reaches
 the existing resolver. `session_factory` must create a fresh owned Session; its
 read transaction commits on success, rolls back on failure and closes in the same
-worker before returning frozen `SupabaseAuthContext(user_id)`. No ORM objects or
-sessions escape, and no subject/claims are included in the result or its repr.
+worker before returning frozen `SupabaseAuthContext(user_id, subject, email, aal)`
+(extended in Prompt 14). No ORM objects, tokens or sessions escape. Its repr hides
+all fields; never serialize/log the principal or include exception locals.
 This independent auth snapshot is not a transaction covering later resource writes.
+
+### Prompt 14: central principal and verification order (dormant)
+
+Use this existing factory as the single future FastAPI authentication dependency,
+through `Depends(authenticate)`. Do not call the standalone email reader alongside
+it or verify the token again. The exact order for an admitted request is:
+
+1. Reject missing, duplicate, oversized or malformed raw Bearer headers.
+2. `SupabaseAccessPolicy.check_with_email(token)` runs the existing ES256 typed
+   verifier once (pinned issuer/audience/JWKS, UUIDs, time and AAL/AMR validation).
+3. Make exactly one fresh pinned `/auth/v1/user` GET with the public key and bearer
+   token; reject duplicate JSON keys. Invalid JWTs never reach this endpoint.
+4. Require exact subject, authenticated role/audience and explicit
+   `is_anonymous: false`. Reject reported deletion, current bans and malformed
+   account evidence. Apply Prompt 13's shared current-email validation; pending
+   addresses and stale JWT emails cannot replace the confirmed current address.
+5. Require an explicit factor list; verified TOTP needs signed AAL2. Unknown
+   enrollment never permits AAL1 or AAL2. No provider response is cached.
+6. Resolve only that verified subject through the existing joined Neon lookup,
+   confirming the local user exists. Never create/link/claim accounts or accept a
+   target identity from client fields. Close the owned read transaction/session.
+7. Check expiry again after database work; only then return the principal.
+
+`check_with_email` returns the existing `VerifiedTokenClaims` and
+`ProviderEmailConfirmation` as a typed pair. `check(token) -> VerifiedTokenClaims`
+remains compatible by delegating to it. Both paths use the same implementation,
+one JWT verification and one provider read, not parallel policies. JWKS refreshes
+are separate bounded/cached key reads. The principal contains only the resolved
+numeric ID, verified UUID subject, provider-confirmed current email and signed
+`aal1`/`aal2`. These are authentication evidence, not resource permissions or proof
+of recent MFA/session-row existence. The principal's Python type does not prove
+provenance; downstream code must obtain it from this dependency.
+
+Supabase documents [getUser](https://supabase.com/docs/reference/javascript/auth-getuser)
+as a server read. Its upstream [user model](https://github.com/supabase/auth/blob/master/internal/models/user.go)
+defines `is_anonymous` as a required boolean and optional `banned_until`/`deleted_at`;
+there is no generic public `disabled` assertion to invent. Provider rejections and
+reported ineligibility deny, but this is not a guarantee of instantaneous deletion,
+ban or logout revocation. Upstream source does not establish hosted version or
+settings. Standard bounded token validity and Prompt 13 native email semantics
+(including retained confirmation timestamps) still apply.
 
 Invalid headers/tokens, policy denials and unresolved identities receive the
 same generic 401 and Bearer challenge. Key/provider/database failures receive
