@@ -53,6 +53,12 @@ Launch tests must cover JWT expiry/tampering/rotation, native unverified email,
 provider errors/rate limits, AAL1-vs-enrolled-MFA, logout/refresh limits, email change,
 recovery, ownership/IDOR/group privacy and concurrent clean provisioning. Offline
 fixtures do not establish hosted guarantees; future hosted tests need authorization.
+MFA compatibility is specifically blocked until that review: `/user` may omit
+`factors` for non-MFA users, and SDK list/AAL helpers normalize the same field.
+The dormant policy requires an explicit list; missing/null evidence never means
+unenrolled. Approve a controlled development-only response-shape matrix for no
+factors, unverified/verified TOTP and AAL1/AAL2 before activation. If the provider
+omits the list, resolve the supported completeness contract first; do not bypass.
 Reported ban/deletion or provider rejection denies; no instantaneous revocation
 promise follows from `/user`, token expiry or a session UUID. Never use JWT-only,
 cached user state or legacy authentication as a policy-failure fallback.
@@ -64,3 +70,15 @@ recovery, privacy and logging against evidence and explicit gaps. Free-plan limi
 and optional MFA may leave requirements unmet; no formal compliance claim.
 Preserve manual production release/rollback controls and the 500-line complete-PR
 budget. No deployment, migration, settings changes or spending is authorized here.
+
+## Readiness discrepancy review
+
+Unchanged main `3d592e3` passed 1,031 tests (89 skipped) in a disposable Windows
+checkout; its isolated readiness module passed all seven tests. A diagnostic-only
+wrapper measured successful worker completion in 1.032 seconds against a 2.489-second
+communication budget. Readiness code/tests and their production timeout are unchanged.
+The previous full-suite failure exposed only a false readiness result, not worker
+diagnostics; its exact historical cause is unproven. The three-second total budget
+includes subprocess startup, so environment load can cause a fail-closed result.
+Do not classify an uninstrumented failure as an authentication regression or weaken
+the production deadline to hide it; compare baseline/full-suite timing evidence.
