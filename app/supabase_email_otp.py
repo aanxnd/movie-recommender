@@ -1,4 +1,4 @@
-"""Dormant native email-OTP redemption, NOT genuine mailbox provenance or login."""
+"""Dormant supported native email-OTP redemption; no route activation."""
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import json
@@ -22,10 +22,10 @@ class EmailOtpUnavailable(RuntimeError):
 
 @dataclass(frozen=True, slots=True, repr=False)
 class EmailOtpRedemption:
-    """Native credential was accepted; delivery/origin/address history remain unproven.
+    """Native credential was accepted; no resource authorization is conferred.
 
-    Deliberately not MailboxChallenge and not a MailboxSource. Never use as access,
-    MFA, session-liveness or account-linking proof. No bearer credentials retained.
+    Never use as MFA, session-liveness or account-linking proof.
+    No bearer credentials retained; standard signup/recovery use the Supabase SDK.
     """
 
     issuer: str
@@ -91,7 +91,7 @@ def _time(value):
 class SupabaseEmailOtpVerifier:
     """Existing token binds the target; never accept a caller-selected email/user ID.
 
-    No issuance, mail sending, persistence, route wiring or MailboxSource adapter.
+    No issuance, mail sending, persistence or route wiring.
     If called after future approval, /verify CONSUMES an OTP and creates a session;
     this PR calls it only through offline mocks. Use synchronous workers.
     """

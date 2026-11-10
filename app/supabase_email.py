@@ -21,7 +21,7 @@ class EmailEvidenceUnavailable(RuntimeError):
 
 @dataclass(frozen=True, slots=True, repr=False)
 class ProviderEmailConfirmation:
-    """Point-in-time provider marker only; configuration/admin provenance still matters."""
+    """Point-in-time native confirmation; not MFA or resource authorization."""
 
     subject: UUID
     confirmed_at: datetime
@@ -50,7 +50,7 @@ class ProviderEmailPolicy:
     """Configure once on the trusted server; call in a sync worker, never an async loop.
 
     No import/construction I/O, user cache, environment loading or privileged key.
-    Confirm Email and historic provisioning must be audited before access integration.
+    Confirm Email must be enabled before launch; no independent challenge ledger.
     """
 
     def __init__(self, *, project_url: str, audience: str, publishable_key: str):
