@@ -142,7 +142,8 @@ class SupabaseStateObserver:
             if not acquired:
                 raise ValueError
             with psycopg.connect(**self._params, connect_timeout=2, autocommit=True) as c, c.transaction():
-                if not 170000 <= c.info.server_version < 180000:
+                if (c.info.user != 'movelle_auth_state_reader' or not c.pgconn.used_password
+                        or not 170000 <= c.info.server_version < 180000):
                     raise ValueError
                 c.execute('SET TRANSACTION ISOLATION LEVEL READ COMMITTED READ ONLY')
                 c.execute("SET LOCAL statement_timeout='750ms'; SET LOCAL lock_timeout='250ms'; SET LOCAL transaction_timeout='1500ms'")

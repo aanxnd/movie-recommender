@@ -104,6 +104,16 @@ def test_actual_broad_session_rejected(observer, monkeypatch, auth_db):
     unavailable(observer)  # Session owner is admin, not runtime, despite approved digest.
 
 
+def test_privileged_impersonation_is_not_an_authenticated_reader(observer, monkeypatch, auth_db):
+    original = psycopg.Connection.connect
+    def impersonate(**kw):
+        c = original(**auth_db[0],autocommit=True)
+        c.execute('SET SESSION AUTHORIZATION movelle_auth_state_reader')
+        return c
+    monkeypatch.setattr(auth.psycopg,'connect',impersonate)
+    unavailable(observer)  # SQL names match, but libpq startup identity is still admin.
+
+
 @pytest.mark.parametrize('projection', [
     'true,true,true,1,pg_catalog.clock_timestamp()',
     'true,true,true,true,NULL',

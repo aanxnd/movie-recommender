@@ -64,8 +64,8 @@ Stacked review-branch CI is enabled without altering the manual production relea
 `SupabaseStateObserver.observe(raw_jwt)` verifies ES256 using the existing verifier,
 then opens a fresh, bounded PG17 READ COMMITTED READ ONLY transaction. Configuration
 pins the direct project DB host, reader username and verify-full TLS/root trust;
-ambient libpq overrides and poolers are unsupported. LOGIN/current_user/session_user
-must all agree on the reader; no impersonation. No env configuration or routes
+ambient libpq overrides and poolers are unsupported. The role must have LOGIN;
+SQL current_user/session_user must match libpq's startup user with password exchange. No env configuration or routes
 instantiate it. One connection/check per instance, no positive state cache.
 
 Before reading markers it enforces owner/body/search-path/ACL/role invariants and
@@ -88,8 +88,8 @@ budget fail closed; they are not hard cancellation during a network partition.
 DB/app clock tolerance is three seconds, not proof of instantaneous revocation.
 Fresh local SCRAM connections now test the reader's real password exchange and
 wrong-password denial. No hosted password exists; provisioning is a separate gate.
-Review validation: **493 local security/regression tests passed**, including 31 SQL
-and 36 observer cases. These are offline results, not hosted authentication evidence.
+Review validation: **494 local security/regression tests passed**, including 31 SQL
+and 37 observer cases; 10 PR-budget tests passed. Offline results are not hosted evidence.
 Stacked PRs must be reviewed in order; after each squash merge, rebase the child
 onto updated main before retargeting and rerun its complete-PR budget/CI checks.
 
