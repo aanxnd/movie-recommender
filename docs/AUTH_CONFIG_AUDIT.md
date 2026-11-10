@@ -3,8 +3,10 @@
 Prompt 11/26 owner revision replaces the old strict-policy configuration proposal.
 The current contract is [standard Supabase policy](AUTH_POLICY_EVIDENCE.md).
 All new authentication remains dormant; no environment or hosted setting is changed.
-Prompts 11-12 are merged; [native confirmation](SIGNUP_CONFIRMATION.md) remains
-dormant. [Prompt 13 current email](EMAIL_CHANGE.md) adds shared validation only.
+Prompts 11-13 are merged; [native confirmation](SIGNUP_CONFIRMATION.md) and
+[current email validation](EMAIL_CHANGE.md) remain dormant. Prompt 14 extends the
+[central dependency](AUTH_ARCHITECTURE.md#prompt-14-central-principal-and-verification-order-dormant)
+to return a typed principal; it does not attach it to application routes.
 Hosted acceptance and activation are not approved.
 
 ## Evidence boundaries

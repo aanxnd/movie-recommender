@@ -87,4 +87,5 @@ unapproved/TBD. No hosted setting or template is changed by this work.
 The Prompt 11 missing-factor completeness blocker still prevents activation; no
 normalization of unknown MFA state is introduced. Gmail spam/delivery/limits,
 later route integration, NIST assessment and the full professional audit remain
-launch gates. Authentication stays dormant; Prompt 14 has not begun.
+launch gates. Prompt 14 reuses these checks in the dormant central dependency;
+neither change activates routes or replaces existing live authentication.

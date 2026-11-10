@@ -2,6 +2,9 @@
 from collections.abc import Callable
 from dataclasses import dataclass
 import re
+from time import time
+from typing import Literal
+from uuid import UUID
 
 from fastapi import HTTPException, Request, Response
 from sqlalchemy.exc import SQLAlchemyError
@@ -13,9 +16,12 @@ from app.supabase_policy import AccessDenied, AccessUnavailable, SupabaseAccessP
 
 @dataclass(frozen=True, slots=True, repr=False)
 class SupabaseAuthContext:
-    """Policy-checked caller ID; resource ownership and permissions remain separate."""
+    """Server-built principal; never serialize/log it or infer resource permissions."""
 
     user_id: int
+    subject: UUID
+    email: str
+    aal: Literal["aal1", "aal2"]
 
 
 def _invalid_credentials():
@@ -42,11 +48,14 @@ def make_supabase_auth_dependency(*, project_url: str, audience: str, publishabl
         if match is None:
             raise _invalid_credentials()
         try:
-            subject = policy.check(match.group(1).decode("ascii")).subject
+            claims, email = policy.check_with_email(match.group(1).decode("ascii"))
             # All blocking work and session lifetime stay inside this sync dependency.
             with session_factory() as session, session.begin():
-                identity = resolve_verified_subject(session, subject)
-                context = SupabaseAuthContext(user_id=identity.user_id)
+                identity = resolve_verified_subject(session, claims.subject)
+                context = SupabaseAuthContext(user_id=identity.user_id, subject=claims.subject,
+                                              email=email.email, aal=claims.aal)
+            if claims.expires_at <= time():
+                raise AccessDenied
             return context
         except (AccessDenied, UnresolvedIdentity):
             raise _invalid_credentials() from None
