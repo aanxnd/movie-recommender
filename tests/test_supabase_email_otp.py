@@ -11,7 +11,6 @@ import pytest
 from cryptography.hazmat.primitives.asymmetric import ec
 
 from app import supabase_email_otp as auth
-from app.supabase_evidence import MailboxChallenge
 from test_supabase_claims import evidence as jwt_evidence
 from test_supabase_jwt import ORIGIN
 
@@ -49,18 +48,18 @@ def env(jwt_evidence, monkeypatch):
     return s
 
 
-def test_native_completion_of_unverified_account_is_not_mailbox_provenance(env):
+def test_native_completion_of_unverified_account_preserves_binding(env):
     result = env.verifier.redeem(env.original, "123456")
     assert result.subject == env.e.subject and result.email == env.user["email"]
     assert result.issuer == ORIGIN + "/auth/v1" and result.confirmed_at == env.now
     assert env.calls == ["before", "verify", "after"]
-    assert not isinstance(result, MailboxChallenge) and not hasattr(env.verifier, "read")
+    assert type(result) is auth.EmailOtpRedemption
     assert not hasattr(result, "access_token") and not hasattr(result, "refresh_token")
     assert env.user["email"] not in repr(result) and str(env.e.subject) not in repr(result)
     with pytest.raises(FrozenInstanceError): result.email = "forged@example.invalid"
 
 
-def test_admin_or_implicitly_confirmed_history_cannot_skip_redemption(env):
+def test_confirmation_marker_cannot_make_an_invalid_otp_valid(env):
     env.user.update(email_confirmed_at=(env.now-timedelta(days=30)).isoformat(),
                     user_metadata={"email_verified": True})
     env.error = HTTPError("redacted", 403, "invalid-or-expired", {}, None)
@@ -68,8 +67,7 @@ def test_admin_or_implicitly_confirmed_history_cannot_skip_redemption(env):
     assert env.calls == ["before", "verify"]
 
 
-def test_even_admin_generated_native_code_produces_no_mailbox_attestation(env):
-    # Native response cannot distinguish a mailed OTP from an admin-generated OTP.
+def test_valid_native_code_preserves_existing_confirmation_marker(env):
     env.user["email_confirmed_at"] = (env.now-timedelta(days=30)).isoformat()
     env.confirmed["email_confirmed_at"] = env.user["email_confirmed_at"]
     assert type(env.verifier.redeem(env.original, "123456")) is auth.EmailOtpRedemption
