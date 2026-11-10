@@ -59,7 +59,7 @@ def test_fresh_provider_marker_bound_to_verified_subject(provider):
     token = provider.sign({"email": "stale@example.invalid"})
     first = provider.client.check(token)
     assert first.subject == UUID(SUBJECT) and first.confirmed_at <= first.observed_at
-    assert not hasattr(first, "email") and not hasattr(first, "active") and not hasattr(first, "aal")
+    assert first.email == "owner@example.invalid" and not hasattr(first, "active") and not hasattr(first, "aal")
     assert SUBJECT not in repr(first)
     with pytest.raises(FrozenInstanceError): first.subject = UUID(int=0)
     if provider.requests[0].get_header("Authorization") != "Bearer " + token:

@@ -8,7 +8,7 @@ from urllib.error import HTTPError
 from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
 from uuid import UUID
 
-from app.supabase_jwt import InvalidAccessToken, SigningKeysUnavailable, SupabaseTokenVerifier
+from app.supabase_jwt import InvalidAccessToken, SigningKeysUnavailable, SupabaseTokenVerifier, _unique_object
 
 
 class EmailConfirmationDenied(ValueError):
@@ -24,8 +24,48 @@ class ProviderEmailConfirmation:
     """Point-in-time native confirmation; not MFA or resource authorization."""
 
     subject: UUID
+    email: str
     confirmed_at: datetime
     observed_at: datetime
+
+
+def _confirmed_current_email(user, subject, observed):
+    """Parse fresh provider data only; pending addresses never become identity evidence.
+
+    Native confirmation is trusted, including administrative confirmation. Neither
+    a retained confirmation timestamp nor new_email proves a new challenge occurred.
+    Public user JSON does not expose partial email-change confirmation progress.
+    """
+    if not isinstance(user, dict) or user.get("id") != str(subject):
+        raise EmailConfirmationDenied
+
+    def address(value):
+        if not isinstance(value, str) or len(value) > 320 or not re.fullmatch(r"[^@\s\x00-\x1f\x7f]+@[^@\s\x00-\x1f\x7f]+", value):
+            raise EmailConfirmationDenied
+        return value
+
+    def timestamp(value):
+        if not isinstance(value, str) or not 1 <= len(value) <= 64:
+            raise EmailConfirmationDenied
+        try:
+            parsed = datetime.fromisoformat(value)
+        except ValueError:
+            raise EmailConfirmationDenied from None
+        if parsed.tzinfo is None or parsed > observed:
+            raise EmailConfirmationDenied
+        return parsed
+
+    email = address(user.get("email"))
+    confirmed = timestamp(user.get("email_confirmed_at"))
+    # Go's omitempty can omit these fields. Empty new_email means no pending
+    # address; email_change_sent_at can remain after completion. No step is inferred.
+    pending = user.get("new_email", "")
+    if pending != "":
+        if address(pending) == email:
+            raise EmailConfirmationDenied
+    if "email_change_sent_at" in user:
+        timestamp(user["email_change_sent_at"])
+    return ProviderEmailConfirmation(subject=subject, email=email, confirmed_at=confirmed, observed_at=observed)
 
 
 class _NoRedirect(HTTPRedirectHandler):
@@ -67,21 +107,9 @@ class ProviderEmailPolicy:
         """
         try:
             subject = self._verifier.verify(token)
-            user = json.loads(_read_user(self._url, self._key, token))
+            user = json.loads(_read_user(self._url, self._key, token), object_pairs_hook=_unique_object)
             observed = datetime.now(timezone.utc)
-            if not isinstance(user, dict) or user.get("id") != str(subject):
-                raise EmailConfirmationDenied
-            email, confirmed = user.get("email"), user.get("email_confirmed_at")
-            if (not isinstance(email, str) or len(email) > 320 or not re.fullmatch(r"[^@\s]+@[^@\s]+", email)
-                    or not isinstance(confirmed, str) or not 1 <= len(confirmed) <= 64):
-                raise EmailConfirmationDenied
-            try:
-                timestamp = datetime.fromisoformat(confirmed)
-            except ValueError:
-                raise EmailConfirmationDenied from None
-            if timestamp.tzinfo is None or timestamp > observed:
-                raise EmailConfirmationDenied
-            return ProviderEmailConfirmation(subject=subject, confirmed_at=timestamp, observed_at=observed)
+            return _confirmed_current_email(user, subject, observed)
         except (InvalidAccessToken, EmailConfirmationDenied):
             raise EmailConfirmationDenied("Email confirmation evidence rejected") from None
         except HTTPError as error:

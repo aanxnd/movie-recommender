@@ -14,6 +14,8 @@ flows. Secure email change, exact redirect allowlists, recovery-token handling,
 anti-enumeration, resend limits and real delivery remain acceptance gates.
 Provider current-address confirmation is checked anew; address changes follow
 provider semantics rather than a custom A -> B -> A invalidation system.
+See [current email and native changes](EMAIL_CHANGE.md) for the shared reader,
+pending/partial/completed states and hosted acceptance gates (Prompt 13).
 
 `app/supabase_email_otp.py` retains a dormant native `/auth/v1/verify` email-OTP
 helper. It verifies signatures, subject/address binding, returned session and
