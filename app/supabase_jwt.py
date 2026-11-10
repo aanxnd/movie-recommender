@@ -150,7 +150,7 @@ class SupabaseTokenVerifier:
         """Verify the JWT before parsing typed session/AAL/AMR evidence; no access grant.
 
         AAL2/AMR do not prove recent MFA; expiry/session UUID do not prove a live
-        session. Signed email cannot establish genuine mailbox verification.
+        session. Signed email cannot establish native provider email confirmation.
         No user/factor/session lookup, account linking or authorization occurs.
         """
         claims = self._verified_payload(token)
