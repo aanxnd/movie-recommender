@@ -1,5 +1,12 @@
 # Audit implementation and release review
 
+This is a historical audit of the existing legacy application, not the new auth
+roadmap or the original 16-stage professional audit. Future authentication follows
+[the current contract](AUTH_ARCHITECTURE.md): no legacy-account migration, custom
+mailbox provenance or Auth database session reader is required. Existing ownership
+protections stay in place until their separately reviewed replacement.
+
+
 Reviewed through 2026-10-29 against the 25 supplied findings and audited source commit `6166c8d`. All seven implementation phases are complete in local commits, including the final verification commit containing this report. This is a local release candidate, not a claim that the live Azure/Neon/Vercel deployment has been verified. No production database, cloud configuration, push, or deployment was used during this work.
 
 ## Resolution matrix
