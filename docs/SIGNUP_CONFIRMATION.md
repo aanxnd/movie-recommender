@@ -44,13 +44,25 @@ identity and resource authorization remain authoritative. Legacy storage is unto
 
 Future trusted bootstrap passes `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`
 and `VITE_AUTH_APP_ORIGIN`; no secrets or callback-parameter configuration is allowed.
-Require the canonical approved origin to equal the browser origin. Exact redirect
-allowlist entries are `http://127.0.0.1:5173/` for default development, and each
-owner-approved HTTPS preview/production origin plus `/`. If using `localhost`, add
-its exact port/origin separately; do not use wildcard previews or runtime `next`.
-Preview/production hostnames remain owner-confirmation gates. Set the Site URL to
-the approved production root before rollout; the reported localhost:3000 default
-is insufficient. No hosting rewrite is needed for this root callback.
+`appOrigin` is the one-origin allowlist for that build: it must be explicitly
+configured and equal the browser origin. There is no inferred deployment origin
+or fallback from URL parameters. The owner's approved configuration values are:
+
+| Environment | `VITE_AUTH_APP_ORIGIN` | Exact callback/redirect allowlist entry | Approval |
+|---|---|---|---|
+| Development | `http://127.0.0.1:5173` | `http://127.0.0.1:5173/` | Approved value; hosted configuration/testing not applied |
+| Preview | Unset / TBD | TBD | Explicitly unapproved |
+| Production | Unset / TBD | TBD | Explicitly unapproved |
+
+Before later configuration, the owner must approve every exact preview HTTPS
+origin and its root callback URL, the exact production HTTPS origin and root
+callback URL, and the production Site URL (the same approved production root).
+Leave preview/production configuration unset until approval; do not guess Vercel
+hosts, infer aliases, allow wildcard previews or accept runtime `next`/`redirectTo`.
+`localhost` is a different origin and is not approved by the development decision.
+The reported localhost:3000 Site URL is not the approved callback configuration.
+URL approval does not authorize settings changes: Supabase and Vercel settings
+remain untouched. No hosting rewrite is needed for this root callback.
 
 Offline tests exercise the real SDK with mocked HTTP only. Hosted templates,
 allowlists, Confirm Email, actual PKCE redirects, cross-tab/device behavior,

@@ -165,7 +165,7 @@ test('SDK recovery-marked verifier is not accepted as signup confirmation', asyn
 })
 
 for (const change of [{ projectUrl: 'https://evil.invalid' }, { publishableKey: 'service_role' },
-  { appOrigin: origin + '/' }, { storage: {} },
+  { appOrigin: origin + '/' }, { appOrigin: undefined }, { storage: {} },
   { fetcher: async () => { throw new Error('private transport') } }]) {
   test('signup configuration/transport failures stay generic', async t => {
     const e = environment(t), flow = createSignupConfirmation({ ...e.config, ...change })

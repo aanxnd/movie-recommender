@@ -5,7 +5,7 @@ const handled = new WeakMap()
 const result = status => Object.freeze({ status, destination: '/' })
 const codePattern = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
 
-// All configuration comes from trusted build/bootstrap code, never callback params.
+// appOrigin is a trusted, explicit one-origin allowlist; never infer it from callback params.
 export function createSignupConfirmation({ projectUrl, publishableKey, appOrigin,
   browser = globalThis.window, storage, fetcher = globalThis.fetch }) {
   let client
