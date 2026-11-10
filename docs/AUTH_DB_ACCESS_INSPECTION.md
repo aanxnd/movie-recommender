@@ -2,7 +2,7 @@
 
 Status: **RECOMMEND DORMANT IMPLEMENTATION/OFFLINE TESTS; NO HOSTED APPROVAL** (2026-11-09).
 This remains Prompt 11 of the fixed 26-prompt Stage 1 roadmap. No Prompt 12 work.
-No SQL executed by the agent; no roles/functions/credentials or hosted changes.
+No hosted SQL executed; only synthetic local SQL fixtures. No hosted changes.
 
 ## Evidence: owner-reported hosted findings
 
@@ -120,3 +120,4 @@ atomic revokes and transitive API SET/USAGE. This is not hosted-test success.
 Owner now authorizes dormant implementation/offline tests. Hosted DDL,
 credentials, lifecycle tests and activation are separate approvals. No PR/deploy/
 spending; this finishes the Prompt 11 review, not its owner acceptance or Prompt 12.
+Prompt 11 remains incomplete until its stacked PRs are reviewed and merged.

@@ -59,6 +59,59 @@ The harness extracts the guarded proposal only into fresh loopback databases wit
 Ephemeral fixture passwords stay in memory; no hosted credential or lifecycle claim. PUBLIC TEMP remains observable.
 Stacked review-branch CI is enabled without altering the manual production release.
 
+### Dormant Python observer (Prompt 11)
+
+`SupabaseStateObserver.observe(raw_jwt)` verifies ES256 using the existing verifier,
+then opens a fresh, bounded PG17 READ COMMITTED READ ONLY transaction. Configuration
+pins the direct project DB host, reader username and verify-full TLS/root trust;
+ambient libpq overrides and poolers are unsupported. The role must have LOGIN;
+SQL current_user/session_user must match libpq's startup user with password exchange. No env configuration or routes
+instantiate it. One connection/check per instance, no positive state cache.
+
+Before reading markers it enforces owner/body/search-path/ACL/role invariants and
+compares a bounded SHA-256 catalog fingerprint to an explicitly owner-approved
+server configuration. Roles/memberships, database/schema/table/column grants,
+function bodies/ACLs, policies, defaults, extensions, large-object ACLs and settings
+are covered. Metadata only: no Auth row/credential inventory. No hosted fingerprint
+is approved or supplied; never auto-approve the first observed snapshot. Any drift
+(including benign/unrelated changes) denies pending review. API exposure settings
+remain a separate hosted gate; the catalog cannot prove every external service's
+configuration or eliminate concurrent administrator changes.
+
+Results are frozen, repr-hidden verified claims/issuer/nonce/DB time plus four
+independent binding/marker flags. They are NOT LiveAccountSession/LiveStateSource:
+no invented email evidence, enabled/present state or full revocation guarantee.
+Existing AuthenticationEvidencePolicy is unchanged and still denies without its
+mandatory trusted sources. No genuine mailbox, MFA recency or ownership bypass.
+Socket connect/server statement/transaction limits and a three-second post-check
+budget fail closed; they are not hard cancellation during a network partition.
+DB/app clock tolerance is three seconds, not proof of instantaneous revocation.
+Fresh local SCRAM connections now test the reader's real password exchange and
+wrong-password denial. No hosted password exists; provisioning is a separate gate.
+Review validation: **494 local security/regression tests passed**, including 31 SQL
+and 37 observer cases; 10 PR-budget tests passed. Offline results are not hosted evidence.
+Stacked PRs must be reviewed in order; after each squash merge, rebase the child
+onto updated main before retargeting and rerun its complete-PR budget/CI checks.
+
+### Catalog capacity review (offline envelopes, not hosted object counts)
+
+Stock PG17 alone is insufficient: Supabase supports catalog-expanding
+[extensions such as PostGIS](https://supabase.com/docs/guides/database/extensions/postgis).
+We measure stock PG17 + Auth fixture, then 400 routines/40 tables with policies,
+then an extension/application-heavy envelope of 3,500 routines/128 tables/policies.
+Both synthetic profiles use realistic catalog types/settings, never hosted rows.
+Local PG17.11 measurements (rows / canonical bytes): stock+Auth fixture
+3,599 / 618,726; managed-style 4,080 / 859,529; large 7,356 / 2,674,610.
+These are reproducible envelopes, not measured Supabase-project catalog sizes.
+The large profile exceeds the old 5,000-row/2 MiB total limits; those limits were
+an unsupported compatibility assumption, not proof that a Supabase catalog fits.
+The replacement hashes the complete ordered stream using 64-row server-cursor
+batches, preserving canonical SHA-256 output for earlier supported inventories.
+No LIMIT, sampling or prefix approval; interrupted streams never yield a digest.
+The 2 MiB cap now applies per entry, with unchanged statement/transaction/total
+deadlines; oversized entries or late reads still deny. A mutation beyond row 5,000
+must change the digest and deny. Hosted scan latency remains an acceptance gate.
+
 Use an empty isolated PostgreSQL 17 fixture database with synthetic tables/UUIDs
 and mock API roles; never a Supabase/Neon URL. Reproduce managed/PUBLIC defaults.
 
