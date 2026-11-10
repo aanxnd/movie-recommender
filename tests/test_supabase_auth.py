@@ -66,7 +66,7 @@ def environment(engine, linked, evidence, monkeypatch):
         if state.failure == "provider": raise TimeoutError("private diagnostics")
         return json.dumps(dict(id=str(verifier.verify(args[2])), aud="authenticated", role="authenticated",
             email="offline@example.invalid", email_confirmed_at=None if state.failure == "email" else
-            "2026-01-01T00:00:00Z")).encode()
+            "2026-01-01T00:00:00Z", factors=[])).encode()
     monkeypatch.setattr(supabase_policy, "_read_user", read_user)
     monkeypatch.setattr(auth, "SupabaseAccessPolicy", configured)
     dependency = auth.make_supabase_auth_dependency(project_url=ORIGIN, audience="authenticated",

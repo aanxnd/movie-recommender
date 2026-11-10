@@ -51,11 +51,9 @@ class SupabaseAccessPolicy:
             if user.get("banned_until") is not None:
                 if self._timestamp(user["banned_until"], now) > now:
                     raise AccessDenied
-            # Auth/SDK omit factors when none exist. Malformed present data cannot
-            # silently downgrade an enrolled user to password-only access.
+            # Require explicit evidence: SDK null/omission normalization is not a
+            # server guarantee that this account has no verified factor.
             factors = user.get("factors")
-            if factors is None:
-                factors = []
             if not isinstance(factors, list) or len(factors) > 10:
                 raise AccessDenied
             verified = False

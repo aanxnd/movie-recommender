@@ -19,11 +19,24 @@ email. Phone confirmation, signed email strings, metadata and client assertions
 cannot substitute. We do not independently attest challenge history or reject
 native administrative confirmation. Confirm Email must be enabled before launch.
 
-A verified provider TOTP factor requires signed `aal2`; unenrolled users may use
-`aal1`. Invalid factor evidence fails closed. AAL2 proves the token's assurance,
+A verified provider TOTP factor requires signed `aal2`; an explicit empty list
+or only unverified factors permits `aal1`. Missing/null/malformed factor evidence
+fails closed, including at AAL2. AAL2 proves the token's assurance,
 not recent MFA. No five-minute challenge ledger is required. The implementation
 follows the provider's [server AAL API](https://supabase.com/docs/reference/javascript/auth-mfa-getauthenticatorassurancelevel)
 and [verified-factor selection](https://github.com/supabase/supabase-js/blob/v2.119.0/packages/core/auth-js/src/GoTrueClient.ts#L5885-L5915).
+
+**Activation blocker:** SDK `listFactors()` also reads `/user` and normalizes
+missing factors; it is not independent completeness evidence. Auth's
+[`Factors` field](https://github.com/supabase/auth/blob/master/internal/models/user.go)
+uses `omitempty`, so even legitimate non-MFA users may omit it and be denied by
+this stricter dormant policy. Do not normalize absence into permission. The
+[public API specification](https://github.com/supabase/auth/blob/master/openapi.yaml)
+provides no separate non-admin factor-list endpoint. Offline response fixtures
+are not hosted acceptance: separately approved Free-project tests must check
+non-MFA, unverified/verified TOTP and AAL1/AAL2 response shapes before activation.
+An omitted-field deployment remains blocked pending a supported completeness
+contract/owner design review; no custom DB, privileged key or service is added.
 
 [Standard sessions](https://supabase.com/docs/guides/auth/sessions) permit issued
 access tokens to remain valid until expiry after logout. Fresh

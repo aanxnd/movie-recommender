@@ -82,7 +82,8 @@ def test_invalid_or_substituted_token(account, change):
                                     HTTPError("private", 500, "private", {}, None)])
 def test_outage_has_no_cached_success_or_fallback(account, monkeypatch, failure, caplog):
     e, client, user, _ = account
-    token = e.sign()
+    user["factors"] = [dict(id=str(uuid4()), factor_type="totp", status="verified")]
+    token = e.sign({"aal": "aal2"})
     client.check(token)
     def broken(*_): raise failure
     monkeypatch.setattr(policy, "_read_user", broken)
@@ -107,13 +108,23 @@ def test_provider_rejection(account, monkeypatch, status):
     with pytest.raises(policy.AccessDenied, match="^Authentication evidence rejected$"): client.check(e.sign())
 
 
-@pytest.mark.parametrize("factors", [None, []])
-def test_provider_omits_empty_factors(account, factors):
+@pytest.mark.parametrize("aal", ["aal1", "aal2"])
+@pytest.mark.parametrize("missing", [False, True])
+def test_enrolled_user_with_later_missing_or_null_factors_is_unknown(account, aal, missing):
     e, client, user, _ = account
-    user["factors"] = factors
-    assert client.check(e.sign()).aal == "aal1"
-    del user["factors"]
-    assert client.check(e.sign()).aal == "aal1"
+    user["factors"] = [dict(id=str(uuid4()), factor_type="totp", status="verified")]
+    client.check(e.sign({"aal": "aal2"}))
+    if missing:
+        del user["factors"]
+    else:
+        user["factors"] = None
+    with pytest.raises(policy.AccessDenied): client.check(e.sign({"aal": aal}))
+
+
+def test_source_compatible_omitted_empty_factors_cannot_establish_no_mfa(account):
+    e, client, user, _ = account
+    del user["factors"]  # Auth User.Factors uses omitempty; hosted compatibility is a gate.
+    with pytest.raises(policy.AccessDenied): client.check(e.sign())
 
 
 def test_address_change_requires_native_confirmation_again(account):
