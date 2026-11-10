@@ -1,5 +1,10 @@
 # Authentication architecture contract
 
+Prompt 11 owner revision: [standard Supabase policy](AUTH_POLICY_EVIDENCE.md)
+supersedes the historical strict requirements below while this documentation is
+being simplified. No custom mailbox/session DB evidence or recent-MFA ledger is
+required; no legacy-account migration is planned. Authentication stays dormant.
+
 Status: **Dormant FastAPI token/link authentication foundation; existing routes remain legacy-only.**
 Owner decisions and Prompt 1 / Prompt 1B / Prompt 1C evidence: 2026-11-08.
 The owner-approved backup TOTP decision supersedes the earlier recovery-code

@@ -2,6 +2,7 @@
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import FrozenInstanceError
 import logging
+import json
 from threading import Event, get_ident
 from types import SimpleNamespace
 from uuid import uuid4
@@ -14,18 +15,19 @@ from sqlalchemy import event
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
-from app import security, supabase_auth as auth
+from app import security, supabase_auth as auth, supabase_policy
 from app.main import create_app
 from test_api import api_paths
 from test_postgresql_concurrency import pg_engine
 from test_supabase_identity import engine, linked
 from test_supabase_jwt import ORIGIN, setup as jwt_setup
+from test_supabase_claims import evidence
 from test_validation_redaction import no_secrets
 
 
 @pytest.fixture
-def environment(engine, linked, jwt_setup, monkeypatch):
-    verifier, sign, _, _, calls = jwt_setup
+def environment(engine, linked, evidence, monkeypatch):
+    verifier, sign, calls = evidence.verifier, evidence.sign, evidence.calls
     state = SimpleNamespace(engine=engine, verifier=verifier, calls=calls, sessions=[], subjects=linked,
                             failure=None, worker_threads=set(), loop_threads=set())
     state.token = lambda changes=None, **kwargs: sign({"sub": str(linked[0]), **(changes or {})}, **kwargs)
@@ -50,16 +52,25 @@ def environment(engine, linked, jwt_setup, monkeypatch):
     def factory():
         if state.failure == "factory": unavailable()
         return TrackedSession()
-    original_verify = verifier.verify
+    original_verify = verifier.verify_claims
     def verify(token):
         state.worker_threads.add(get_ident())
         return original_verify(token)
-    monkeypatch.setattr(verifier, "verify", verify)
-    def configured(project_url, *, audience):
-        assert project_url == ORIGIN and audience == "authenticated"
-        return verifier
-    monkeypatch.setattr(auth, "SupabaseTokenVerifier", configured)
-    dependency = auth.make_supabase_auth_dependency(project_url=ORIGIN, audience="authenticated", session_factory=factory)
+    monkeypatch.setattr(verifier, "verify_claims", verify)
+    def configured(*, project_url, audience, publishable_key):
+        policy = supabase_policy.SupabaseAccessPolicy(project_url=project_url, audience=audience,
+                                                      publishable_key=publishable_key)
+        policy._verifier = verifier
+        return policy
+    def read_user(*args):
+        if state.failure == "provider": raise TimeoutError("private diagnostics")
+        return json.dumps(dict(id=str(verifier.verify(args[2])), aud="authenticated", role="authenticated",
+            email="offline@example.invalid", email_confirmed_at=None if state.failure == "email" else
+            "2026-01-01T00:00:00Z")).encode()
+    monkeypatch.setattr(supabase_policy, "_read_user", read_user)
+    monkeypatch.setattr(auth, "SupabaseAccessPolicy", configured)
+    dependency = auth.make_supabase_auth_dependency(project_url=ORIGIN, audience="authenticated",
+        publishable_key="sb_publishable_offline", session_factory=factory)
     assert calls == [] and state.sessions == []
     application = FastAPI()
     @application.get("/probe")
@@ -84,6 +95,14 @@ def test_valid_context_cannot_select_another_user(environment):
     assert result.headers["cache-control"] == "no-store"
     assert state.sessions[0].committed == 1
     assert state.worker_threads.isdisjoint(state.loop_threads)
+
+
+def test_unconfirmed_email_denied_before_local_identity_lookup(environment):
+    state = environment
+    state.failure = "email"
+    with TestClient(state.app) as client:
+        result = client.get("/probe", headers={"Authorization": "Bearer " + state.token()})
+    assert result.status_code == 401 and state.sessions == []
 
 
 @pytest.mark.parametrize("kind", ["missing", "empty", "basic", "bare", "scheme-only", "double-space", "tab",
@@ -122,7 +141,7 @@ def test_invalid_credentials_have_generic_secret_safe_errors(environment, kind, 
     if state.sessions: assert state.sessions[0].rolled_back == 1
 
 
-@pytest.mark.parametrize("kind", ["keys", "factory", "query", "commit"])
+@pytest.mark.parametrize("kind", ["keys", "provider", "factory", "query", "commit"])
 def test_outages_fail_closed_and_clean_up(environment, kind, caplog):
     state = environment
     state.failure = kind
@@ -170,7 +189,7 @@ def test_slow_jwks_does_not_block_async_event_loop(environment):
 
 def test_existing_app_requires_no_supabase_configuration_or_new_dependency(api_paths, monkeypatch, jwt_setup):
     for name in ("SUPABASE_URL", "SUPABASE_AUDIENCE"): monkeypatch.delenv(name, raising=False)
-    monkeypatch.setattr(auth, "SupabaseTokenVerifier", lambda *a, **kw: pytest.fail("Dormant dependency activated"))
+    monkeypatch.setattr(auth, "SupabaseAccessPolicy", lambda *a, **kw: pytest.fail("Dormant dependency activated"))
     application = create_app(*api_paths)
     assert "/probe" not in application.openapi()["paths"]
     with TestClient(application) as client:

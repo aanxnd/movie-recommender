@@ -17,10 +17,13 @@ Read the [identity-resolution trust boundary](docs/AUTH_ARCHITECTURE.md#prompt-3
 before future route integration; UUID type checking is not proof of authentication.
 The [dormant FastAPI dependency](docs/AUTH_ARCHITECTURE.md#prompt-3c-dormant-fastapi-dependency-activation-blocked)
 composes these foundations only in tests; protected-route activation remains blocked on security-policy review.
-See [policy evidence and unresolved gates](docs/AUTH_POLICY_EVIDENCE.md): fresh provider
-email confirmation alone does not establish mailbox proof, active sessions or MFA.
-The [configuration audit and action policy](docs/AUTH_CONFIG_AUDIT.md) records final
-owner requirements, unknown hosted settings, read-only owner checks and launch blockers.
+See the [standard Supabase policy](docs/AUTH_POLICY_EVIDENCE.md): native email
+confirmation, bounded JWT validity after logout, and optional TOTP. Public signup
+and anonymous browsing are planned; personal features require backend ownership
+checks. No independent mailbox ledger, custom Auth database reader, immediate
+revocation guarantee or legacy-account migration is required. Production remains
+unchanged; Prompt 12 is on hold. The full NIST assessment and original 16-stage
+audit remain required before launch.
 
 ## Local development
 
