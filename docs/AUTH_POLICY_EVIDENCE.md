@@ -2,7 +2,7 @@
 
 Prompt 11/26 owner revision supersedes the earlier custom provenance, live Auth
 DB-state and recent-MFA requirements. Implementation remains dormant. Prompts
-1–10 are historical completed work; Prompt 12 is on hold. The implementation
+1–10 are historical completed work; Prompt 12 adds a [dormant native callback](SIGNUP_CONFIRMATION.md). The implementation
 roadmap and full 16-stage professional audit are maintained separately by the
 owner/ChatGPT; this technical policy does not replace either.
 
