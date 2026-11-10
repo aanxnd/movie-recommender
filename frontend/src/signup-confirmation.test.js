@@ -118,7 +118,7 @@ test('replayed link without the SDK verifier cannot be accepted', async t => {
   e.callback()
   await e.flow.confirm()
   const fresh = environment(t, '/?code=' + code)
-  assert.notEqual((await fresh.flow.confirm()).status, 'confirmed')
+  assert.equal((await fresh.flow.confirm()).status, 'invalid')
   assert.deepEqual(fresh.calls, [])
 })
 
@@ -141,7 +141,7 @@ test('failed URL cleanup prevents redemption; invalid config does not leak or re
   assert.equal((await e.flow.confirm()).status, 'unavailable')
   assert.deepEqual(e.calls, [])
   const bad = environment(t, '/?code=' + code)
-  assert.notEqual((await createSignupConfirmation({ ...bad.config, appOrigin: 'https://evil.invalid' }).confirm()).status, 'confirmed')
+  assert.equal((await createSignupConfirmation({ ...bad.config, appOrigin: 'https://evil.invalid' }).confirm()).status, 'invalid')
   assert.deepEqual(bad.calls, [])
 })
 
@@ -159,29 +159,29 @@ test('missing Web Crypto cannot silently downgrade PKCE', async t => {
 })
 
 for (const kind of ['signup', 'recovery', 'magiclink', 'oauth', 'email_change']) {
- test('real SDK cross-flow hint cannot prove signup: ' + kind, async t => {
-  const e = environment(t)
-  const sdk = createClient(project, e.config.publishableKey, { auth: { flowType: 'pkce',
-    storage: e.dom.window.localStorage, storageKey: 'movelle.signup-confirmation',
-    detectSessionInUrl: false, autoRefreshToken: false }, global: { fetch: (url, init) =>
-      e.config.fetcher(url, { ...init, redirect: 'error', referrerPolicy: 'no-referrer' }) } })
-  if (kind === 'signup') await e.flow.signUp(user.email, 'synthetic-password')
-  if (kind === 'recovery') await sdk.auth.resetPasswordForEmail(user.email)
-  if (kind === 'magiclink') await sdk.auth.signInWithOtp({ email: user.email })
-  if (kind === 'email_change') {
-    assert.equal((await sdk.auth.setSession(session())).error, null)
-    assert.equal((await sdk.auth.updateUser({ email: 'new@example.invalid' })).error, null)
-  }
-  if (kind === 'oauth') {
-    const { data } = await sdk.auth.signInWithOAuth({ provider: 'github', options: { skipBrowserRedirect: true } })
-    e.setChallenge(new URL(data.url).searchParams.get('code_challenge'))
-  }
-  const key = 'movelle.signup-confirmation-code-verifier', storage = e.dom.window.localStorage
-  assert.equal(JSON.parse(storage.getItem(key)).split('/')[1] ?? null, kind === 'recovery' ? 'recovery' : null)
-  e.callback()
-  assert.equal((await e.flow.confirm()).status, kind === 'recovery' ? 'invalid' : 'unproven')
-  assert.equal(e.dom.window.location.href, origin + '/')
- })
+  test('real SDK cross-flow hint cannot prove signup: ' + kind, async t => {
+    const e = environment(t)
+    const sdk = createClient(project, e.config.publishableKey, { auth: { flowType: 'pkce',
+      storage: e.dom.window.localStorage, storageKey: 'movelle.signup-confirmation',
+      detectSessionInUrl: false, autoRefreshToken: false }, global: { fetch: (url, init) =>
+        e.config.fetcher(url, { ...init, redirect: 'error', referrerPolicy: 'no-referrer' }) } })
+    if (kind === 'signup') await e.flow.signUp(user.email, 'synthetic-password')
+    if (kind === 'recovery') await sdk.auth.resetPasswordForEmail(user.email)
+    if (kind === 'magiclink') await sdk.auth.signInWithOtp({ email: user.email })
+    if (kind === 'email_change') {
+      assert.equal((await sdk.auth.setSession(session())).error, null)
+      assert.equal((await sdk.auth.updateUser({ email: 'new@example.invalid' })).error, null)
+    }
+    if (kind === 'oauth') {
+      const { data } = await sdk.auth.signInWithOAuth({ provider: 'github', options: { skipBrowserRedirect: true } })
+      e.setChallenge(new URL(data.url).searchParams.get('code_challenge'))
+    }
+    const key = 'movelle.signup-confirmation-code-verifier', storage = e.dom.window.localStorage
+    assert.equal(JSON.parse(storage.getItem(key)).split('/')[1] ?? null, kind === 'recovery' ? 'recovery' : null)
+    e.callback()
+    assert.equal((await e.flow.confirm()).status, kind === 'recovery' ? 'invalid' : 'unproven')
+    assert.equal(e.dom.window.location.href, origin + '/')
+  })
 }
 
 for (const change of [{ projectUrl: 'https://evil.invalid' }, { publishableKey: 'service_role' },
