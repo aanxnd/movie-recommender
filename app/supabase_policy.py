@@ -6,7 +6,7 @@ import re
 from urllib.error import HTTPError
 from uuid import UUID
 
-from app.supabase_email import _read_user
+from app.supabase_email import EmailConfirmationDenied, _confirmed_current_email, _read_user
 from app.supabase_jwt import (InvalidAccessToken, SigningKeysUnavailable, SupabaseTokenVerifier,
                               VerifiedTokenClaims, _unique_object)
 
@@ -42,14 +42,9 @@ class SupabaseAccessPolicy:
                     or user.get("aud") != "authenticated" or user.get("role") != "authenticated"
                     or user.get("is_anonymous", False) is not False or user.get("deleted_at") is not None):
                 raise AccessDenied
-            email = user.get("email")
-            if not isinstance(email, str) or len(email) > 320 or email.count("@") != 1 or any(c.isspace() for c in email):
-                raise AccessDenied
-            if not all(email.split("@")):
-                raise AccessDenied
-            self._timestamp(user.get("email_confirmed_at"), now, confirmation=True)
+            _confirmed_current_email(user, claims.subject, now)
             if user.get("banned_until") is not None:
-                if self._timestamp(user["banned_until"], now) > now:
+                if self._timestamp(user["banned_until"]) > now:
                     raise AccessDenied
             # Require explicit evidence: SDK null/omission normalization is not a
             # server guarantee that this account has no verified factor.
@@ -71,7 +66,7 @@ class SupabaseAccessPolicy:
             if (verified and claims.aal != "aal2") or claims.expires_at <= now.timestamp():
                 raise AccessDenied
             return claims
-        except (AccessDenied, InvalidAccessToken):
+        except (AccessDenied, InvalidAccessToken, EmailConfirmationDenied):
             raise AccessDenied("Authentication evidence rejected") from None
         except HTTPError as error:
             status = error.code
@@ -84,10 +79,10 @@ class SupabaseAccessPolicy:
             raise AccessUnavailable("Authentication evidence unavailable") from None
 
     @staticmethod
-    def _timestamp(value, now, *, confirmation=False):
+    def _timestamp(value):
         if not isinstance(value, str) or not 1 <= len(value) <= 64:
             raise AccessDenied
         value = datetime.fromisoformat(value)
-        if value.tzinfo is None or (confirmation and value > now):
+        if value.tzinfo is None:
             raise AccessDenied
         return value

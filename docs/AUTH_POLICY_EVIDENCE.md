@@ -18,6 +18,9 @@ aware, nonfuture and bound to the exact verified subject and a nonempty current
 email. Phone confirmation, signed email strings, metadata and client assertions
 cannot substitute. We do not independently attest challenge history or reject
 native administrative confirmation. Confirm Email must be enabled before launch.
+The existing email reader and this policy share current-address validation;
+`new_email` never replaces `email`. [Prompt 13](EMAIL_CHANGE.md) documents native
+pending/partial changes, retained timestamps and acceptance limits.
 
 A verified provider TOTP factor requires signed `aal2`; an explicit empty list
 or only unverified factors permits `aal1`. Missing/null/malformed factor evidence

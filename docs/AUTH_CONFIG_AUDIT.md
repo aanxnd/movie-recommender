@@ -3,8 +3,9 @@
 Prompt 11/26 owner revision replaces the old strict-policy configuration proposal.
 The current contract is [standard Supabase policy](AUTH_POLICY_EVIDENCE.md).
 All new authentication remains dormant; no environment or hosted setting is changed.
-Prompt 11 is merged; [Prompt 12 native confirmation](SIGNUP_CONFIRMATION.md)
-remains dormant and under review. Hosted acceptance and activation are not approved.
+Prompts 11-12 are merged; [native confirmation](SIGNUP_CONFIRMATION.md) remains
+dormant. [Prompt 13 current email](EMAIL_CHANGE.md) adds shared validation only.
+Hosted acceptance and activation are not approved.
 
 ## Evidence boundaries
 
