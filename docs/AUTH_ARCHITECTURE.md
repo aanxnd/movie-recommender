@@ -236,6 +236,10 @@ This independent auth snapshot is not a transaction covering later resource writ
 
 ### Prompt 14: central principal and verification order (dormant)
 
+Prompt 15 adds [dormant owner-scoped resource operations](RESOURCE_AUTHORIZATION.md)
+which consume this principal in test-only routes. Authentication is still not
+attached to production routes; resource grants are separate from the principal.
+
 Use this existing factory as the single future FastAPI authentication dependency,
 through `Depends(authenticate)`. Do not call the standalone email reader alongside
 it or verify the token again. The exact order for an admitted request is:

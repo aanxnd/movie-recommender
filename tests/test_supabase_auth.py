@@ -93,6 +93,7 @@ def environment(engine, linked, evidence, monkeypatch):
     monkeypatch.setattr(auth, "SupabaseAccessPolicy", configured)
     dependency = auth.make_supabase_auth_dependency(project_url=ORIGIN, audience="authenticated",
         publishable_key="sb_publishable_offline", session_factory=factory)
+    state.dependency = dependency  # Reused by isolated resource-authorization routes.
     assert calls == [] and state.sessions == []
     application = FastAPI()
     @application.get("/probe")
