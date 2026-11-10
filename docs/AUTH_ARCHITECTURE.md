@@ -1,10 +1,10 @@
 # Authentication architecture contract
 
-Status: **Prompt 11/26 simplification under review; Supabase authentication dormant.**
-Prompts 1-10 are historically complete; Prompt 12 is on hold. The owner/ChatGPT
-maintains the implementation roadmap and original 16-stage audit separately.
-This contract implements the approved simplified technical policy; review and
-approved merges are required before Prompt 11 can be marked complete.
+Status: **Prompt 11 merged; Prompt 12 native signup confirmation under review.**
+Prompts 1-11 are historically complete; authentication remains dormant. See
+[native callback integration](SIGNUP_CONFIRMATION.md). The owner/ChatGPT maintains
+the implementation roadmap and original 16-stage audit separately. No Prompt 13
+work, production activation or hosted configuration changes are included.
 
 ## Decisions and boundaries
 
@@ -378,7 +378,7 @@ stop an administrator bypass. No settings are changed here.
 PRs #23-33 established the historical foundations. PRs #34-36 are superseded
 custom database infrastructure; leave them open and unmerged. Prompt 11 replaces
 their purpose with supported provider behavior and dormant offline-tested policy.
-Prompt 12 stays on hold; no hosted configuration, public-signup activation,
+Prompt 12 adds a dormant native signup callback; no hosted configuration, public-signup activation,
 production migration or deployment is authorized. Prompts 22-23 concern legacy
 credential-path removal and clean new-account provisioning, not legacy migration.
 Keep [deployment/rollback controls](DEPLOYMENT.md) for later authorized rollout.

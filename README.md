@@ -22,7 +22,8 @@ confirmation, bounded JWT validity after logout, and optional TOTP. Public signu
 and anonymous browsing are planned; personal features require backend ownership
 checks. No independent mailbox ledger, custom Auth database reader, immediate
 revocation guarantee or legacy-account migration is required. Production remains
-unchanged; Prompt 12 is on hold. The full NIST assessment and original 16-stage
+unchanged; [Prompt 12 native signup confirmation](docs/SIGNUP_CONFIRMATION.md)
+is implemented as a dormant helper. The full NIST assessment and original 16-stage
 audit remain required before launch.
 
 ## Local development
