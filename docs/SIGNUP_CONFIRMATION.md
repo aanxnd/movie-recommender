@@ -3,7 +3,8 @@
 `frontend/src/signup-confirmation.js` is a headless helper, not a route or session
 provider. The current SPA uses in-memory tabs and serves `/`; production startup
 does not import the helper. No public signup, backend cutover or provisioning is
-activated. Prompts 16-17 will integrate the frontend after their own review.
+activated. Prompts 16-17 add shared dormant infrastructure/screens; [Prompt 18](PASSWORD_SECURITY.md)
+shares the once-only callback parser for recovery without changing signup proof.
 
 ## Selected mechanism and interface
 

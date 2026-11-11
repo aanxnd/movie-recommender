@@ -22,7 +22,7 @@ export function AuthNotice({ children, error = false }) {
     role={error ? 'alert' : 'status'}>{children}</div>
 }
 
-function Password({ label, name, autoComplete, disabled, describedBy }) {
+export function Password({ label, name, autoComplete, disabled, describedBy }) {
   const id = useId(), [visible, setVisible] = useState(false)
   return <div className="auth-field"><label htmlFor={id}>{label}</label><div className="auth-password">
     <input id={id} name={name} type={visible ? 'text' : 'password'} required disabled={disabled}

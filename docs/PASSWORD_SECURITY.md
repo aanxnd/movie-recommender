@@ -102,6 +102,49 @@ The native grant rotates the SDK session; failure after sign-in can leave a new
 session with the password unchanged. Do not claim universal JWT revocation or
 completion of backend/MFA access checks. NIST assessment and the full audit remain.
 
+This proves password use for Movelle's immediate continuation, not a new global
+restriction on Supabase's public user-update API. A bearer holder can call that API
+directly under its hosted settings. Requiring current-password proof for **every**
+client requires supported provider-side enforcement; the hosted setting and Free
+enablement have not been verified. Activation requires owner review of this native
+session policy and any stronger server-enforced requirement. Frontend controls must
+never be presented as protection against direct provider API calls.
+
 Hosted acceptance must establish the new-session/password-AMR contract, current
 email/subject binding, factor shapes, password-policy rejection, account/logout
 races and enrolled-MFA denials. Source/offline passes do not prove hosted behavior.
+
+## Dormant screens and acceptance
+
+`createPasswordServices(config)` composes these modules once in trusted bootstrap;
+it uses the existing SDK/controller. `AuthProvider` and explicit services are required
+by the new screens; absent services remain unavailable. Production `main.jsx`, App,
+legacy APIs and backend policies are untouched. No routes or public signup activated.
+
+Forgot-password shows conditional check-email guidance for every provider outcome.
+Recovery callback preserves missing/invalid/expired/limited/unavailable/unproven and
+only shows the new-password form for the concrete service's current verified
+context. No automatic navigation. New-password and change-password forms reuse
+labels/visibility controls, native required validation and the existing visual frame.
+Password change includes sensitive reauthentication in the same operation; the
+dedicated reauthentication view issues no general authorization grant or OTP.
+No configured password minimum/complexity is guessed. Matching passwords, focused
+live messages, loading/duplicate guards and generation/unmount aborts are local UX.
+Passwords are uncontrolled and cleared at submission/session changes, never in
+React state, URLs, logs or additional localStorage. Failed/uncertain completion is
+not successful recovery or a promise of session revocation. Any MFA/backend access
+checks remain necessary. Native recovery does not remove factors or restore AAL2.
+
+Offline preview: `/browser/account-demo.html?screen=forgot`, `recovery`,
+`new-password`, `change-password`, `reauth`. These fixed synthetic services do not
+send mail, authenticate or mutate passwords. Mocked UI success is not provider
+evidence. Production build includes none of these entries. Run `npm test`,
+`npm run build`, and `npm run test:browser -- password-screens` for local validation.
+
+Before activation the owner must approve exact preview/production root callbacks,
+Site URL, query-log redaction, provider settings/password policy and $0 abuse/mail
+limits. Authorized hosted tests must validate recovery/signup separation, signed
+AMR/UUID response shapes, replay/expiry/cross-browser behavior, outage/rate handling,
+session rotation/password updates, concurrent account transitions and MFA restrictions.
+Gmail delivery/spam and missing-factor completeness remain blockers. No production
+readiness or formal NIST compliance is claimed; retain the full assessment/audit.

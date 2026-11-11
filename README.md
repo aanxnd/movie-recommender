@@ -30,6 +30,10 @@ Prompt 17 adds [isolated account screens and profile-setup contracts](docs/AUTH_
 with an offline-only preview. They are not imported by production startup; real
 profile provisioning remains a separately reviewed Prompt 23 dependency.
 
+Prompt 18 adds [dormant native password recovery and sensitive password changes](docs/PASSWORD_SECURITY.md).
+The screens remain outside production startup; hosted acceptance and MFA integration
+are still required before activation.
+
 ## Local development
 
 Use Python 3.14 and Node.js 24 (>=22.12 supported by the frontend tools). Install the Python dependencies once, from the repository root:

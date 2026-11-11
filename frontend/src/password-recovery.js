@@ -5,8 +5,24 @@ import { passwordEvidence, updateNativePassword, passwordFailure, passwordResult
 
 const recoveries = new WeakMap()
 /** Native recovery context stays private; components receive only safe statuses, never a grant/token. */
-export function createPasswordRecovery(config) {
-  const client = getBrowserSupabaseClient(config)
+export function createPasswordRecovery(config = {}) {
+  let current, attempt
+  return Object.freeze({
+    state: () => current?.state() ?? passwordResult('unproven'),
+    confirm() {
+      // Even factory construction is lazy: URL scrubbing precedes SDK construction/initialization.
+      return attempt ??= consumePkceCallback(config, 'recovery', (client, data) => {
+        current = nativeRecovery(config, client); return current.accept(data)
+      }).then(result => {
+        if (result.status === 'verified' && !current) current = nativeRecovery(config, getBrowserSupabaseClient(config))
+        return result
+      }).catch(() => callbackResult('unavailable'))
+    },
+    setPassword: (password, options) => current ? current.setPassword(password, options) : Promise.resolve(passwordResult('unavailable')),
+  })
+}
+
+function nativeRecovery(config, client) {
   if (recoveries.has(client)) return recoveries.get(client)
   const session = getSessionController(client)
   let context, busy = false
@@ -17,7 +33,7 @@ export function createPasswordRecovery(config) {
   }
   const recovery = Object.freeze({
     state,
-    confirm: () => consumePkceCallback(config, 'recovery', async (_client, data) => {
+    accept: async data => {
       if (data.redirectType !== 'recovery' || !data.session || data.user?.id !== data.session.user?.id) return callbackResult('unproven')
       try {
         return await session.withAccess(async lease => {
@@ -25,7 +41,7 @@ export function createPasswordRecovery(config) {
           context = { proof }; return callbackResult('verified')
         })
       } catch (error) { return callbackResult(passwordFailure(error).status) }
-    }),
+    },
     async setPassword(password, { signal } = {}) {
       if (typeof password !== 'string' || !password) return passwordResult('invalid-password')
       if (busy) return passwordResult('busy')

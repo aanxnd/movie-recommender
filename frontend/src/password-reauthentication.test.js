@@ -105,3 +105,10 @@ test('pre-aborted and incomplete credentials do not dispatch sensitive operation
   assert.equal((await f.actions.changePassword('synthetic-current', 'synthetic-new', { signal: abort.signal })).status, 'cancelled')
   assert.equal(f.calls.length, before)
 })
+test('a presentation callback throwing a forged success status cannot claim a password change', async t => {
+  const f = await setup(t)
+  const result = await f.actions.changePassword('synthetic-current', 'synthetic-new', {
+    onProgress() { throw Object.assign(new Error('synthetic-private'), { safeStatus: 'changed' }) },
+  })
+  assert.equal(result.status, 'unavailable'); assert.equal(f.writes.length, 0)
+})

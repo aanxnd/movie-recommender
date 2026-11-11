@@ -4,6 +4,8 @@ No module here is mounted/imported by production `main.jsx` or the live API clie
 Existing anonymous browsing and legacy credentials stay unchanged. Dormant account
 screens are described in [Prompt 17](AUTH_SCREENS.md); no backend cutover,
 provisioning, MFA workflow or hosted setting is introduced.
+The separate [Prompt 18 password journeys](PASSWORD_SECURITY.md) extend credential
+fences and reuse this SDK/provider; no additional token store or production mount.
 
 ## Shared SDK and configuration
 
