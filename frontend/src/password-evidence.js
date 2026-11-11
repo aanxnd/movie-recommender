@@ -1,7 +1,7 @@
 // Internal native evidence; not a React/session store or backend authorization decision.
 import { captureCredentialFence, runCredentialRequest } from './supabase-client.js'
 
-const uuid = value => typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value) && !/^0{8}-0{4}-0{4}-0{4}-0{12}$/.test(value)
+export const nativeUuid = value => typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value) && !/^0{8}-0{4}-0{4}-0{4}-0{12}$/.test(value)
 export const passwordResult = status => Object.freeze({ status })
 export function passwordFailure(error) {
   return passwordResult(error?.name === 'AbortError' ? 'cancelled' : error?.safeStatus ??
@@ -23,13 +23,13 @@ export async function passwordEvidence(client, config, lease, method, expectedTo
   if (error || !data) denyPassword('unavailable')
   const c = data.claims, now = Math.floor(Date.now()/1000)
   if (data.header.alg !== 'ES256' || c.iss !== config.projectUrl + '/auth/v1' || c.aud !== 'authenticated' ||
-      !uuid(c.sub) || c.sub !== lease.userId || !uuid(c.session_id) || !['aal1', 'aal2'].includes(c.aal) ||
+      !nativeUuid(c.sub) || c.sub !== lease.userId || !nativeUuid(c.session_id) || !['aal1', 'aal2'].includes(c.aal) ||
       !Number.isSafeInteger(c.iat) || c.iat <= 0 || c.iat > now || !Number.isSafeInteger(c.exp) || c.exp <= now || c.exp <= c.iat ||
       (c.nbf !== undefined && (!Number.isSafeInteger(c.nbf) || c.nbf > now)) || !Array.isArray(c.amr) || !c.amr.length ||
       c.amr.some(a => !a || typeof a.method !== 'string' || !/^[a-z][a-z0-9/_-]{0,63}$/.test(a.method) ||
         !Number.isSafeInteger(a.timestamp) || a.timestamp <= 0 || a.timestamp > c.iat) ||
       new Set(c.amr.map(a => a.method)).size !== c.amr.length ||
-      !c.amr.some(a => a.method === method)) denyPassword('unproven')
+      (method && !c.amr.some(a => a.method === method))) denyPassword('unproven')
   return Object.freeze({ subject: c.sub, sessionId: c.session_id, expiresAt: c.exp, aal: c.aal,
     assertCurrent: bindObservation(lease.assertCurrent, assertEpoch, c.exp) }) // No lease/token/claims retained.
 }
