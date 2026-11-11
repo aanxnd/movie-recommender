@@ -26,3 +26,33 @@ resource authorization remain authoritative. The callback still returns `unprove
 for ambiguous exchanges; it never promotes historical email timestamps to proof
 that this link confirmed signup. Origins and acceptance gates remain in
 [the callback contract](SIGNUP_CONFIRMATION.md).
+
+## Isolated React screens (dependent PR)
+
+`SignupScreen`, `LoginScreen` and `VerificationScreen` take trusted `actions` from
+the shared factory; signup/login also require the existing `AuthProvider`. No
+production router, application entry, API client or backend dependency is changed.
+Optional navigation callbacks are trusted bootstrap functions, never URL targets.
+The dark forest/brass layout adapts to mobile, uses explicit labels, native email
+validity, accessible password controls, loading/disabled controls and focused live
+status/error regions. Forms use uncontrolled password fields, cleared at dispatch;
+passwords never enter React state, URLs, analytics or application persistence.
+
+Signup checks matching passwords and uses provider policy, not a guessed local
+length/complexity rule. Busy guards block repeated submissions. Login invalid and
+pending-confirmation responses share guidance; throttling/outages remain generic.
+Session generations clear forms and ignore late UI results after logout/account
+switches. SDK session presentation explicitly does not imply protected access.
+
+Verification keeps missing, invalid, expired-or-consumed, unavailable, rate-limited
+and `unproven` states distinct. The existing helper scrubs before asynchronous work
+and shares one attempt across Strict Mode consumers. No automatic navigation,
+definitive signup-confirmed message, resend loop or account provisioning is added.
+Mocked tests do not establish hosted delivery, password policy or factor-list
+compatibility. Those acceptance gates remain open; no Prompt 18 work is included.
+
+Offline review: Vite serves `/browser/account-demo.html` (also `?screen=login` or
+`?screen=verification`). This separate test entry uses fixed fake actions and a
+fake session, never hosted configuration/SDK requests. It is not a release entry
+and Vite's production build excludes it. `npm run test:browser -- account-screens`
+checks keyboard signup, focus and mobile overflow with the offline preview.
