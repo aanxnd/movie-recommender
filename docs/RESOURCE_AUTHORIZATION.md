@@ -21,8 +21,8 @@ public browsing, credentials, numeric IDs and schema 3 are unchanged.
 There are no public/private flags on personal records. Client `visibility`,
 `role`, `owner_id`, emails and usernames cannot create permissions. Persisted
 groups, member/viewer/admin roles, membership removal and private shared objects
-need a future reviewed model; do not fabricate them. Group-capability operations
-are delivered separately in the dependent Prompt 15 PR.
+need a future reviewed model; do not fabricate them. The dependent Prompt 15 PR
+implements the existing invitation capabilities as described below.
 
 ## Owner interfaces
 
@@ -79,3 +79,38 @@ completeness, later frontend/provisioning/integration, email/recovery/MFA accept
 full NIST assessment, the original 16-stage audit and approved release/rollback.
 Prompt 12's `unproven` callback and Prompt 13's native current-email behavior are
 unchanged. No hosted writes, migration, deployment or Prompt 16 work is authorized.
+
+## Existing group-capability interfaces (dependent Prompt 15 PR)
+
+`app/group_authorization.py` reuses the same principal/binding predicates and
+error handling, existing `GroupInvitation` table, token format/hash/lifetime,
+database clock, workload limits and recommendation-combination service:
+
+- `issue_invitation(session, principal, user_id)` derives the owner from the bound
+  User row with INSERT ... SELECT; replacement repeats the binding/owner predicate
+  and changes only the hash/expiry. No client chooses token, owner, role or expiry.
+  Return the secret privately to its owner; never log or persist it in plaintext.
+- `revoke_invitation(...)` is an owner/binding-scoped DELETE. Neither a group
+  participant nor a capability holder may issue/revoke for another profile.
+- `combined_group_profile(session, principal, user_ids, invitations)` requires
+  2-5 distinct IDs, including the caller, and exactly one valid capability for
+  every other participant. SQL joins require existing users, current caller
+  binding, matching per-owner token hashes and database-clock expiry **before**
+  reading ratings. Unknown/missing/revoked/replaced grants deny the whole request;
+  stale ORM grants or membership/role assertions cannot substitute.
+
+The internal computation is bounded by existing per-profile/group limits and
+returns only combined recommendation input. Do not expose individual or combined
+profiles over HTTP; use the existing recommendation service/response schema.
+The helper rechecks expiry after reading. Revocation committed before its scoped
+SELECT denies; revocation racing an admitted SELECT has the same statement-snapshot
+limitation as owner reads. There is no persistent membership or immediate
+revocation promise. An invitation authorizes this computation only; it is never
+a login credential or a grant to read/write another profile or administer roles.
+Future routes must preserve owner admission/rate limits and transaction ownership.
+
+Offline tests cover rotated/deleted/expired grants, account substitution, forged
+roles, token-to-owner mismatch, stale ORM state, caller-link removal, expiry and
+revocation races, bounded computation, owner-only control and redacted outages.
+Real membership status/admin policies remain unsupported until a reviewed schema
+exists. No hosted email, user, grant, database or configuration is changed by tests.
