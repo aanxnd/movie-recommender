@@ -71,3 +71,37 @@ Activation needs separately authorized dev acceptance: genuine recovery AMR and
 signed subject/session binding with pinned hosted ES256 keys; null/cross-flow hints,
 expiry/replay/scanners, same-browser PKCE, update rejection/uncertain responses,
 MFA-required recovery and native session/logout behavior. No such hosted tests ran.
+
+## Sensitive reauthentication and authenticated password change
+
+`createSensitiveReauthentication().changePassword(currentPassword, password)` uses
+one immediate, purpose-scoped native operation. It verifies the current token and
+reads the same subject's current email/factors with `getUser`. Email never comes
+from a form, metadata or a URL. Unknown/missing factors deny (the existing Prompt 11
+hosted completeness blocker remains). Verified TOTP returns `mfa-required` before
+sign-in; the code does not replace an enrolled AAL2 session with password-only AAL1.
+Supported MFA-sensitive changes remain unavailable until the later reviewed flows.
+
+For explicitly no verified factors, native `signInWithPassword` checks the current
+password. A pre-persistence subject guard prevents account substitution. The exact
+new response must yield signed password AMR, a different session UUID and the same
+subject. Only that immediate continuation calls `updateUser` with the new/current
+password. No reusable grant, timestamp rule, second SDK or parallel auth store is
+created. Refresh/restoration or historical password AMR cannot replace this step.
+Progress states `pending`/`verified` are presentation only, scoped to password-change;
+errors include expired, cancelled and unavailable. Components never receive proof
+objects. Future sensitive operations need their own reviewed native continuation.
+
+Native `reauthenticate()` sends a nonce; it does not verify one. In the reviewed
+[provider source](https://github.com/supabase/auth/blob/master/internal/api/user.go),
+nonce checking depends on Secure password change and session age (24 hours). Sending
+or entering a nonce therefore cannot unconditionally attest a challenge. Likewise,
+`current_password` enforcement is configuration-dependent. This implementation uses
+fresh native password sign-in instead, not those optional settings as assumed proof.
+The native grant rotates the SDK session; failure after sign-in can leave a new
+session with the password unchanged. Do not claim universal JWT revocation or
+completion of backend/MFA access checks. NIST assessment and the full audit remain.
+
+Hosted acceptance must establish the new-session/password-AMR contract, current
+email/subject binding, factor shapes, password-policy rejection, account/logout
+races and enrolled-MFA denials. Source/offline passes do not prove hosted behavior.
