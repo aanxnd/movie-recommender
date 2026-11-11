@@ -3,11 +3,12 @@ import { getSessionController } from './auth-session.js'
 import { passwordEvidence, updateNativePassword, passwordResult, passwordFailure, denyPassword, nativeUuid } from './password-evidence.js'
 
 /** @typedef {'pending'|'verified'|'expired'|'cancelled'|'unavailable'} ReauthenticationState */
-/** @typedef {{signal?: AbortSignal, onProgress?: (state: Readonly<{status: ReauthenticationState, operation: 'password-change'}>) => void}} ReauthenticationOptions */
+/** @typedef {{signal?: AbortSignal, onProgress?: (state: Readonly<{status: ReauthenticationState, operation: 'password-change'|'email-change'}>) => void}} ReauthenticationOptions */
 const busy = new WeakSet()
 
 // Internal, operation-scoped continuation. No reusable reauth grant/flag is returned to a component.
-async function withFreshPassword(client, config, session, currentPassword, options, complete) {
+export async function withFreshPassword(client, config, session, currentPassword, options, complete, operation = 'password-change') {
+  if (!['password-change', 'email-change'].includes(operation)) denyPassword('unavailable')
   const authenticated = await session.withAccess(async lease => {
     const before = await passwordEvidence(client, config, lease)
     const { data, error } = await client.auth.getUser(lease.authorization.slice(7))
@@ -30,7 +31,7 @@ async function withFreshPassword(client, config, session, currentPassword, optio
     const proof = await passwordEvidence(client, config, lease, 'password', authenticated.token)
     if (proof.subject !== authenticated.subject || proof.sessionId === authenticated.previousSession) denyPassword('unproven')
     if (options.signal?.aborted) denyPassword('cancelled')
-    options.onProgress?.(Object.freeze({ status: 'verified', operation: 'password-change' }))
+    options.onProgress?.(Object.freeze({ status: 'verified', operation }))
     return complete(proof) // Used immediately in this call; not a portable authorization capability.
   })
 }
