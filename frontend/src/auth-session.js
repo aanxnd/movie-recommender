@@ -117,7 +117,8 @@ export function getSessionController(client) {
               if (!signingOut) publish('unauthenticated')
               return
             }
-            if (signingOut || (locked && event !== 'SIGNED_IN')) return
+            if (signingOut || (locked && !['SIGNED_IN', 'PASSWORD_RECOVERY'].includes(event))) return
+            if (['SIGNED_IN', 'PASSWORD_RECOVERY', 'TOKEN_REFRESHED'].includes(event)) cancelCredentialRequests(client)
             locked = false
             try { accept(session) } catch (error) { rejectSession(error) }
           })

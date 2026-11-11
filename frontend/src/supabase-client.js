@@ -12,13 +12,22 @@ export function cancelCredentialRequests(client) {
   for (const request of record.pending) request.abort()
 }
 
-export async function runCredentialRequest(client, work) {
+function assertCredentialCurrent(record) {
+  const action = record.action
+  if (action && (action.epoch !== record.epoch || action.signal?.aborted)) throw unavailable()
+  action?.assertCurrent?.()
+}
+
+// Options come only from trusted auth modules; never accept these from a component/URL.
+export async function runCredentialRequest(client, work, options = {}) {
   const record = credentialRequests.get(client)
   if (!record || record.action) throw unavailable()
-  const action = { epoch: record.epoch }
+  const action = { ...options, epoch: record.epoch }
   record.action = action
-  try { return await work() }
-  finally { if (record.action === action) record.action = null }
+  const abort = () => { if (record.action === action) cancelCredentialRequests(client) }
+  action.signal?.addEventListener('abort', abort, { once: true })
+  try { assertCredentialCurrent(record); return await work() }
+  finally { action.signal?.removeEventListener('abort', abort); if (record.action === action) record.action = null }
 }
 
 async function bounded(promise, signal) {
@@ -55,18 +64,22 @@ export function getBrowserSupabaseClient({
       return previous.client
     }
     const record = { pending: new Set(), epoch: 0, action: null }
+    // Delegate SDK-owned persistence, fencing even writes after HTTP parsing. No second token store.
+    const guardedStorage = { getItem: key => persistence.getItem(key), removeItem: key => persistence.removeItem(key),
+      setItem: (key, value) => { assertCredentialCurrent(record); return persistence.setItem(key, value) } }
     const client = createClient(projectUrl, publishableKey, {
       auth: { flowType: 'pkce', detectSessionInUrl: false, autoRefreshToken: true,
-        persistSession: true, storage: persistence, storageKey: 'movelle.signup-confirmation', debug: false },
+        persistSession: true, storage: guardedStorage, storageKey: 'movelle.signup-confirmation', debug: false },
       global: { fetch: async (url, init) => {
         let credential
         try {
           const target = new URL(typeof url === 'string' ? url : url.url)
           if (target.origin !== projectUrl || target.username || target.password ||
               !target.pathname.startsWith('/auth/v1/')) throw unavailable()
-          if (target.pathname === '/auth/v1/signup' || (target.pathname === '/auth/v1/token' &&
+          if (['/auth/v1/signup', '/auth/v1/recover', '/auth/v1/reauthenticate'].includes(target.pathname) ||
+              (target.pathname === '/auth/v1/user' && init?.method === 'PUT') || (target.pathname === '/auth/v1/token' &&
               ['password', 'pkce'].includes(target.searchParams.get('grant_type')))) {
-            if (record.action && record.action.epoch !== record.epoch) throw unavailable()
+            assertCredentialCurrent(record)
             credential = new AbortController(); record.pending.add(credential)
           }
           const signal = AbortSignal.any([init?.signal, credential?.signal, AbortSignal.timeout(10000)].filter(Boolean))
@@ -76,6 +89,11 @@ export function getBrowserSupabaseClient({
           // Fence the whole response before the SDK can persist a late credential result.
           const body = await bounded(response.arrayBuffer(), signal)
           if (signal.aborted) throw unavailable()
+          assertCredentialCurrent(record)
+          if (response.ok && record.action?.subject && (target.pathname.endsWith('/token') || target.pathname.endsWith('/user'))) {
+            const payload = JSON.parse(new TextDecoder().decode(body))
+            if ((payload.user ?? payload)?.id !== record.action.subject) throw unavailable()
+          }
           return new Response(body, { status: response.status, statusText: response.statusText, headers: response.headers })
         } catch { throw new Error('Authentication transport unavailable') }
         finally { if (credential) record.pending.delete(credential) }
