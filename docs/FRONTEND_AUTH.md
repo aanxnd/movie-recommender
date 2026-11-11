@@ -1,8 +1,9 @@
 # Dormant frontend authentication (Prompt 16/26)
 
 No module here is mounted/imported by production `main.jsx` or the live API client.
-Existing anonymous browsing and legacy credentials stay unchanged. No signup/login
-UI, backend cutover, provisioning, MFA workflow or hosted setting is introduced.
+Existing anonymous browsing and legacy credentials stay unchanged. Dormant account
+screens are described in [Prompt 17](AUTH_SCREENS.md); no backend cutover,
+provisioning, MFA workflow or hosted setting is introduced.
 
 ## Shared SDK and configuration
 
@@ -30,7 +31,7 @@ storage remains exposed to XSS, not HttpOnly protection.
 Hosted PKCE, cross-tab behavior, refresh/logout, provider factor completeness,
 approved callback/API origins, Gmail delivery, backend integration and release
 audits still require separate acceptance. No hosted users or emails are involved
-in the offline real-SDK/mocked-network tests. Prompt 17 has not begun.
+in the offline real-SDK/mocked-network tests.
 
 ## Session controller and React boundary (dependent PR)
 
@@ -63,8 +64,8 @@ Only the trusted API adapter uses `withAccess`'s short-lived credential lease.
 Identity switches, logout and final unmount abort/fence pending operations, including
 late network results that ignore AbortSignal. Future personalized UI must key/reset
 its caches by `generation` (not just user ID), ignore cancellation errors and never
-store leases/tokens. Prompt 17 may compose these dormant interfaces after review;
-no login UI, application provider mount or current API-client replacement is added.
+store leases/tokens. Prompt 17 composes these dormant interfaces;
+no application provider mount or current API-client replacement is added.
 Operations waiting for SDK restoration/refresh are fenced too; logout cancels them
 before SDK work settles. Start personal requests after the authenticated state is
 restored: discovering a different/initial identity cancels pre-bound operations.

@@ -103,7 +103,7 @@ for (const mode of ['expired', 'network', 'outage', 'malformed', 'unconfirmed', 
     await e.flow.signUp(user.email, 'synthetic-password')
     e.callback()
     const value = await e.flow.confirm()
-    assert.equal(value.status, ['expired', 'unconfirmed', 'future', 'badmarker'].includes(mode) ? 'invalid' : 'unavailable')
+    assert.equal(value.status, mode === 'expired' ? 'expired' : ['unconfirmed', 'future', 'badmarker'].includes(mode) ? 'invalid' : 'unavailable')
     assert.equal(await e.flow.confirm(), value)
     assert.equal(e.calls.filter(x => x.endsWith('/token')).length, 1)
     for (const secret of [code, user.id, user.email, session().access_token, 'synthetic-password', 'synthetic-refresh', 'private'])
@@ -131,7 +131,7 @@ test('provider rejects replay even if an old verifier is restored in another doc
   const fresh = environment(t, '/?code=' + code)
   for (const [key, value] of Object.entries(snapshot)) fresh.dom.window.localStorage.setItem(key, value)
   const flow = createSignupConfirmation({ ...fresh.config, fetcher: e.config.fetcher })
-  assert.equal((await flow.confirm()).status, 'invalid')
+  assert.equal((await flow.confirm()).status, 'expired')
   assert.equal(e.calls.filter(x => x.endsWith('/token')).length, 2)
 })
 
