@@ -5,12 +5,13 @@ import { createServer } from 'vite'
 import { fixture, tick } from './auth-test-support.js'
 
 // Isolated DOM + the actual JSX modules; no production mount or hosted transport.
-export async function mountAccount(t, filename, name, props = {}, authenticated = false) {
+export async function mountAccount(t, filename, name, props = {}, authenticated = false, copies = 1) {
   const dom = new JSDOM('<div id="root"></div>', { url: 'https://movelle.test' })
   globalThis.window = dom.window; globalThis.document = dom.window.document
   globalThis.IS_REACT_ACT_ENVIRONMENT = true
   const previousFormData = globalThis.FormData; globalThis.FormData = dom.window.FormData
-  const server = await createServer({ server: { middlewareMode: true, hmr: false }, appType: 'custom',
+  const server = await createServer({ cacheDir: '../.pytest-tmp/account-vite',
+    server: { middlewareMode: true, hmr: false }, appType: 'custom',
     optimizeDeps: { noDiscovery: true, include: [] } })
   const screens = await server.ssrLoadModule('/src/' + filename)
   const { AuthProvider } = await server.ssrLoadModule('/src/auth-context.js')
@@ -22,7 +23,7 @@ export async function mountAccount(t, filename, name, props = {}, authenticated 
   })
   await act(async () => {
     root.render(React.createElement(React.StrictMode, null,
-      React.createElement(AuthProvider, { session: f.session }, React.createElement(screens[name], props))))
+      React.createElement(AuthProvider, { session: f.session }, Array.from({ length: copies }, (_, key) => React.createElement(screens[name], { ...props, key })))))
     f.load.resolve({ data: { session: authenticated ? { access_token: 'synthetic', expires_at: Date.now()/1000+600, user: { id: 'a' } } : null } })
     await tick()
   })
