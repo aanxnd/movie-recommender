@@ -2,6 +2,8 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { createPasswordRecovery } from './password-recovery.js'
 import { createSignupConfirmation } from './signup-confirmation.js'
+import { JSDOM } from 'jsdom'
+import { createPasswordServices } from './password-services.js'
 import { deferred, tick } from './auth-test-support.js'
 import { passwordFixture, signingFixture, json, code, origin, subject, otherSubject } from './password-test-support.js'
 
@@ -90,6 +92,21 @@ for (const options of [{ corrupt: true }, { failure: 'jwks' }, { failure: 'expir
 test('native token refresh is not new recovery proof and invalidates the previous observation', async t => {
   const f = await setup(t); assert.equal((await f.recovery.confirm()).status, 'verified')
   await f.client.auth.refreshSession(); assert.notEqual(f.recovery.state().status, 'verified')
+})
+test('aggregate construction performs no SDK/storage I/O; callback scrubs before even blocked storage is read', async t => {
+  const dom = new JSDOM('', { url: origin + '/?code=' + code }); t.after(() => dom.window.close())
+  let reads = 0
+  Object.defineProperty(dom.window, 'localStorage', { get() { reads++; assert.equal(dom.window.location.href, origin + '/'); throw new Error('Storage blocked') } })
+  const services = createPasswordServices({ browser: dom.window, projectUrl: `https://${'a'.repeat(20)}.supabase.co`,
+    appOrigin: origin, publishableKey: 'sb_publishable_offline' })
+  assert.equal(reads, 0)
+  const attempt = services.recovery.confirm(); assert.equal(dom.window.location.href, origin + '/')
+  assert.equal((await attempt).status, 'unavailable'); assert.equal(reads, 1)
+})
+test('separate consumers share one exchange and the same private native observation', async t => {
+  const f = await setup(t), second = createPasswordRecovery(f.config)
+  await Promise.all([f.recovery.confirm(), second.confirm()])
+  assert.equal(second.state().status, 'verified'); assert.equal(f.calls.filter(p => p.endsWith('/token')).length, 1)
 })
 for (const path of ['/', '/?code=bad', '/?code=' + code + '&next=https://evil.invalid', '/#access_token=synthetic-private']) {
   test('malformed callback never authorizes recovery or leaks its URL: ' + path.split('=')[0], async t => {

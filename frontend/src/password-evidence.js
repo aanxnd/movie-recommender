@@ -4,7 +4,9 @@ import { captureCredentialFence, runCredentialRequest } from './supabase-client.
 export const nativeUuid = value => typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value) && !/^0{8}-0{4}-0{4}-0{4}-0{12}$/.test(value)
 export const passwordResult = status => Object.freeze({ status })
 export function passwordFailure(error) {
-  return passwordResult(error?.name === 'AbortError' ? 'cancelled' : error?.safeStatus ??
+  const denial = ['cancelled', 'expired', 'unproven', 'invalid', 'unavailable', 'mfa-required', 'rate-limited', 'invalid-password', 'busy']
+    .includes(error?.safeStatus) ? error.safeStatus : undefined
+  return passwordResult(error?.name === 'AbortError' ? 'cancelled' : denial ??
     (error?.code === 'insufficient_aal' ? 'mfa-required' :
       ['weak_password', 'same_password'].includes(error?.code) ? 'invalid-password' :
       error?.status === 429 ? 'rate-limited' : error?.status === 401 ? 'expired' : 'unavailable'))

@@ -49,7 +49,8 @@ and `unproven` states distinct. The existing helper scrubs before asynchronous w
 and shares one attempt across Strict Mode consumers. No automatic navigation,
 definitive signup-confirmed message, resend loop or account provisioning is added.
 Mocked tests do not establish hosted delivery, password policy or factor-list
-compatibility. Those acceptance gates remain open; no Prompt 18 work is included.
+compatibility. Those acceptance gates remain open; [Prompt 18 password flows](PASSWORD_SECURITY.md)
+are a separate dormant implementation.
 
 Offline review: Vite serves `/browser/account-demo.html` (also `?screen=login` or
 `?screen=verification`). This separate test entry uses fixed fake actions and a
@@ -94,4 +95,5 @@ UI behavior against that contract, **not** implemented atomic provisioning.
 
 Activation still requires Prompt 23 provisioning, later route integration, approved
 origins, hosted email/PKCE/password/throttle tests and Prompt 11 factor completeness.
-No backend/schema changes, production mount or Prompt 18 implementation is included.
+No backend/schema changes or production mount is included. Password journeys are
+now implemented separately in [Prompt 18](PASSWORD_SECURITY.md), also dormant.

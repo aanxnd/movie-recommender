@@ -1,10 +1,10 @@
 # Authentication architecture contract
 
-Status: **Prompt 11 merged; Prompt 12 native signup confirmation under review.**
-Prompts 1-11 are historically complete; authentication remains dormant. See
-[native callback integration](SIGNUP_CONFIRMATION.md). The owner/ChatGPT maintains
-the implementation roadmap and original 16-stage audit separately. No Prompt 13
-work, production activation or hosted configuration changes are included.
+Status: **Prompts 1-17 merged; Prompt 18 dormant password journeys under review.**
+Authentication remains dormant. See [native callback integration](SIGNUP_CONFIRMATION.md)
+and [password security](PASSWORD_SECURITY.md). The owner/ChatGPT maintains the
+implementation roadmap and original 16-stage audit separately. No production
+activation or hosted configuration change is authorized.
 
 ## Decisions and boundaries
 
@@ -395,7 +395,7 @@ those gaps rather than changing the standard or inventing compliance claims.
 |---|---|---|
 | Identity binding / application authorization | Schema 3 constraints plus `test_user_identities.py` and `test_supabase_identity.py` cover uniqueness and dormant existing-link resolution. | Movelle: implement atomic clean new-account provisioning and route authorization; resolution alone grants no access. |
 | Email-confirmation evidence | `test_supabase_email.py` covers fresh provider markers and fail-closed rejection; see [policy review](AUTH_POLICY_EVIDENCE.md). | Validate native confirmation/recovery, redirects and secure email change before launch; no independent provenance ledger is required. No protected route activation. |
-| Passwords (§3.1.1), throttling | Owner-reported disposable password login; existing legacy rate-limit tests do not prove Supabase policy. | Supabase + Movelle: validate length, Unicode, screening, enumeration and abuse controls; Free lacks built-in leaked-password protection. |
+| Passwords (§3.1.1), throttling | Prompt 18 offline native-SDK/signed-AMR tests cover recovery, fresh password reauthentication, cancellation and generic failures; [hosted acceptance](PASSWORD_SECURITY.md) remains open. | Supabase + Movelle: validate configured length, Unicode, screening, enumeration and abuse controls; Free lacks built-in leaked-password protection. No compliance claim. |
 | OTP (§3.1.4/3.1.5), authenticator management (§4) | Backup TOTP design approved; hosted recovery-code probe rejected. | Supabase + Movelle: test independent factors, replacement, reset enforcement and lockout disclosure; TOTP is not phishing-resistant. |
 | Session management (§5) | Dormant JWT and `test_supabase_auth.py` adversarial/lifecycle tests; SPA exposure documented; existing routes remain legacy-only. | Movelle: test standard JWT/refresh/logout behavior and resource authorization before activation; document bounded post-logout validity and Free timeout gaps. |
 
