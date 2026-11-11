@@ -35,3 +35,39 @@ are public/user APIs; no privileged key or paid service is involved. Offline tes
 use the pinned SDK with mocked HTTP. They do not prove hosted delivery or security
 configuration. Recovery evidence, completion and sensitive changes follow in the
 dependent PRs; this foundation alone authorizes no password mutation.
+
+## Native recovery evidence and completion (dependent PR)
+
+SDK 2.119.0 reads `redirectType` from its stored verifier suffix. Its
+[`PASSWORD_RECOVERY` event](https://github.com/supabase/supabase-js/blob/v2.119.0/packages/core/auth-js/src/GoTrueClient.ts)
+uses that same hint, not an independent server assertion. Both null and a forged
+recovery hint are insufficient. Recovery requires a successful code exchange,
+the recovery hint **and** `getClaims`-validated signed `amr.method = recovery` on
+that exact returned token, subject and session. The SDK validates with pinned-project
+JWKS or provider verification; Movelle additionally requires ES256, exact issuer,
+audience, nonzero UUIDs, AAL, integer times and structured nonconflicting AMR.
+[Supabase documents recovery AMR](https://supabase.com/docs/guides/auth/jwt-fields#authentication-methods-amrmethod).
+Upstream [PKCE](https://github.com/supabase/auth/blob/master/internal/api/token.go)
+issues the new session using the flow state's authentication method. This is source
+evidence, not proof of the hosted version, custom-hook configuration or response.
+
+`createPasswordRecovery` retains only private, ephemeral binding to this native
+observation. No recovery grants, ledger, tokens or booleans enter React or custom
+persistence. Restored sessions alone cannot initialize it. Logout, account/native
+credential transitions (including refresh), expiry or a different callback consumer
+invalidate it. Reload of the scrubbed URL fails safely; no code is re-redeemed.
+
+`setPassword` revalidates the exact current native recovery session, then calls
+`updateUser({password})` with a subject/lease-bound transport. Success consumes the
+context; uncertain failure discards it, and only known policy/MFA/rate rejections
+permit manual correction. No automatic mutation retry. Native MFA restrictions
+remain authoritative: recovery at AAL1 is not permission to bypass enrolled TOTP.
+Provider insufficient-AAL responses require later supported MFA integration.
+Backend email/MFA/mapping/resource policy remains independently authoritative.
+Password rules belong to provider configuration; no local complexity policy.
+Already-issued JWTs may remain valid until expiry after password change/logout.
+
+Activation needs separately authorized dev acceptance: genuine recovery AMR and
+signed subject/session binding with pinned hosted ES256 keys; null/cross-flow hints,
+expiry/replay/scanners, same-browser PKCE, update rejection/uncertain responses,
+MFA-required recovery and native session/logout behavior. No such hosted tests ran.
