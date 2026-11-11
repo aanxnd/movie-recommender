@@ -5,6 +5,12 @@ const clients = new WeakMap()
 const credentialRequests = new WeakMap()
 const unavailable = () => new Error('Authentication configuration unavailable')
 
+// Bind a sensitive operation to the current native credential transition, including refresh.
+export function captureCredentialFence(client) {
+  const record = credentialRequests.get(client), epoch = record?.epoch
+  return () => { if (!record || record.epoch !== epoch) throw unavailable() }
+}
+
 export function cancelCredentialRequests(client) {
   const record = credentialRequests.get(client)
   if (!record) return
