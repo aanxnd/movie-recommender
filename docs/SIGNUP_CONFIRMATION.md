@@ -8,7 +8,8 @@ activated. Prompts 16-17 will integrate the frontend after their own review.
 ## Selected mechanism and interface
 
 Use pinned `@supabase/supabase-js` 2.119.0 with `flowType: 'pkce'`, automatic URL
-session detection/refresh disabled and the standard SDK localStorage adapter.
+session detection disabled and the standard SDK localStorage adapter. Prompt 16
+centralizes this client and enables SDK-managed refresh; callback parsing is unchanged.
 `createSignupConfirmation({ projectUrl, publishableKey, appOrigin, browser })`
 is explicitly configured by trusted bootstrap code; it reads no environment itself.
 `signUp(email, password)` calls native email/password signup with fixed
@@ -43,8 +44,8 @@ The SDK owns PKCE verifiers and returned sessions under `movelle.signup-confirma
 in localStorage. This enables email links opened in another tab on the same origin,
 browser and device; another device/private profile fails safely. Starting another
 flow can supersede the previous verifier. JavaScript/XSS can read browser storage;
-this is not HttpOnly protection. No general session provider or session handoff UI
-is implemented. A callback status grants no Movelle access: backend JWT/email/MFA,
+this is not HttpOnly protection. The [Prompt 16 infrastructure](FRONTEND_AUTH.md)
+is dormant; no session handoff UI is implemented. A callback status grants no Movelle access: backend JWT/email/MFA,
 identity and resource authorization remain authoritative. Legacy storage is untouched.
 
 ## Configuration and acceptance (not applied)
