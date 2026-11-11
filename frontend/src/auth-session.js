@@ -1,4 +1,5 @@
 // Client presentation/transport only. The backend remains the authorization authority.
+import { cancelCredentialRequests } from './supabase-client.js'
 const controllers = new WeakMap()
 const changed = () => new DOMException('Authentication changed', 'AbortError')
 const failed = () => new Error('Session unavailable')
@@ -47,7 +48,7 @@ export function getSessionController(client) {
   function accept(session) {
     if (session === null) { invalidate(); publish('unauthenticated'); return }
     if (!valid(session)) throw { status: 400 }
-    if (userId !== session.user.id) invalidate()
+    if (userId !== session.user.id) { cancelCredentialRequests(client); invalidate() }
     userId = session.user.id; token = session.access_token; expiresAt = session.expires_at
     if (expiresAt <= Date.now() / 1000) {
       publish('refreshing')
@@ -87,6 +88,7 @@ export function getSessionController(client) {
   }
   function logout() {
     if (signingOut) return signingOut
+    cancelCredentialRequests(client)
     revision++; locked = true; invalidate(); publish('logging-out')
     signingOut = Promise.resolve().then(() => auth.signOut({ scope: 'local' })).then(
       result => result?.error ? 'unconfirmed' : 'sdk-accepted', () => 'unconfirmed',
@@ -110,6 +112,7 @@ export function getSessionController(client) {
             if (!alive) return
             revision++
             if (event === 'SIGNED_OUT') {
+              cancelCredentialRequests(client)
               locked = true; invalidate()
               if (!signingOut) publish('unauthenticated')
               return

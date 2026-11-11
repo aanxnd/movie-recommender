@@ -28,7 +28,9 @@ non-recovery flows](https://github.com/supabase/supabase-js/blob/v2.119.0/packag
 share null; a historical `email_confirmed_at` cannot identify this link's flow.
 Recovery/non-null hints deny. A namespaced verifier is not a signup attestation.
 All results contain only `status` and fixed `destination: '/'`, never credentials.
-Statuses are `check-email`, `unproven`, `missing`, `invalid`, `unavailable`.
+Statuses are `check-email`, `unproven`, `missing`, `invalid`, `expired`,
+`rate-limited`, `unavailable`. `expired` includes provider-reported missing/expired
+flow state or expired OTP; it does not distinguish expiry from prior consumption.
 A signup-specific success UI remains blocked pending owner review of a supported
 flow-specific workflow. No custom ledger or new backend policy is introduced;
 the approved native account-email policy is unchanged.
