@@ -29,3 +29,9 @@ test('offline verification retains ambiguous provenance until explicit navigatio
   await expect(page.getByRole('status')).toContainText('does not establish signup confirmation')
   await expect(page).toHaveURL(/screen=verification$/)
 })
+
+test('profile preview has no premature provisioning controls', async ({ page }) => {
+  await page.goto('/browser/account-demo.html?screen=profile')
+  await expect(page.getByRole('status')).toContainText('Profile setup is not available yet')
+  await expect(page.getByRole('button', { name: 'Create my profile' })).toHaveCount(0)
+})

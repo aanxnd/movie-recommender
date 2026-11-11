@@ -26,6 +26,10 @@ unchanged; [Prompt 12 native signup confirmation](docs/SIGNUP_CONFIRMATION.md)
 is implemented as a dormant helper. The full NIST assessment and original 16-stage
 audit remain required before launch.
 
+Prompt 17 adds [isolated account screens and profile-setup contracts](docs/AUTH_SCREENS.md),
+with an offline-only preview. They are not imported by production startup; real
+profile provisioning remains a separately reviewed Prompt 23 dependency.
+
 ## Local development
 
 Use Python 3.14 and Node.js 24 (>=22.12 supported by the frontend tools). Install the Python dependencies once, from the repository root:

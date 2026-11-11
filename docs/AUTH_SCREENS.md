@@ -56,3 +56,42 @@ Offline review: Vite serves `/browser/account-demo.html` (also `?screen=login` o
 fake session, never hosted configuration/SDK requests. It is not a release entry
 and Vite's production build excludes it. `npm run test:browser -- account-screens`
 checks keyboard signup, focus and mobile overflow with the offline preview.
+
+## Profile setup: contract, not a provisioning endpoint (final dependent PR)
+
+`ProfileSetupScreen` defaults to an unavailable adapter. Even a restored SDK session
+cannot create a local user. `ProfileProvisioning` is a JSDoc typed interface:
+`inspect({signal})` returns eligible, complete-with-username, email-required or
+unavailable; `provision({username}, {signal})` returns complete-with-username,
+username-taken, email-required or unavailable. Surplus/malformed result fields deny.
+Only trusted bootstrap may supply a future server adapter. No numeric ID, UUID,
+email or browser verification flag chooses a target account. No live registration
+endpoint or direct Neon connection is used. The preview's `?screen=profile` shows
+the default pending state, not simulated successful provisioning.
+
+Username input is exact, **not trimmed or Unicode-normalized**: 3–30 ASCII letters,
+digits or underscores. Preserve case for display; compare ASCII lowercase, matching
+the existing PostgreSQL `lower(username COLLATE "C")` unique index. Reserved names
+(case-insensitive): admin, administrator, api, auth, help, login, logout, movelle,
+root, security, settings, signup, support, system. These are frontend usability rules
+pending matching server validation; the current database does not reserve names.
+Server/database uniqueness, not frontend checks, must settle concurrent collisions.
+
+The future Prompt 23 endpoint must derive the subject from verified credentials,
+apply the native current-email/MFA policy **before** provisioning, and atomically
+create at most one new numeric user/profile per subject. The current central
+principal requires an existing identity link, so secure unmapped-subject bootstrap
+needs separate design/review. Never claim a legacy account. Preserve numeric IDs,
+ratings and relationships. Existing username/subject constraints remain unchanged.
+
+Mutation is explicit, double-submit guarded and never automatically replayed.
+Retry reinspects server state: an interrupted request may have committed, so a
+complete result must return that same profile, irrespective of a later proposed
+name. Logout/account changes/unmount abort the scope and reject stale UI results;
+cancellation is not server rollback. The future adapter must use the existing
+credential lease, bounded transport and generic errors. Offline tests demonstrate
+UI behavior against that contract, **not** implemented atomic provisioning.
+
+Activation still requires Prompt 23 provisioning, later route integration, approved
+origins, hosted email/PKCE/password/throttle tests and Prompt 11 factor completeness.
+No backend/schema changes, production mount or Prompt 18 implementation is included.
