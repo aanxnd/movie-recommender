@@ -68,3 +68,41 @@ no login UI, application provider mount or current API-client replacement is add
 Operations waiting for SDK restoration/refresh are fenced too; logout cancels them
 before SDK work settles. Start personal requests after the authenticated state is
 restored: discovering a different/initial identity cancels pre-bound operations.
+
+## Authenticated API adapter (final dependent PR)
+
+`createAuthenticatedApi({session, base, appOrigin})` reuses existing `apiUrl`,
+`ApiError` and Retry-After parsing. It does not replace or change live `request()`.
+`base` uses existing public `VITE_API_BASE_URL`; unset means the existing `/api`
+proxy. Trusted bootstrap supplies exact public configuration, never request/URL
+input. Approve the exact canonical HTTPS API origin/base prefix and frontend origin
+before release; development may use the approved app origin and explicit loopback
+HTTP API. Preview/production auth origins remain unset/TBD. Syntax acceptance is
+not owner approval, and the same-origin proxy's upstream needs its own review.
+
+Each call must specify `access: 'public'` or `'authenticated'`. The registry permits
+public GET catalog/decades/movie/popular/genre and public artwork POST without any
+session access/Bearer header. Authenticated routes cover current `/users/me`,
+profile/rating/detail/personalized reads, rating PUT, invitation POST/DELETE,
+rating-lookup/group POST and personal artwork POST. Legacy account creation is
+excluded. Backend routes still use legacy auth today: these are dormant intended
+integration paths, **not** a working Supabase backend cutover or provisioning API.
+
+Reject absolute/untrusted paths, normalization tricks, fragments, credential/
+redirect query parameters, caller-supplied headers/transport overrides and mismatched
+classifications. Pin requests to the configured API origin/base prefix, omit cookies,
+reject redirects and suppress referrers. Only authenticated calls obtain a private
+session lease; credentials are headers only, never returned through UI state.
+JSON/204 result shapes and `ApiError` status/retryAfter fields remain familiar.
+Server bodies/network diagnostics are not reflected into errors. 401, 403 and 503
+are distinct; the adapter adds no capacity/retry loop. Only a GET 401 whose SDK
+expiry hint is elapsed may refresh/retry once, keeping the same identity fence.
+No POST/PUT/DELETE replay, including group computation. An unexpired 401 can mean
+mapping/email/MFA rejection; refreshing cannot bypass the backend's decision.
+
+Cancellation/deadlines use fixed AbortErrors, not raw signal reasons. Logout,
+account changes and unmount invalidate pending results even when mocked fetches
+ignore cancellation. Future UI must ignore canceled results and reset personal
+state by generation; the adapter has no persistent cache or token store. Native
+SDK expiry/user data here is scheduling/presentation evidence, not JWT verification,
+verified email, recent MFA, numeric-ID ownership or resource permission.
