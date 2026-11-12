@@ -2,7 +2,8 @@
 
 Starting main: `4f556c4ab239359ebd09bd8fca3f36ff158c3a99`; Prompts 1–21 merged.
 This inventory precedes cleanup decisions. Production behavior remains unchanged.
-The fixed roadmap/full audit remain owner-maintained. No Prompt 23/24 implementation.
+The fixed roadmap/full audit remain owner-maintained. Prompt 22's inventory is
+historical; Prompt 23 adds the dormant provisioning/issuance guard below. No Prompt 24 work.
 
 ## Dependency inventory and disposition
 
@@ -53,22 +54,21 @@ Rejected credentials must never cause user creation, linkage or data mutation.
 ## Data and existing-user gates
 
 The only live application-ID creation path is `POST /users` calling
-`database.create_user`; other calls are isolated tests. Operator recovery issues a
+`database.create_user`; Prompt 23's other writer is dormant/unmounted. Operator recovery issues a
 credential for an existing numeric row, not a new user. Database sequences allocate
 IDs; no frontend claim owns that allocation. Existing schema migrations are additive.
 Prompt 22 adds no migration and executes none against hosted databases.
 
-The existing operator recovery command checks numeric-row existence/credential expiry,
-not Supabase linkage. Preserve today's tool here, but do not use it for new Supabase
-profiles. Before provisioning becomes live, explicitly retire/gate legacy credential
-issuance for those profiles in the owner-approved cutover. Dormant provisioning tests
-must cover this boundary; an operator command is not automatic account ownership proof.
+Operator recovery checks numeric-row existence/credential expiry, then uses the
+shared issuance primitive. Prompt 23 additionally rejects non-null Supabase links
+there. Historical legacy recovery remains available; no operator command is
+automatic account ownership proof and no execution against hosted data is authorized.
 
-Prompt 23 must provision clean new accounts transactionally from a server-verified
+Dormant Prompt 23 provisions clean new accounts transactionally from a server-verified
 Supabase subject, preserving numeric allocation, UUID/user uniqueness, username
 constraints and FKs. It must not call the public legacy creation flow as ownership
 proof, issue legacy credentials for new Supabase accounts, or match existing accounts
-by email, username or submitted bearer/numeric IDs. No provisioning writer exists yet.
+by email, username or submitted bearer/numeric IDs. Its writer/API remains unmounted.
 
 No legacy migration/claiming policy is approved. Existing data must stay intact;
 retiring legacy access later still requires an owner-approved existing-user access/
@@ -96,7 +96,8 @@ Azure release remains manual `workflow_dispatch` with production approval; no re
 workflow is invoked. Vercel PR checks may build previews, not production activation.
 Repository schema 3 does not prove the deployed schema/version. The existing
 [schema-2/3 deployment and rollback gates](DEPLOYMENT.md) remain required.
-# Prompt 23 issuance guard
+
+## Prompt 23 issuance guard
 
 New Supabase-owned numeric profiles never receive opaque legacy credentials.
 The shared `security.issue_credential` primitive locks the user row and denies
@@ -106,4 +107,3 @@ invitation changes. Historical legacy registration/recovery stays available.
 Authentication of an already-existing credential is unchanged: this is not a
 session revocation or historical account-migration operation. No direct SQL
 issuance, hosted mutation or automatic linking is authorized.
-

@@ -12,7 +12,7 @@ export const reservedUsernames = Object.freeze(['admin', 'administrator', 'api',
   'login', 'logout', 'movelle', 'root', 'security', 'settings', 'signup', 'support', 'system'])
 
 export function usernameError(value) {
-  if (typeof value !== 'string' || !/^[A-Za-z0-9_]{3,30}$/.test(value))
+  if (typeof value !== 'string' || value.length < 3 || value.length > 30 || /[^A-Za-z0-9_]/.test(value))
     return 'Use 3–30 letters (A–Z), numbers or underscores, without spaces.'
   return reservedUsernames.includes(value.toLowerCase()) ? 'Please choose another username. This name is reserved.' : null
 }

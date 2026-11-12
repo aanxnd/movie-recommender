@@ -58,14 +58,14 @@ fake session, never hosted configuration/SDK requests. It is not a release entry
 and Vite's production build excludes it. `npm run test:browser -- account-screens`
 checks keyboard signup, focus and mobile overflow with the offline preview.
 
-## Profile setup: contract, not a provisioning endpoint (final dependent PR)
+## Profile setup: dormant Prompt 23 integration
 
 `ProfileSetupScreen` defaults to an unavailable adapter. Even a restored SDK session
 cannot create a local user. `ProfileProvisioning` is a JSDoc typed interface:
 `inspect({signal})` returns eligible, complete-with-username, email-required or
 unavailable; `provision({username}, {signal})` returns complete-with-username,
 username-taken, email-required or unavailable. Surplus/malformed result fields deny.
-Only trusted bootstrap may supply a future server adapter. No numeric ID, UUID,
+Only trusted bootstrap may supply the dormant `createProfileProvisioning` adapter. No numeric ID, UUID,
 email or browser verification flag chooses a target account. No live registration
 endpoint or direct Neon connection is used. The preview's `?screen=profile` shows
 the default pending state, not simulated successful provisioning.
@@ -75,25 +75,27 @@ digits or underscores. Preserve case for display; compare ASCII lowercase, match
 the existing PostgreSQL `lower(username COLLATE "C")` unique index. Reserved names
 (case-insensitive): admin, administrator, api, auth, help, login, logout, movelle,
 root, security, settings, signup, support, system. These are frontend usability rules
-pending matching server validation; the current database does not reserve names.
+also enforced by Prompt 23 server validation; the database itself does not reserve names.
 Server/database uniqueness, not frontend checks, must settle concurrent collisions.
 
-The future Prompt 23 endpoint must derive the subject from verified credentials,
-apply the native current-email/MFA policy **before** provisioning, and atomically
-create at most one new numeric user/profile per subject. The current central
-principal requires an existing identity link, so secure unmapped-subject bootstrap
-needs separate design/review. Never claim a legacy account. Preserve numeric IDs,
-ratings and relationships. Existing username/subject constraints remain unchanged.
+The unmounted [Prompt 23 factory/service](PROVISIONING_STAGING.md) derives its
+subject from verified credentials/current-email/MFA evidence before creation.
+Its separate unlinked-subject principal avoids a circular existing-link lookup.
+Atomic schema-3 constraints preserve one numeric profile and unique username.
+It never claims legacy accounts; IDs, ratings and relationships remain unchanged.
+Empty/omitted factor inventories still block provisioning. Responses additionally
+include cancelled, rate-limited, busy or uncertain; they never grant access.
 
 Mutation is explicit, double-submit guarded and never automatically replayed.
 Retry reinspects server state: an interrupted request may have committed, so a
 complete result must return that same profile, irrespective of a later proposed
 name. Logout/account changes/unmount abort the scope and reject stale UI results;
-cancellation is not server rollback. The future adapter must use the existing
-credential lease, bounded transport and generic errors. Offline tests demonstrate
-UI behavior against that contract, **not** implemented atomic provisioning.
+cancellation is not server rollback. The adapter uses the existing credential
+lease, bounded transport and generic errors, including refresh fencing. Unknown
+write outcomes use only GET inspection, never POST replay. Offline browser/UI tests
+and PostgreSQL transaction tests are distinct evidence, not hosted acceptance.
 
-Activation still requires Prompt 23 provisioning, later route integration, approved
+Activation still requires reviewed provisioning/staging, later route integration, approved
 origins, hosted email/PKCE/password/throttle tests and Prompt 11 factor completeness.
-No backend/schema changes or production mount is included. Password journeys are
+No production mount or Prompt 23 schema migration is included. Password journeys are
 now implemented separately in [Prompt 18](PASSWORD_SECURITY.md), also dormant.

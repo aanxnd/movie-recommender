@@ -51,7 +51,7 @@ No broad administrative/service-role key is required by the runtime policy.
 | Groups/invitations | Same caller policy plus existing membership, invitation, expiry and resource authorization. Never infer permissions from email or username. |
 | Confirm, recover password, change email | Supported provider flows, exact redirects and secret-safe errors. Recovery must not bypass application MFA enforcement for enrolled users. |
 | Manage TOTP | Provider-supported AAL/factor management; verify backup/replacement before removing a usable factor, disclose lockout. No custom recent-challenge protocol. |
-| New local identity | Future atomic clean provisioning; uniqueness/concurrency tests. No legacy migration, email-based claiming or automatic linking to old data. |
+| New local identity | Dormant Prompt 23 atomic clean provisioning; offline PostgreSQL concurrency tests. Hosted acceptance/activation remain blocked. No legacy migration, email-based claiming or automatic linking. |
 
 Launch tests must cover JWT expiry/tampering/rotation, native unverified email,
 provider errors/rate limits, AAL1-vs-enrolled-MFA, logout/refresh limits, email change,
