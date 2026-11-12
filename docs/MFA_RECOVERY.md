@@ -60,3 +60,23 @@ reviewed same-subject native password reauthentication continuation that preserv
 MFA assurance, operation scope and provider-side sensitive-update requirements.
 Recovery AMR proves neither TOTP nor fresh password use; AAL2 proves neither freshness
 nor compliance. Full NIST assessment and the 16-stage audit remain launch gates.
+
+## Private continuation
+
+`createNativeMfaRecovery` reuses the singleton native service/client/controller.
+Fresh signed claims and raw user inventory are required at each step. Lost/alternative
+IDs must identify two distinct already-verified owned factors. Even an existing AAL2
+token cannot skip the explicit alternative challenge. Native verification alone is
+insufficient without same-subject AAL2 and unchanged post-operation factor evidence.
+Only then is replacement enrollment offered. Its exact new pending factor is tracked
+privately and must become verified through native challenge and fresh reinspection.
+No `recovery-complete` state or deletion is implemented; verified replacement and
+unavailable removal are distinct outcomes. No factor count proves independent access.
+
+The private context holds only scoped evidence/IDs/progress, never tokens, OTPs,
+setup secrets or a second session. Logout/account/session-generation/credential
+changes and cancellation discard it. Native MFA's expected event is handled without
+aborting its own promotion; returned evidence is independently checked. A known code,
+expiry or rate rejection permits explicit retry only after fresh unchanged same-session
+evidence. Unknown mutation outcomes discard progress, clear setup and require inspection;
+no automatic enrollment/challenge retry. Cancellation cannot undo a provider commit.
