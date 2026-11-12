@@ -1,15 +1,20 @@
 // Trusted dormant bootstrap only. No MFA controller/claim/secret belongs in AuthContext.
-import { getBrowserSupabaseClient, runCredentialRequest, cancelCredentialRequests } from './supabase-client.js'
+import { getBrowserSupabaseClient, runCredentialRequest, cancelCredentialRequests, watchCredentialChanges } from './supabase-client.js'
 import { getSessionController } from './auth-session.js'
 import { nativeUuid, passwordEvidence } from './password-evidence.js'
 import { inspectMfa, observeMfa, mfaResult, mfaFailure, denyMfa } from './mfa-evidence.js'
+import { validateSetup } from './mfa-setup.js'
 
 const services = new WeakMap()
 export function createNativeMfa(config) {
   const client = getBrowserSupabaseClient(config), session = getSessionController(client)
   if (services.has(client)) return services.get(client)
-  let active, revision = 0
-  const cancel = () => { revision++; active?.abort() }
+  let active, revision = 0, setup, stopSetup, clearView, setupTimer, enrollmentAttempted = false
+  const clearSetup = () => {
+    setup = undefined; clearTimeout(setupTimer); stopSetup?.(); stopSetup = undefined
+    const clear = clearView; clearView = undefined; clear?.()
+  }
+  const cancel = () => { revision++; active?.abort(); clearSetup() }
   async function operation(signal, work) {
     if (active) return mfaResult('busy')
     const local = new AbortController(), ticket = revision
@@ -30,6 +35,57 @@ export function createNativeMfa(config) {
   }
   const service = Object.freeze({
     inspect: () => inspectMfa(client, config, session), cancel,
+    // Dedicated setup view only. The callback returns an imperative DOM-secret cleanup.
+    presentSetup(mount) {
+      try {
+        if (!setup || typeof mount !== 'function') denyMfa('unavailable')
+        setup.assertCurrent(); clearView?.()
+        clearView = mount({ qr: setup.qr, secret: setup.secret })
+        if (typeof clearView !== 'function') { clearSetup(); denyMfa('unavailable') }
+        return () => clearSetup()
+      } catch { clearSetup(); return () => {} }
+    },
+    async enroll({ signal } = {}) {
+      return operation(signal, async (evidence, lease, combined, current) => {
+        // First enrollment is blocked while native absence/completeness remains unproven.
+        if (enrollmentAttempted || evidence.status !== 'verified' || evidence.factors.length >= 10 ||
+            evidence.factors.some(f => f.status === 'unverified')) denyMfa('unavailable')
+        enrollmentAttempted = true // No automatic retry after an uncertain provider mutation.
+        clearSetup()
+        const assertCurrent = () => { current(); evidence.proof.assertCurrent() }
+        const { data, error } = await runCredentialRequest(client, () => client.auth.mfa.enroll({
+          factorType: 'totp', friendlyName: 'Movelle authenticator' }),
+        { signal: combined, subject: evidence.proof.subject, assertCurrent })
+        assertCurrent()
+        if (error) throw error
+        if (!nativeUuid(data?.id) || data.type !== 'totp' || evidence.factors.some(f => f.id === data.id)) denyMfa('stale')
+        const credentials = validateSetup(data, config.browser ?? globalThis.window)
+        const after = await observeMfa(client, config, lease)
+        assertCurrent()
+        if (!after.factors.some(f => f.id === data.id && f.status === 'unverified')) denyMfa('stale')
+        setup = { ...credentials, assertCurrent }
+        stopSetup = watchCredentialChanges(client, clearSetup)
+        setupTimer = setTimeout(clearSetup, Math.min(300000, (evidence.proof.expiresAt-Date.now()/1000)*1000))
+        return mfaResult('setup-pending', { factors: after.factors, generation: session.getSnapshot().generation })
+      })
+    },
+    async remove(factorId, { signal } = {}) {
+      return operation(signal, async (evidence, lease, combined, current) => {
+        if (evidence.status !== 'verified' || !evidence.factors.some(f => f.id === factorId) ||
+            !evidence.factors.some(f => f.id !== factorId && f.status === 'verified')) denyMfa('unavailable')
+        clearSetup()
+        const assertCurrent = () => { current(); evidence.proof.assertCurrent() }
+        const { data, error } = await runCredentialRequest(client, () => client.auth.mfa.unenroll({ factorId }),
+          { signal: combined, subject: evidence.proof.subject, assertCurrent })
+        assertCurrent()
+        if (error) throw error
+        if (data?.id !== factorId) denyMfa('stale')
+        const after = await observeMfa(client, config, lease)
+        assertCurrent()
+        if (after.status !== 'verified' || after.factors.some(f => f.id === factorId)) denyMfa('stale')
+        return mfaResult('removed', { factors: after.factors, generation: session.getSnapshot().generation })
+      })
+    },
     async verify(factorId, code, { signal } = {}) {
       if (typeof code !== 'string' || !/^\d{6}$/.test(code)) return mfaResult('invalid-code')
       return operation(signal, async (evidence, lease, combined, current) => {
@@ -65,6 +121,7 @@ export function createNativeMfa(config) {
           const observed = await observeMfa(client, config, nextLease)
           current(); next.assertCurrent()
           if (observed.status !== 'verified' || !observed.factors.some(f => f.id === factor.id && f.status === 'verified')) denyMfa('stale')
+          clearSetup(); enrollmentAttempted = false
           return mfaResult('verified', { factors: observed.factors, generation: session.getSnapshot().generation })
         })
       })

@@ -64,3 +64,36 @@ APIs. Offline real-SDK event tests are not hosted acceptance. No production logi
 routing changes. The same `inspect`/`verify` continuation supports dormant login;
 unknown inventory blocks continuation, AAL1 prompts for TOTP, verified AAL2 avoids
 a needless first-factor signin/downgrade. Backend access remains independent.
+
+## Enrollment and management limitations
+
+[enroll](https://supabase.com/docs/reference/javascript/auth-mfa-enroll) returns an
+unverified factor plus QR/secret/URI; only a subsequent challenge can verify it.
+Additional enrollment currently requires fresh verified AAL2 evidence and no pending
+factor. Unknown/empty inventory blocks initial enrollment. This is an intentional
+partial implementation pending the completeness gate, not a production-ready setup.
+An uncertain enrollment latches further enrollment off for that service lifetime;
+inspect after reload, then explicitly verify or safely remove a pending factor.
+Cancellation cannot undo provider work, and no automatic cleanup/retry occurs.
+
+Credentials remain private runtime memory for at most five minutes/token expiry.
+Only the dedicated `presentSetup` sink receives them, returning DOM cleanup for
+cancel/unmount/logout/refresh/account changes/verification. No React/global store,
+clipboard, logging or app persistence. The provider SVG must pass a small structural
+allowlist before becoming an encoded image URL; it is never injected as markup.
+Strict parsing may reject future provider QR formats; hosted compatibility is required.
+
+[unenroll](https://supabase.com/docs/reference/javascript/auth-mfa-unenroll) requires
+AAL2 for verified factors. Movelle additionally requires fresh owned-factor evidence,
+another verified factor, and post-removal reinspection. Final usable-factor removal
+is unavailable pending Prompt 21 review. Unverified cleanup also requires AAL2 and
+a remaining verified factor here. No admin removal, recovery code or email bypass.
+Factor observations are private typed continuations, not reusable authorization
+grants. Password/email changes retain their existing MFA-required denial: AAL2 is
+not fresh password proof. Supporting them requires separately reviewed native
+reauthentication without downgrading the session; no such bypass is added.
+
+Hosted acceptance must cover QR format, additional enrollment, invalid/expired/replayed
+codes, rate limits, native AAL2 event/session replacement, refresh/logout/account races,
+abandoned factors, owned multi-factor removal and provider-enforced AAL restrictions.
+None of those hosted mutations was performed. Lost-device recovery remains Prompt 21.
