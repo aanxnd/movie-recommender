@@ -54,3 +54,21 @@ authentication and inspection, not rollback of already-committed state.
 Schema 3 already supplies the constraints; **no migration is required**.
 Offline PostgreSQL tests exercise separate sessions/processes, capacity races,
 case collisions and lost acknowledgements; these are not hosted acceptance tests.
+
+## Dormant HTTP contract
+
+`make_provisioning_router` is deliberately absent from `app.main`. A future
+owner-approved staging composition must explicitly include it and install the
+existing bounded-body `RequestLimits` plus exact-origin CORS. No existing env
+flag enables it. GET `/auth/profile` returns `{status: eligible}` or
+`{status: complete, username}` for the verified subject only. POST at that same
+path accepts exactly `{username}` and returns complete; it is separate from live
+POST `/users`. There is no profile-ID or subject parameter, claim or repair route.
+
+Both operations authenticate freshly, reject query parameters/foreign Origin,
+redact validation input and use no-store responses. Admission commits separately:
+30 subject checks/minute; 10 creation attempts/hour per subject; the existing
+1,000/day global creation bucket is shared with legacy creation. Parent request
+limits retain public/IP admission and 16-KiB bodies. 409 is username unavailable,
+401/403 denial, 422 invalid input, 429 bounded rate denial, 503 unknown/unavailable.
+Clients must re-inspect after uncertain writes; no automatic POST retry.
