@@ -17,7 +17,7 @@ const messages = {
 }
 
 // Transient form state only. Each explicit request owns an abort scope, never credentials.
-function useFormScope() {
+export function useFormScope() {
   const auth = useAuth(), form = useRef(null), active = useRef(null)
   const [status, setStatus] = useState(null), [busy, setBusy] = useState(false)
   useEffect(() => {
