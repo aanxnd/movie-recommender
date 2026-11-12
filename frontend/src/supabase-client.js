@@ -16,6 +16,15 @@ export function cancelCredentialRequests(client) {
   if (!record) return
   record.epoch++
   for (const request of record.pending) request.abort()
+  for (const listener of record.listeners) listener()
+}
+
+// Internal credential cleanup observers, not additional SDK subscriptions.
+export function watchCredentialChanges(client, listener) {
+  const record = credentialRequests.get(client)
+  if (!record) throw unavailable()
+  record.listeners.add(listener)
+  return () => record.listeners.delete(listener)
 }
 
 function assertCredentialCurrent(record) {
@@ -69,7 +78,7 @@ export function getBrowserSupabaseClient({
           previous.appOrigin !== appOrigin || previous.storage !== persistence || previous.fetcher !== fetcher) throw unavailable()
       return previous.client
     }
-    const record = { pending: new Set(), epoch: 0, action: null }
+    const record = { pending: new Set(), listeners: new Set(), epoch: 0, action: null }
     // Delegate SDK-owned persistence, fencing even writes after HTTP parsing. No second token store.
     const guardedStorage = { getItem: key => persistence.getItem(key), removeItem: key => persistence.removeItem(key),
       setItem: (key, value) => { assertCredentialCurrent(record); return persistence.setItem(key, value) } }
