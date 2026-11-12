@@ -9,10 +9,11 @@ The fixed roadmap/full audit remain owner-maintained. No Prompt 23/24 implementa
 | Component / evidence | Classification | Disposition |
 |---|---|---|
 | `app/security.py`: `issue_credential`, `authenticate`, `require_owner`; used by `app/main.py` | Retire at cutover | Keep all live credential generation/verification and ownership checks. |
-| `TOKEN_PATTERN`, `token_hash`, owner/invitation lifetimes | Retire at cutover | Opaque 256-bit URL-safe tokens, 43 characters; SHA-256 stores random-token digests, not human passwords. No legacy JWT signing secret or password hasher exists here. |
+| `TOKEN_PATTERN`, `token_hash`, owner/invitation lifetimes | Retain shared capability primitives; retire owner-auth usage at cutover | Opaque 256-bit URL-safe tokens, 43 characters; SHA-256 stores random-token digests, not human passwords. Dormant `group_authorization.py` still needs invitation hashing/pattern/lifetime; never delete the module wholesale. No legacy JWT signing secret or password hasher exists here. |
 | `POST /users` → capacity admission → `database.create_user` → `issue_credential` | Retire at cutover | Live registration/profile creation. Database assigns numeric IDs; there is no username/password signup. |
 | `GET /users/me`, `/users/{id}`, ratings/details/lookup/write and personal recommendations | Retire at cutover | Live restoration and personal access. Keep legacy header validation, token expiry and owner binding. |
 | Group-invitation issue/revoke, `authorize_group`, `/recommendations/group` | Retain shared behavior; retire legacy credential boundary at cutover | Owner bearer plus short-lived peer capabilities. Current groups are request-time combinations, not a persistent group/member table. |
+| `app/artwork.py` personal Fanart-key admission; `FanartKeySettings.jsx` | Retain; replace owner-auth boundary at cutover | Ordinary artwork is public; optional personal-key requests authenticate the profile. Keep that guard, scoped transient keys/caches and privacy tests. No persistent key store is introduced. |
 | `app/models.py`: `users`, `profile_credentials`, `user_ratings`, `group_invitations` | Retain | Preserve numeric PKs, token digests/expiry, rating and invitation FKs. No password/email column or independent watchlist table currently exists. Do not invent one or drop future/shared data. |
 | `UserIdentity`, schema-3 migration, existing-link resolver | Retain / dormant replacement | Nullable unique Supabase UUID, numeric-user PK/FK, case-insensitive unique profile username. No automatic population/linking. |
 | `app/manage.py recover-profile` | Retire at cutover; operator investigation required first | Existing explicit operator recovery for unclaimed/expired legacy profiles, with private output file. Not a Supabase/MFA reset. Do not execute, remove, broaden or infer operator ownership proof. |
@@ -56,6 +57,12 @@ The only live application-ID creation path is `POST /users` calling
 credential for an existing numeric row, not a new user. Database sequences allocate
 IDs; no frontend claim owns that allocation. Existing schema migrations are additive.
 Prompt 22 adds no migration and executes none against hosted databases.
+
+The existing operator recovery command checks numeric-row existence/credential expiry,
+not Supabase linkage. Preserve today's tool here, but do not use it for new Supabase
+profiles. Before provisioning becomes live, explicitly retire/gate legacy credential
+issuance for those profiles in the owner-approved cutover. Dormant provisioning tests
+must cover this boundary; an operator command is not automatic account ownership proof.
 
 Prompt 23 must provision clean new accounts transactionally from a server-verified
 Supabase subject, preserving numeric allocation, UUID/user uniqueness, username

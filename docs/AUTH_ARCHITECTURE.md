@@ -1,6 +1,6 @@
 # Authentication architecture contract
 
-Status: **Prompts 1-20 merged; Prompt 21 dormant recovery implementation under review.**
+Status: **Prompts 1-21 merged; Prompt 22 retirement preparation under review.**
 Authentication remains dormant. See [native callback integration](SIGNUP_CONFIRMATION.md)
 and [account settings](ACCOUNT_SETTINGS.md), plus [native TOTP limits](TOTP_MFA.md).
 Initial enrollment remains blocked on complete native factor evidence; existing
@@ -34,8 +34,11 @@ uniqueness transactionally under the identity schema contract below.
 
 No legacy-account migration or account claiming is planned. Preserve existing
 records and relationships without linking them by email, username or bearer code.
-Prompt 22 will remove legacy credential paths; Prompt 23 will provide clean new
-accounts. Both remain future work. Rehearse schema-compatible rollback; never
+Prompt 22 inventories and protects still-active legacy paths; no runtime removal
+was proven safe. See [retirement inventory](LEGACY_AUTH_RETIREMENT.md) and the
+[NOT AUTHORIZED cutover checklist](AUTH_CUTOVER_READINESS.md). Prompt 23 will provide
+clean new accounts; current existing-user access must remain until a separately
+approved cutover/data-access decision. Rehearse schema-compatible rollback; never
 restore a legacy authentication fallback after Supabase cutover.
 
 ## Identity foundation: schema version 3
@@ -376,7 +379,8 @@ are also outside the approved launch design; they do not supply Supabase `aal2`.
 Repository inspection found no Supabase recovery-code implementation to remove.
 The existing UI's legacy "private recovery code" is an `ID:credential` bearer
 credential, not a single-use MFA code. Preserve its security behavior and tests
-until Prompt 22 removes legacy credential paths. No legacy-account migration or
+until an explicitly approved cutover retires legacy credential paths. Prompt 22
+preserves those active paths and records the dependencies. No legacy-account migration or
 account claiming is approved; this PR does not alter existing credential behavior.
 
 Historical references: [generation API](https://supabase.com/docs/reference/javascript/auth-mfa-recovery-codes-generate),

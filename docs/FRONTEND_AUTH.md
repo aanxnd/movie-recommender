@@ -11,6 +11,12 @@ fences and reuse this SDK/provider; no additional token store or production moun
 The [Prompt 19 settings](ACCOUNT_SETTINGS.md) distinguish native provider evidence
 from backend-authorized profile data and keep lifecycle execution unavailable.
 
+Prompt 22's [legacy retirement inventory](LEGACY_AUTH_RETIREMENT.md) preserves the
+live `movelle.identity.v1` profile credential and production import graph. Native
+SDK restoration/login/logout owns only its existing namespace; it cannot migrate
+or clear legacy state. No dual provider or fallback is mounted. [Cutover remains
+unauthorized](AUTH_CUTOVER_READINESS.md); provisioning is still Prompt 23 work.
+
 ## Shared SDK and configuration
 
 `getBrowserSupabaseClient` uses pinned Supabase JS 2.119.0. Explicit trusted
