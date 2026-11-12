@@ -11,7 +11,7 @@ const eligible = async () => ({ status: 'eligible' })
 
 test('exact ASCII username rules preserve spelling and reject reserved names without normalization', () => {
   for (const name of ['Ab_', 'CaseSensitive', 'a'.repeat(30)]) assert.equal(usernameError(name), null)
-  for (const name of ['', 'ab', 'a'.repeat(31), ' abc', 'abc ', 'a-b', 'café', 'Ａbc', 'a\nb', null, 3, 'Admin', 'SUPPORT'])
+  for (const name of ['', 'ab', 'a'.repeat(31), ' abc', 'abc ', 'a-b', 'café', 'Ａbc', 'a\nb', 'Alice\n', 'Alice\r\n', null, 3, 'Admin', 'SUPPORT'])
     assert.ok(usernameError(name), String(name))
 })
 

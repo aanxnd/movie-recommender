@@ -36,7 +36,7 @@ No legacy-account migration or account claiming is planned. Preserve existing
 records and relationships without linking them by email, username or bearer code.
 Prompt 22 inventories and protects still-active legacy paths; no runtime removal
 was proven safe. See [retirement inventory](LEGACY_AUTH_RETIREMENT.md) and the
-[NOT AUTHORIZED cutover checklist](AUTH_CUTOVER_READINESS.md). Prompt 23 will provide
+[NOT AUTHORIZED cutover checklist](AUTH_CUTOVER_READINESS.md). Dormant Prompt 23 provides
 clean new accounts; current existing-user access must remain until a separately
 approved cutover/data-access decision. Rehearse schema-compatible rollback; never
 restore a legacy authentication fallback after Supabase cutover.
@@ -59,9 +59,9 @@ supplied names need a later ownership/collision review; never silently import or
 rename them. Numeric IDs, sequences, ratings, recommendation inputs, credentials
 and group invitations remain untouched. Referential integrity rejects orphan links.
 
-No provisioning writers or account-claiming endpoints are implemented here.
-Future new-account provisioning must atomically create a fresh local user and
-unique subject/username mapping; never transfer existing users or their data. An identity row alone grants no access. Legacy
+Prompt 23 adds an unmounted [atomic provisioning service/API](PROVISIONING_STAGING.md).
+New-account provisioning creates a fresh local user and unique subject/username
+mapping; never transfer existing users or their data. An identity row alone grants no access. Legacy
 authentication remains unchanged. Migrations from versions 1/2 are additive,
 transactional and serialized; an unexpected pre-existing identity table stops
 migration for inspection. See [release and rollback restrictions](DEPLOYMENT.md).
@@ -198,7 +198,7 @@ identifiers or internal exception contexts. This is not a constant-time guarante
 | Later integration gate | What the dormant foundations establish / remaining requirement |
 |---|---|
 | Verified token | PR 3A verifies signatures and token claims; callers must use its configured project. |
-| Linked local identity | PR 3B reads an already-established UUID-to-numeric-ID link; future clean provisioning must create new accounts, never claim legacy profiles. |
+| Linked local identity | PR 3B reads established links; dormant Prompt 23 creates new accounts atomically, never claims legacy profiles. Hosted integration remains blocked. |
 | Verified email and MFA | Neither UUID nor resolved identity proves email verification, current account/session state or required MFA assurance. Obtain supported server evidence and apply policy separately. |
 | Resource authorization | A resolved ID grants no endpoint access. Check ownership and group/invitation permissions independently; request IDs never select the caller's identity. |
 

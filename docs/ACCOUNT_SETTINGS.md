@@ -67,7 +67,8 @@ Future server guarantees: native email/MFA policy plus current subject mapping a
 resource ownership; atomic compare-and-set revision and case-insensitive database
 uniqueness; exact Prompt 17 ASCII/length/reserved-name rules; no trimming/Unicode
 normalization; preserve spelling, numeric IDs, ratings and relationships. Do not
-create, rebind or claim a profile. Missing identity remains a Prompt 23 dependency.
+create, rebind or claim a profile. Missing identity uses the separate dormant
+[Prompt 23 provisioning boundary](PROVISIONING_STAGING.md), never settings or metadata.
 Enforce reserved names on the server too; the existing DB does not reserve them.
 
 Successful replies must name the exact requested username and a current revision.

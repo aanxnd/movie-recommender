@@ -46,6 +46,12 @@ non-MFA, unverified/verified TOTP and AAL1/AAL2 response shapes before activatio
 An omitted-field deployment remains blocked pending a supported completeness
 contract/owner design review; no custom DB, privileged key or service is added.
 
+Prompt 23 provisioning additionally rejects **empty** factor inventories through
+`check_for_provisioning`; it does not change the existing global `check` policy.
+The dedicated unlinked-subject dependency does not resolve/create an account or
+grant resource access. [Provisioning/staging](PROVISIONING_STAGING.md) documents
+the unavailable no-factor path, reviewed boundaries and hosted acceptance gates.
+
 [Standard sessions](https://supabase.com/docs/guides/auth/sessions) permit issued
 access tokens to remain valid until expiry after logout. Fresh
 [getUser](https://supabase.com/docs/reference/javascript/auth-getuser) is provider

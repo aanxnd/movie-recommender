@@ -15,7 +15,7 @@ Prompt 22's [legacy retirement inventory](LEGACY_AUTH_RETIREMENT.md) preserves t
 live `movelle.identity.v1` profile credential and production import graph. Native
 SDK restoration/login/logout owns only its existing namespace; it cannot migrate
 or clear legacy state. No dual provider or fallback is mounted. [Cutover remains
-unauthorized](AUTH_CUTOVER_READINESS.md); provisioning is still Prompt 23 work.
+unauthorized](AUTH_CUTOVER_READINESS.md); [Prompt 23 provisioning](PROVISIONING_STAGING.md) is implemented but dormant and awaiting review/hosted acceptance.
 
 ## Shared SDK and configuration
 

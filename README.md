@@ -28,7 +28,7 @@ audit remain required before launch.
 
 Prompt 17 adds [isolated account screens and profile-setup contracts](docs/AUTH_SCREENS.md),
 with an offline-only preview. They are not imported by production startup; real
-profile provisioning remains a separately reviewed Prompt 23 dependency.
+Prompt 23 adds [dormant authoritative provisioning and the staging checkpoint](docs/PROVISIONING_STAGING.md).
 
 Prompt 18 adds [dormant native password recovery and sensitive password changes](docs/PASSWORD_SECURITY.md).
 The screens remain outside production startup; hosted acceptance and MFA integration
