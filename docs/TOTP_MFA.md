@@ -43,3 +43,24 @@ TOTP at AAL1/AAL2, completeness/omission, factor changes versus issued tokens, a
 SDK response compatibility on Free. Offline fixtures prove local handling only.
 No new database access, observer, privileged key or independent MFA service exists.
 Preview/production origins, Gmail delivery/limits, audit and launch gates remain.
+
+## Native challenge continuation
+
+`createNativeMfa` shares the client/controller and serializes its operations. Each
+explicit six-digit submission reads fresh inventory, selects only an owned factor,
+calls native `challenge`, then consumes that challenge with `verify`. No challenge
+ID, OTP or portable grant is retained. Provider errors never expose diagnostics.
+The installed SDK saves the returned session and emits `MFA_CHALLENGE_VERIFIED`;
+the existing controller accepts that event without cancelling its own transition.
+Credential transport now fences factor mutations, including delayed response bodies
+and subject substitution before SDK persistence. Logout/account changes/refresh or
+explicit cancellation reject late writes. Other sensitive proofs are invalidated
+after the native verification attempt, then the exact new token is cryptographically
+validated and factors reread before any success is presented. No old token is restored.
+
+[challenge](https://supabase.com/docs/reference/javascript/auth-mfa-challenge) and
+[verify](https://supabase.com/docs/reference/javascript/auth-mfa-verify) are native
+APIs. Offline real-SDK event tests are not hosted acceptance. No production login
+routing changes. The same `inspect`/`verify` continuation supports dormant login;
+unknown inventory blocks continuation, AAL1 prompts for TOTP, verified AAL2 avoids
+a needless first-factor signin/downgrade. Backend access remains independent.

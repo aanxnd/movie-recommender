@@ -21,7 +21,7 @@ export function getSessionController(client) {
   if (!['getSession', 'onAuthStateChange', 'refreshSession', 'signOut'].every(k => typeof auth?.[k] === 'function')) throw failed()
   const listeners = new Set()
   let state = Object.freeze({ status: 'restoring', userId: null, error: null, logoutOutcome: null, generation: 0 })
-  let generation = 0
+  let generation = 0, assuranceRevision = 0
   let token, userId, expiresAt, revision = 0, fence = new AbortController(), locked = false
   let restoring, refreshing, signingOut, subscription
   const publish = (status, error = null, logout = null) => {
@@ -72,16 +72,16 @@ export function getSessionController(client) {
     if (restoring) return restoring.then(() => refresh())
     if (refreshing) return refreshing
     if (!listeners.size || locked || signingOut) return Promise.reject(failed())
-    const epoch = fence, subject = userId
+    const epoch = fence, subject = userId, assurance = assuranceRevision
     publish('refreshing')
     refreshing = Promise.resolve().then(() => auth.refreshSession()).then(({ data, error }) => {
-      if (fence !== epoch || locked || signingOut || !listeners.size) throw failed()
+      if (fence !== epoch || assurance !== assuranceRevision || locked || signingOut || !listeners.size) throw failed()
       if (error) throw error
       if (!valid(data?.session) || data.session.expires_at <= Date.now() / 1000 ||
           (subject && data.session.user.id !== subject)) throw { status: 400 }
       revision++; accept(data.session)
     }).catch(error => {
-      if (fence === epoch && !locked && !signingOut && listeners.size) rejectSession(error)
+      if (fence === epoch && assurance === assuranceRevision && !locked && !signingOut && listeners.size) rejectSession(error)
       throw failed()
     }).finally(() => { refreshing = undefined })
     return refreshing
@@ -118,6 +118,14 @@ export function getSessionController(client) {
               return
             }
             if (signingOut || (locked && !['SIGNED_IN', 'PASSWORD_RECOVERY'].includes(event))) return
+            // Pinned SDK MFA event emits token response data, not the saved Session wrapper.
+            if (event === 'MFA_CHALLENGE_VERIFIED') {
+              if (!userId || session?.user?.id !== userId || !Number.isSafeInteger(session?.expires_in) || session.expires_in <= 0) {
+                rejectSession({ status: 400 }); return
+              }
+              session = { ...session, expires_at: Math.floor(Date.now()/1000) + session.expires_in }
+              assuranceRevision++
+            }
             if (['SIGNED_IN', 'PASSWORD_RECOVERY', 'TOKEN_REFRESHED'].includes(event)) cancelCredentialRequests(client)
             locked = false
             try { accept(session) } catch (error) { rejectSession(error) }

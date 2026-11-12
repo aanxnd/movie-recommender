@@ -82,7 +82,9 @@ export function getBrowserSupabaseClient({
           const target = new URL(typeof url === 'string' ? url : url.url)
           if (target.origin !== projectUrl || target.username || target.password ||
               !target.pathname.startsWith('/auth/v1/')) throw unavailable()
-          if (['/auth/v1/signup', '/auth/v1/recover', '/auth/v1/reauthenticate'].includes(target.pathname) ||
+          const mfa = /^\/auth\/v1\/factors(?:\/[0-9a-f-]+(?:\/(?:challenge|verify))?)?$/i.test(target.pathname)
+          if ((mfa && ['POST', 'DELETE'].includes(init?.method)) ||
+              ['/auth/v1/signup', '/auth/v1/recover', '/auth/v1/reauthenticate'].includes(target.pathname) ||
               (target.pathname === '/auth/v1/user' && init?.method === 'PUT') || (target.pathname === '/auth/v1/token' &&
               ['password', 'pkce'].includes(target.searchParams.get('grant_type')))) {
             assertCredentialCurrent(record)
@@ -96,7 +98,8 @@ export function getBrowserSupabaseClient({
           const body = await bounded(response.arrayBuffer(), signal)
           if (signal.aborted) throw unavailable()
           assertCredentialCurrent(record)
-          if (response.ok && record.action?.subject && (target.pathname.endsWith('/token') || target.pathname.endsWith('/user'))) {
+          if (response.ok && record.action?.subject && (target.pathname.endsWith('/token') ||
+              target.pathname.endsWith('/user') || target.pathname.endsWith('/verify'))) {
             const payload = JSON.parse(new TextDecoder().decode(body))
             if ((payload.user ?? payload)?.id !== record.action.subject) throw unavailable()
           }
