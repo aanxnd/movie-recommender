@@ -97,3 +97,14 @@ Hosted acceptance must cover QR format, additional enrollment, invalid/expired/r
 codes, rate limits, native AAL2 event/session replacement, refresh/logout/account races,
 abandoned factors, owned multi-factor removal and provider-enforced AAL restrictions.
 None of those hosted mutations was performed. Lost-device recovery remains Prompt 21.
+
+## Dormant screens
+
+`MfaScreen` and `MfaLoginScreen` accept the trusted service only at explicit bootstrap.
+They never mount from production routes. Read-only inspection may repeat under Strict
+Mode; enrollment/challenge/removal require explicit actions. Forms mask and immediately
+clear OTPs; no code/secret enters React state. QR/manual credentials use a dedicated
+imperative sink and clear on teardown. Removal review focuses Cancel, traps keyboard
+focus and explains bounded issued-token validity. Unknown evidence offers reinspection,
+not account continuation. Initial setup remains unavailable at the completeness gate.
+Native verified AAL2 is presentation, not fresh password proof or a backend access grant.
