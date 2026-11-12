@@ -29,6 +29,18 @@ def _invalid_credentials():
                          headers={"WWW-Authenticate": "Bearer", "Cache-Control": "no-store"})
 
 
+def _bearer_token(request: Request, response: Response) -> str:
+    # Raw headers preserve duplicates, including differently cased field names.
+    values = [value for name, value in request.scope["headers"] if name.lower() == b"authorization"]
+    response.headers["Cache-Control"] = "no-store"
+    if len(values) != 1 or len(values[0]) > 8199:
+        raise _invalid_credentials()
+    match = re.fullmatch(rb"(?i:Bearer) ([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)", values[0])
+    if match is None:
+        raise _invalid_credentials()
+    return match.group(1).decode("ascii")
+
+
 def make_supabase_auth_dependency(*, project_url: str, audience: str, publishable_key: str,
                                   session_factory: Callable[[], Session]) -> Callable[..., SupabaseAuthContext]:
     """Explicit server-only construction, once per process; no network or DB work here.
@@ -39,16 +51,9 @@ def make_supabase_auth_dependency(*, project_url: str, audience: str, publishabl
     policy = SupabaseAccessPolicy(project_url=project_url, audience=audience, publishable_key=publishable_key)
 
     def authenticate(request: Request, response: Response) -> SupabaseAuthContext:
-        # Raw headers preserve duplicates, including differently cased field names.
-        values = [value for name, value in request.scope["headers"] if name.lower() == b"authorization"]
-        response.headers["Cache-Control"] = "no-store"
-        if len(values) != 1 or len(values[0]) > 8199:
-            raise _invalid_credentials()
-        match = re.fullmatch(rb"(?i:Bearer) ([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)", values[0])
-        if match is None:
-            raise _invalid_credentials()
+        token = _bearer_token(request, response)
         try:
-            claims, email = policy.check_with_email(match.group(1).decode("ascii"))
+            claims, email = policy.check_with_email(token)
             # All blocking work and session lifetime stay inside this sync dependency.
             with session_factory() as session, session.begin():
                 identity = resolve_verified_subject(session, claims.subject)
