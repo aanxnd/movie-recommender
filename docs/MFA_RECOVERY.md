@@ -2,7 +2,9 @@
 
 Starting main: `19bd7cc62b777a1bee4f6f1191d151c0a31ded7a`, Prompts 1–20 merged.
 Production authentication stays dormant. The owner maintains the fixed roadmap and
-full professional audit separately. No Prompt 22/23 implementation is authorized.
+full professional audit separately. This records Prompt 21's scope; see
+[Prompt 22 retirement preparation](LEGACY_AUTH_RETIREMENT.md) for current legacy
+dependencies. Provisioning and production activation remain separately gated.
 
 ## Supported boundary and threat model
 

@@ -37,6 +37,8 @@ Keep `users.id`, existing credential digests/expiry, all ratings, invitations an
 identity constraints intact. Do not delete records, change ownership/sequences,
 clear persisted login state or add a second password database as preparation.
 Current creation/restoration and manual operator recovery remain legacy-only.
+Before new Supabase profiles become live, retire/gate legacy issuance and operator
+recovery for them; the current numeric-row/expiry check is not Supabase ownership proof.
 
 See [component inventory and unapproved retirement sequence](LEGACY_AUTH_RETIREMENT.md),
 [current policy](AUTH_POLICY_EVIDENCE.md), [MFA recovery](MFA_RECOVERY.md), and

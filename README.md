@@ -43,6 +43,11 @@ Prompts 20–21 add [dormant native TOTP](docs/TOTP_MFA.md) and
 and factor removal are unavailable; initial-enrollment completeness and hosted
 acceptance remain blockers. No production authentication is activated.
 
+Prompt 22 adds a [legacy dependency inventory](docs/LEGACY_AUTH_RETIREMENT.md),
+preservation/separation tests and a [fail-closed cutover checklist](docs/AUTH_CUTOVER_READINESS.md).
+Active profile registration/restoration and credentials remain unchanged; no safe
+runtime deletion was established. Provisioning and production cutover remain separate.
+
 ## Local development
 
 Use Python 3.14 and Node.js 24 (>=22.12 supported by the frontend tools). Install the Python dependencies once, from the repository root:
