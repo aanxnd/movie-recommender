@@ -19,6 +19,9 @@ with password/email possession or a previously issued AAL2 token. No password-re
 recovery-AMR, email-only, metadata, support promise or reusable UI flag substitutes
 for an alternative authenticator challenge in this workflow. No recovery-complete
 claim follows merely from navigation or enrollment. Backend authorization is separate.
+This is a Movelle workflow restriction: Supabase may permit native management from
+an existing AAL2 session. This flow does not use that as all-devices-lost recovery
+or claim a provider-wide prohibition; no generic provider API restriction is invented.
 Empty/omitted inventory remains unknown; Prompt 20's initial-enrollment/no-MFA gate
 is unchanged. Unknown, expired, conflicting or unavailable evidence cannot authorize.
 
@@ -92,3 +95,35 @@ guidance promises neither reset nor support recovery. OTPs clear immediately and
 never enter React state. Dialog review defaults to Cancel and has no deletion handler.
 Strict Mode reads are fenced before dispatch; account/generation/unmount cancellation
 rejects delayed results. No production entry or routing imports this screen.
+
+## Acceptance and future Prompt 24 attacks
+
+Offline preview: `/browser/account-demo.html?screen=mfa-recovery`, with suffixes
+`-unknown`, `-locked`, `-abandoned`, `-uncertain`. These are fixed synthetic UI actions,
+not provider evidence. No real QR, native user/factor, email or hosted mutation is used.
+
+Owner-approved hosted acceptance is still required, separately from merge review:
+
+- Free-project factor-list completeness and exact raw shapes at AAL1/AAL2; empty
+  and omitted fields remain unknown. Initial enrollment stays unavailable.
+- Independent Google Authenticator/Duo Mobile factors, configured verified-factor
+  capacity, fresh alternative challenge, same-subject AAL2 and exact new session
+  binding. A legitimate native promotion may replace the signed session UUID;
+  a known rejection can preserve progress only with unchanged UUID/inventory.
+- Replacement QR/URI formats, pending-to-verified transition and provider pruning
+  of other pending factors; aborted enrollment and no automatic retry/secret reuse.
+- Invalid, expired and replayed TOTP, rate limits, outages, malformed responses,
+  provider-committed writes with failed local postchecks, refresh/logout/account races.
+- No all-lost password/email/recovery-AMR bypass; enrolled-MFA password/email changes
+  stay restricted. Backend JWT/current-email/AAL/mapping/ownership remains independent.
+- Removal stays disabled until a supported authoritative concurrency guarantee or
+  explicitly reviewed alternative policy exists. No hosted DELETE is authorized.
+
+Prompt 24 must attack copied/modified claims, foreign factor IDs, UI flag forgery,
+two nominal backups on one device, concurrent two-factor deletion, account A→B→A,
+delayed response bodies, duplicate/Strict Mode actions, stale positive evidence,
+uncertain provider writes and secret retention on cancellation/navigation. Also
+test direct provider API limits; browser controls are not provider-wide enforcement.
+No support identity-proofing procedure or paid recovery service is presumed.
+Preview/production origins, Gmail delivery/limits, provisioning, audit and activation
+remain separate gates. No hosted test or Prompt 22 work was performed.

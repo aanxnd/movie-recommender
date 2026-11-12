@@ -1,10 +1,12 @@
 # Authentication architecture contract
 
-Status: **Prompts 1-19 merged; Prompt 20 dormant TOTP implementation under review.**
+Status: **Prompts 1-20 merged; Prompt 21 dormant recovery implementation under review.**
 Authentication remains dormant. See [native callback integration](SIGNUP_CONFIRMATION.md)
 and [account settings](ACCOUNT_SETTINGS.md), plus [native TOTP limits](TOTP_MFA.md).
 Initial enrollment remains blocked on complete native factor evidence; existing
-factor challenges/additional setup/removal are dormant and await hosted acceptance.
+factor challenges/additional setup are dormant and await hosted acceptance.
+All removal is unavailable pending authoritative concurrency protection; see
+[recovery and lockout](MFA_RECOVERY.md). Password/email recovery never substitutes for TOTP.
 The owner/ChatGPT maintains the
 implementation roadmap and original 16-stage audit separately. No production
 activation or hosted configuration change is authorized.
@@ -336,9 +338,10 @@ deliverability remain unresolved; development delivery does not close this gate.
 3. After losing the primary authenticator, sign in with email/password at `aal1`,
    select the verified backup factor, and challenge/verify its TOTP to regain
    Supabase-issued `aal2`. Password/email recovery alone must not bypass MFA.
-4. At `aal2`, enroll and verify the replacement primary factor, then remove the
-   lost factor with `mfa.unenroll({ factorId })`. Retain a usable verified backup;
-   use supported Supabase factor-management requirements without custom recency rules.
+4. After the alternative-factor challenge establishes `aal2`, enroll and separately
+   verify the replacement. Review lost-factor removal, but **do not execute it**:
+   native unenrollment has no established atomic final-factor guard across devices.
+   Prompt 21 disables all Movelle removal, including pending cleanup. No hidden bypass.
 5. Disclose possible account lockout if every enrolled factor is lost, including
    when the user declines backup setup. No email-only or administrative automatic
    recovery fallback is approved. Support cannot promise restoration from an ID.
@@ -347,7 +350,8 @@ Later implementation must test independent primary/backup enrollment, fresh logi
 and backup-only recovery, replacement/removal, wrong-factor/account rejection,
 throttling, session expiry/revocation, password-reset MFA enforcement and secret
 redaction. Validate Google Authenticator and Duo Mobile interoperability. These
-flows have not been implemented or validated by the identity foundation.
+flows now have dormant Prompt 20/21 implementations and offline tests, with removal
+disabled. Hosted acceptance remains open; offline passes do not prove provider behavior.
 
 ## Decision and validation history
 

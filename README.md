@@ -38,6 +38,11 @@ Prompt 19 adds [dormant account settings and native email changes](docs/ACCOUNT_
 Username updates require a future authorized backend; disable/delete controls are
 review-only and cannot execute an operation. Production behavior is unchanged.
 
+Prompts 20–21 add [dormant native TOTP](docs/TOTP_MFA.md) and
+[alternative-authenticator recovery](docs/MFA_RECOVERY.md). All-devices-lost recovery
+and factor removal are unavailable; initial-enrollment completeness and hosted
+acceptance remain blockers. No production authentication is activated.
+
 ## Local development
 
 Use Python 3.14 and Node.js 24 (>=22.12 supported by the frontend tools). Install the Python dependencies once, from the repository root:

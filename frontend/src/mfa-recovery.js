@@ -115,8 +115,8 @@ export function createNativeMfaRecovery(config) {
         if (previous.phase !== 'replacement-pending') deny('unavailable')
         const result = await verifyNative(previous.replacementId, code, combined, current)
         const after = await read(); current()
-        if (after.proof.subject !== before.proof.subject || after.proof.sessionId !== before.proof.sessionId || after.status !== 'verified') deny('unavailable')
-        if (knownRejections.includes(result.status) && fingerprint(after.factors) === previous.inventory) {
+        if (after.proof.subject !== before.proof.subject || after.status !== 'verified') deny('unavailable')
+        if (knownRejections.includes(result.status) && after.proof.sessionId === before.proof.sessionId && fingerprint(after.factors) === previous.inventory) {
           bind(after, previous) // Known native rejection only; fresh same-session evidence, no automatic retry.
           return mfaResult(result.status)
         }

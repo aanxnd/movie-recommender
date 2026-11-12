@@ -8,6 +8,8 @@ import { AccountSettingsScreen } from '../src/account-settings.jsx'
 import { EmailChangeCallbackScreen } from '../src/email-settings-screen.jsx'
 import { MfaScreen, MfaLoginScreen } from '../src/mfa-screens.jsx'
 import { createMfaPreview } from './mfa-demo.js'
+import { MfaRecoveryScreen } from '../src/mfa-recovery-screen.jsx'
+import { createRecoveryPreview } from './mfa-recovery-demo.js'
 import { ForgotPasswordScreen, RecoveryCallbackScreen, NewPasswordScreen, ChangePasswordScreen, SensitiveReauthenticationScreen } from '../src/password-screens.jsx'
 import '../src/styles.css'
 
@@ -21,7 +23,7 @@ const previews = { profile: ProfileSetupScreen, login: LoginScreen, verification
   'change-password': ChangePasswordScreen, reauth: SensitiveReauthenticationScreen, settings: AccountSettingsScreen,
   'settings-pending': AccountSettingsScreen, 'email-callback': EmailChangeCallbackScreen,
   mfa: MfaScreen, 'mfa-login': MfaLoginScreen, 'mfa-unknown': MfaScreen, 'mfa-error': MfaLoginScreen }
-const Screen = previews[screen] || SignupScreen
+const Screen = screen?.startsWith('mfa-recovery') ? MfaRecoveryScreen : previews[screen] || SignupScreen
 const recovery = { state: () => ({ status: screen === 'new-password' ? 'verified' : 'unproven' }),
   confirm: async () => ({ status: 'unproven' }), setPassword: async () => ({ status: 'changed' }) }
 const sensitive = { changePassword: async () => ({ status: 'changed' }) } // UI simulation, never provider evidence.
@@ -34,5 +36,7 @@ const emailSettings = { inspect: async () => ({ status: screen === 'settings-pen
 createRoot(document.getElementById('root')).render(<React.StrictMode><AuthProvider session={session}>
   <p className="auth-hint" style={{ padding: '12px 24px' }}>Offline preview · No account requests are sent.</p>
   <Screen actions={actions} recovery={recovery} sensitive={sensitive} account={account} emailSettings={emailSettings}
-    service={screen?.startsWith('mfa') ? createMfaPreview(screen) : emailSettings} requestReset={async () => ({ status: 'check-email' })} />
+    service={screen?.startsWith('mfa-recovery') ? createRecoveryPreview(screen) : screen?.startsWith('mfa') ? createMfaPreview(screen) : emailSettings}
+    onManageAuthenticators={() => location.assign('/browser/account-demo.html?screen=mfa')}
+    requestReset={async () => ({ status: 'check-email' })} />
 </AuthProvider></React.StrictMode>)
