@@ -21,7 +21,7 @@ const messages = {
   'challenge-required': 'Enter a code from one of your verified authenticators to continue.',
 }
 
-function SetupCredentials({ service }) {
+export function SetupCredentials({ service }) {
   const image = useRef(null), manual = useRef(null), incarnation = useRef(0), [visible, setVisible] = useState(false)
   useEffect(() => {
     const ticket = ++incarnation.current

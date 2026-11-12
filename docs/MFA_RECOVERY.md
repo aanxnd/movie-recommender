@@ -80,3 +80,15 @@ aborting its own promotion; returned evidence is independently checked. A known 
 expiry or rate rejection permits explicit retry only after fresh unchanged same-session
 evidence. Unknown mutation outcomes discard progress, clear setup and require inspection;
 no automatic enrollment/challenge retry. Cancellation cannot undo a provider commit.
+
+## Dormant recovery screens
+
+`MfaRecoveryScreen` takes the trusted service through explicit bootstrap only.
+It shares the existing setup-credential view and form cancellation machinery.
+Alternative verification, pending setup and verified replacement are separate views;
+no step is automatic. An abandoned pending factor is not presented as a backup or
+silently resumed. Unknown inventory offers inspection, not a bypass. All-inaccessible
+guidance promises neither reset nor support recovery. OTPs clear immediately and
+never enter React state. Dialog review defaults to Cancel and has no deletion handler.
+Strict Mode reads are fenced before dispatch; account/generation/unmount cancellation
+rejects delayed results. No production entry or routing imports this screen.
