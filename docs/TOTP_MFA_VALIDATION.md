@@ -1,5 +1,8 @@
 # Prompt 20 offline validation and review
 
+Historical Prompt 20 snapshot. PRs #60–64 are merged. [Prompt 21](MFA_RECOVERY.md)
+supersedes removal permissions: all native deletion is unavailable across devices.
+
 Starting main: `6db83662ca1c794b0cbfcb1cd00a37bad181d168` (Prompts 1–19 merged).
 Both installed supabase-js and auth-js are **2.119.0**; no dependency changes.
 

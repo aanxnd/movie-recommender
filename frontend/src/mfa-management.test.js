@@ -92,14 +92,14 @@ test('uncertain enrollment never automatically repeats after cancellation', asyn
   assert.equal(f.state.actions.length, 1)
 })
 
-for (const [name, factors, aal, selection, expected] of [
-  ['two verified', [totp(), totp('verified', secondId)], 'aal2', secondId, 'removed'],
-  ['abandoned pending', [totp(), totp('unverified', secondId)], 'aal2', secondId, 'removed'],
-  ['final usable', [totp(), totp('unverified', secondId)], 'aal2', factorId, 'unavailable'],
-  ['last factor', [totp()], 'aal2', factorId, 'unavailable'],
-  ['AAL1', [totp(), totp('verified', secondId)], 'aal1', secondId, 'unavailable'],
-  ['foreign', [totp(), totp('verified', secondId)], 'aal2', 'foreign', 'unavailable'],
-  ['unknown', [], 'aal2', factorId, 'inventory-unknown'],
+for (const [name, factors, aal, selection] of [
+  ['two verified', [totp(), totp('verified', secondId)], 'aal2', secondId],
+  ['abandoned pending', [totp(), totp('unverified', secondId)], 'aal2', secondId],
+  ['final usable', [totp(), totp('unverified', secondId)], 'aal2', factorId],
+  ['last factor', [totp()], 'aal2', factorId],
+  ['AAL1', [totp(), totp('verified', secondId)], 'aal1', secondId],
+  ['foreign', [totp(), totp('verified', secondId)], 'aal2', 'foreign'],
+  ['unknown', [], 'aal2', factorId],
 ]) test('native removal: ' + name, async t => {
   const f = await mfaFixture(t, { factors, aal, handler: (url, init, state) => {
     if (init.method === 'DELETE') { state.factors = state.factors.filter(x => x.id !== selection); return json({ id: selection }) }

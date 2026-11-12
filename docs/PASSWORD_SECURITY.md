@@ -148,3 +148,10 @@ AMR/UUID response shapes, replay/expiry/cross-browser behavior, outage/rate hand
 session rotation/password updates, concurrent account transitions and MFA restrictions.
 Gmail delivery/spam and missing-factor completeness remain blockers. No production
 readiness or formal NIST compliance is claimed; retain the full assessment/audit.
+
+## Prompt 21 lost-device boundary
+
+[Alternative-authenticator recovery](MFA_RECOVERY.md) does not relax these password
+controls. Recovery AMR/password reset does not satisfy TOTP or remove factors; an
+existing AAL2 session does not prove fresh password use. MFA-sensitive password/email
+changes remain unavailable until their separately reviewed native continuation exists.

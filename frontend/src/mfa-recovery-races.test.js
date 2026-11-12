@@ -71,6 +71,33 @@ test('expired private evidence cannot authorize replacement', async t => {
   assert.equal(f.state.actions.filter(x => x.path.endsWith('/factors')).length, 0)
 })
 
+test('legitimate native replacement verification may issue a different signed session UUID', async t => {
+  const f = await recoveryFixture(t)
+  await f.alternative(); await f.recovery.enrollReplacement()
+  f.state.promoted = await f.sign({ aal: 'aal2', session_id: 'eeeeeeee-1234-4234-9234-123456789abc' }, 'totp')
+  assert.equal((await f.recovery.verifyReplacement('123456')).status, 'replacement-verified')
+  assert.equal((await f.recovery.inspect()).status, 'replacement-verified')
+})
+
+for (const mode of ['missing pending', 'extra factor', 'transport failure'])
+  test('uncertain replacement enrollment never establishes verified recovery: ' + mode, async t => {
+    const f = await recoveryFixture(t)
+    await f.alternative()
+    f.state.handler = (url, init) => {
+      if (url.pathname.endsWith('/factors')) {
+        if (mode === 'transport failure') throw new DOMException('offline timeout', 'TimeoutError')
+        const response = f.replacementHandler(url, init)
+        if (mode === 'missing pending') f.state.factors = f.state.factors.filter(x => x.id !== replacementId)
+        else f.state.factors.push(totp('verified', 'eeeeeeee-1234-4234-9234-123456789abc'))
+        return response
+      }
+    }
+    assert.equal((await f.recovery.enrollReplacement()).status, 'mutation-uncertain')
+    let leaked = false; f.recovery.presentSetup(() => { leaked = true; return () => {} })
+    assert.equal(leaked, false)
+    assert.equal((await f.recovery.enrollReplacement()).status, 'reauthentication-required')
+  })
+
 for (const failure of ['never verified', 'inventory changed', 'postcheck outage'])
   test('provider verification response alone never establishes replacement: ' + failure, async t => {
     const f = await recoveryFixture(t)
