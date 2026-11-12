@@ -42,7 +42,8 @@ export function ProfileSetupScreen({ service = pendingProvisioning }) {
       current.status === 'loading' ? <AuthNotice>Checking your profile…</AuthNotice> :
       current.status === 'complete' ? <AuthNotice>Your profile is ready: {current.username}. Personal features still require server authorization.</AuthNotice> :
       current.status === 'email-required' ? <AuthNotice>Complete email confirmation, then return here. Profile creation has not been approved.</AuthNotice> :
-      current.status !== 'eligible' ? <><AuthNotice>Profile setup is not available yet. Your account has not been linked to a new Movelle profile here.</AuthNotice>
+      current.status !== 'eligible' ? <><AuthNotice>{current.status === 'rate-limited' ? 'Too many setup attempts. Wait before checking again.' :
+        'Profile setup is not available yet. We could not confirm its outcome; setup may have completed. Check again before trying to create a profile.'}</AuthNotice>
         <button className="button-secondary auth-submit" onClick={() => setRetry(retry + 1)}>Check again</button></> :
       <form ref={form} onSubmit={submit} aria-busy={Boolean(current.busy)}>
         <div className="auth-field"><label htmlFor={id}>Profile username</label>

@@ -8,7 +8,7 @@ const privateGet = /^\/users\/(?:me|[1-9]\d*(?:\/ratings(?:\/details)?|\/recomme
 function allowed(route, method, access) {
   if (access === 'public') return (method === 'GET' && publicGet.test(route)) || (method === 'POST' && route === '/movies/artwork')
   if (access !== 'authenticated') return false
-  return (method === 'GET' && privateGet.test(route)) ||
+  return (['GET', 'POST'].includes(method) && route === '/auth/profile') || (method === 'GET' && privateGet.test(route)) ||
     (method === 'PUT' && /^\/users\/[1-9]\d*\/ratings\/[1-9]\d*$/.test(route)) ||
     (method === 'DELETE' && /^\/users\/[1-9]\d*\/group-invitation$/.test(route)) ||
     (method === 'POST' && (/^\/users\/[1-9]\d*\/(?:group-invitation|ratings\/lookup)$/.test(route) ||
