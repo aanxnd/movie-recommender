@@ -11,7 +11,7 @@ export async function mountAccount(t, filename, name, props = {}, authenticated 
   globalThis.IS_REACT_ACT_ENVIRONMENT = true
   const previousFormData = globalThis.FormData; globalThis.FormData = dom.window.FormData
   const server = await createServer({ cacheDir: '../.pytest-tmp/account-vite',
-    server: { middlewareMode: true, hmr: false }, appType: 'custom',
+    server: { middlewareMode: true, hmr: false, ws: false }, appType: 'custom',
     optimizeDeps: { noDiscovery: true, include: [] } })
   const screens = await server.ssrLoadModule('/src/' + filename)
   const { AuthProvider } = await server.ssrLoadModule('/src/auth-context.js')

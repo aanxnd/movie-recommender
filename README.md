@@ -34,6 +34,10 @@ Prompt 18 adds [dormant native password recovery and sensitive password changes]
 The screens remain outside production startup; hosted acceptance and MFA integration
 are still required before activation.
 
+Prompt 19 adds [dormant account settings and native email changes](docs/ACCOUNT_SETTINGS.md).
+Username updates require a future authorized backend; disable/delete controls are
+review-only and cannot execute an operation. Production behavior is unchanged.
+
 ## Local development
 
 Use Python 3.14 and Node.js 24 (>=22.12 supported by the frontend tools). Install the Python dependencies once, from the repository root:

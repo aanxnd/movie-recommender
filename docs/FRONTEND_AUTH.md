@@ -6,6 +6,8 @@ screens are described in [Prompt 17](AUTH_SCREENS.md); no backend cutover,
 provisioning, MFA workflow or hosted setting is introduced.
 The separate [Prompt 18 password journeys](PASSWORD_SECURITY.md) extend credential
 fences and reuse this SDK/provider; no additional token store or production mount.
+The [Prompt 19 settings](ACCOUNT_SETTINGS.md) distinguish native provider evidence
+from backend-authorized profile data and keep lifecycle execution unavailable.
 
 ## Shared SDK and configuration
 

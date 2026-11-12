@@ -1,8 +1,8 @@
 # Authentication architecture contract
 
-Status: **Prompts 1-17 merged; Prompt 18 dormant password journeys under review.**
+Status: **Prompts 1-18 merged; Prompt 19 dormant account settings under review.**
 Authentication remains dormant. See [native callback integration](SIGNUP_CONFIRMATION.md)
-and [password security](PASSWORD_SECURITY.md). The owner/ChatGPT maintains the
+and [account settings](ACCOUNT_SETTINGS.md). The owner/ChatGPT maintains the
 implementation roadmap and original 16-stage audit separately. No production
 activation or hosted configuration change is authorized.
 

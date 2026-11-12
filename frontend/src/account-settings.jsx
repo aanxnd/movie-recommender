@@ -3,9 +3,12 @@ import { useAuth } from './auth-context.js'
 import { AuthFrame, AuthNotice } from './account-screens.jsx'
 import { usernameError } from './profile-provisioning.js'
 import { accountSettingsResult, pendingAccountSettings } from './account-settings-contract.js'
+import { EmailSettingsPanel } from './email-settings-screen.jsx'
+import { AccountLifecycleControls } from './account-lifecycle.jsx'
+import './account-settings.css'
 
-/** @param {{account?:import('./account-settings-contract.js').AccountSettingsService, children?:import('react').ReactNode}} props */
-export function AccountSettingsScreen({ account = pendingAccountSettings, children }) {
+/** @param {{account?:import('./account-settings-contract.js').AccountSettingsService, emailSettings?:ReturnType<typeof import('./email-settings.js').createNativeEmailSettings>, children?:import('react').ReactNode}} props */
+export function AccountSettingsScreen({ account = pendingAccountSettings, emailSettings, children }) {
   const auth = useAuth(), id = useId(), form = useRef(null), scope = useRef(null), active = useRef(false)
   const [view, setView] = useState({ status: 'loading', generation: -1 }), [retry, setRetry] = useState(0)
   const signedIn = auth.status === 'authenticated'
@@ -41,7 +44,7 @@ export function AccountSettingsScreen({ account = pendingAccountSettings, childr
     finally { if (scope.current === controller) active.current = false }
   }
   return <AuthFrame title="Make it yours." description="Manage your profile and account. Device sign-in and access to your profile are checked separately.">
-    <section aria-labelledby={id + '-title'}><h2 id={id + '-title'}>Your profile</h2>
+    <section className="account-section" aria-labelledby={id + '-title'}><h2 id={id + '-title'}>Your profile</h2>
       {!signedIn ? <AuthNotice>Sign in to check your account settings.</AuthNotice> : current.status === 'loading' ?
         <AuthNotice>Checking profile access…</AuthNotice> : current.status === 'ready' ? <>
           <p>Your authorized profile: <strong>{current.username}</strong></p>
@@ -61,6 +64,6 @@ export function AccountSettingsScreen({ account = pendingAccountSettings, childr
                 'Profile settings are waiting for a trusted backend connection. A previous change may have completed; check again before retrying.'}</AuthNotice>}
       {signedIn && <button className="button-secondary auth-submit" disabled={current.busy || current.status === 'loading'}
         onClick={() => setRetry(retry + 1)}>Check profile again</button>}
-    </section>{children}
+    </section><EmailSettingsPanel service={emailSettings} /><AccountLifecycleControls />{children}
   </AuthFrame>
 }

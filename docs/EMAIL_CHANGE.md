@@ -89,3 +89,11 @@ normalization of unknown MFA state is introduced. Gmail spam/delivery/limits,
 later route integration, NIST assessment and the full professional audit remain
 launch gates. Prompt 14 reuses these checks in the dormant central dependency;
 neither change activates routes or replaces existing live authentication.
+
+## Prompt 19 dormant views
+
+[Native email settings](ACCOUNT_SETTINGS.md) now use supported updateUser/PKCE with
+fresh current-email observations and scoped password reauthentication. They never
+promote pending addresses or URL messages, expose private emails, or bypass this
+backend policy. Resend/replacement/cancellation controls remain unavailable;
+hosted acceptance and all production activation gates above remain open.
