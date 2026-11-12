@@ -105,8 +105,8 @@ for (const [name, factors, aal, selection, expected] of [
     if (init.method === 'DELETE') { state.factors = state.factors.filter(x => x.id !== selection); return json({ id: selection }) }
   } })
   const result = await f.service.remove(selection)
-  assert.equal(result.status, expected)
-  assert.equal(f.state.actions.length, expected === 'removed' ? 1 : 0)
+  assert.equal(result.status, 'removal-unavailable')
+  assert.equal(f.state.actions.length, 0)
 })
 
 for (const name of ['provider error', 'unchanged inventory', 'cancelled response'])
@@ -116,5 +116,16 @@ for (const name of ['provider error', 'unchanged inventory', 'cancelled response
       if (name === 'cancelled response') f.service.cancel()
       return name === 'provider error' ? json({ message: secret }, 500) : json({ id: secondId })
     }
-    assert.notEqual((await f.service.remove(secondId)).status, 'removed')
+    assert.equal((await f.service.remove(secondId)).status, 'removal-unavailable')
+    assert.equal(f.state.actions.length, 0)
   })
+
+test('concurrent removals cannot dispatch DELETE, even if the provider would delete every factor', async t => {
+  const f = await mfaFixture(t, { aal: 'aal2', factors: [totp(), totp('verified', secondId)],
+    handler: () => { throw new Error('unsafe deletion reached provider') } })
+  const results = await Promise.all([f.service.remove(factorId), f.service.remove(secondId)])
+  assert.deepEqual(results, [{ status: 'removal-unavailable' }, { status: 'removal-unavailable' }])
+  await f.session.logout()
+  assert.equal((await f.service.remove(factorId)).status, 'removal-unavailable')
+  assert.deepEqual(f.state.actions, [])
+})

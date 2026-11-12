@@ -69,23 +69,9 @@ export function createNativeMfa(config) {
         return mfaResult('setup-pending', { factors: after.factors, generation: session.getSnapshot().generation })
       })
     },
-    async remove(factorId, { signal } = {}) {
-      return operation(signal, async (evidence, lease, combined, current) => {
-        if (evidence.status !== 'verified' || !evidence.factors.some(f => f.id === factorId) ||
-            !evidence.factors.some(f => f.id !== factorId && f.status === 'verified')) denyMfa('unavailable')
-        clearSetup()
-        const assertCurrent = () => { current(); evidence.proof.assertCurrent() }
-        const { data, error } = await runCredentialRequest(client, () => client.auth.mfa.unenroll({ factorId }),
-          { signal: combined, subject: evidence.proof.subject, assertCurrent })
-        assertCurrent()
-        if (error) throw error
-        if (data?.id !== factorId) denyMfa('stale')
-        const after = await observeMfa(client, config, lease)
-        assertCurrent()
-        if (after.status !== 'verified' || after.factors.some(f => f.id === factorId)) denyMfa('stale')
-        return mfaResult('removed', { factors: after.factors, generation: session.getSnapshot().generation })
-      })
-    },
+    // A fresh precheck/postcheck cannot preserve the final factor across devices.
+    // No supported conditional/atomic native unenroll contract is established.
+    remove: async () => mfaResult('removal-unavailable'),
     async verify(factorId, code, { signal } = {}) {
       if (typeof code !== 'string' || !/^\d{6}$/.test(code)) return mfaResult('invalid-code')
       return operation(signal, async (evidence, lease, combined, current) => {

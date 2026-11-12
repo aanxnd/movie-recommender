@@ -84,10 +84,11 @@ allowlist before becoming an encoded image URL; it is never injected as markup.
 Strict parsing may reject future provider QR formats; hosted compatibility is required.
 
 [unenroll](https://supabase.com/docs/reference/javascript/auth-mfa-unenroll) requires
-AAL2 for verified factors. Movelle additionally requires fresh owned-factor evidence,
-another verified factor, and post-removal reinspection. Final usable-factor removal
-is unavailable pending Prompt 21 review. Unverified cleanup also requires AAL2 and
-a remaining verified factor here. No admin removal, recovery code or email bypass.
+AAL2 for verified factors. **Prompt 21 supersedes the earlier client-only removal
+guard: all Movelle unenrollment is unavailable.** Fresh prechecks/postchecks cannot
+atomically preserve a verified factor across tabs/devices. Even pending cleanup can
+race verification. See [recovery and lockout](MFA_RECOVERY.md); review never deletes.
+No admin removal, recovery code or email bypass.
 Factor observations are private typed continuations, not reusable authorization
 grants. Password/email changes retain their existing MFA-required denial: AAL2 is
 not fresh password proof. Supporting them requires separately reviewed native
@@ -96,7 +97,8 @@ reauthentication without downgrading the session; no such bypass is added.
 Hosted acceptance must cover QR format, additional enrollment, invalid/expired/replayed
 codes, rate limits, native AAL2 event/session replacement, refresh/logout/account races,
 abandoned factors, owned multi-factor removal and provider-enforced AAL restrictions.
-None of those hosted mutations was performed. Lost-device recovery remains Prompt 21.
+None of those hosted mutations was performed. [Prompt 21](MFA_RECOVERY.md) adds
+dormant alternative-factor/replacement continuations with explicit lockout refusal.
 
 ## Dormant screens
 
@@ -126,4 +128,4 @@ multi-factor ownership/removal and abandonment; sensitive password/email restric
 backend independent AAL/email/mapping/ownership; approved preview/production origins
 and email delivery. No hosted evidence is claimed from mocked HTTP or browser tests.
 NIST assessment and the full professional audit remain required; no compliance claim.
-Prompt 21 was not started. Merge review does not authorize deployment or activation.
+Prompt 21 remains under review. Merge review does not authorize deployment or activation.

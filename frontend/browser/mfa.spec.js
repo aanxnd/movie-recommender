@@ -36,11 +36,11 @@ test('offline setup and removal review clear credentials and preserve a final fa
   await review.click()
   const dialog = page.getByRole('dialog', { name: 'Remove this authenticator?' })
   await expect(dialog.getByRole('button', { name: 'Cancel' })).toBeFocused()
+  await expect(dialog.getByRole('button', { name: 'Removal unavailable' })).toBeDisabled()
   await page.keyboard.press('Shift+Tab')
-  await expect(dialog.getByRole('button', { name: 'Remove authenticator', exact: true })).toBeFocused()
+  await expect(dialog.getByRole('button', { name: 'Cancel' })).toBeFocused()
   await page.keyboard.press('Escape'); await expect(review).toBeFocused()
-  await review.click(); await dialog.getByRole('button', { name: 'Remove authenticator', exact: true }).click()
-  await expect(page.getByRole('button', { name: 'Review removal' })).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'Review removal' })).toHaveCount(2)
 })
 
 test('unknown inventory and invalid codes never claim MFA completion', async ({ page }) => {
