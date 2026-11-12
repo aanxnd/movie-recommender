@@ -40,6 +40,13 @@ class SupabaseAccessPolicy:
 
     def check_with_email(self, token: str) -> tuple[VerifiedTokenClaims, ProviderEmailConfirmation]:
         """One signature verification and one fresh user read; no resource access grant."""
+        return self._check(token, provisioning=False)
+
+    def check_for_provisioning(self, token: str) -> VerifiedTokenClaims:
+        """Empty inventories remain unproven for new-account provisioning (Prompt 20)."""
+        return self._check(token, provisioning=True)[0]
+
+    def _check(self, token: str, *, provisioning: bool):
         try:
             claims = self._verifier.verify_claims(token)
             user = json.loads(_read_user(self._url, self._key, token), object_pairs_hook=_unique_object)
@@ -55,7 +62,7 @@ class SupabaseAccessPolicy:
             # Require explicit evidence: SDK null/omission normalization is not a
             # server guarantee that this account has no verified factor.
             factors = user.get("factors")
-            if not isinstance(factors, list) or len(factors) > 10:
+            if not isinstance(factors, list) or len(factors) > 10 or (provisioning and not factors):
                 raise AccessDenied
             verified = False
             seen = set()
