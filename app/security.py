@@ -7,9 +7,9 @@ import secrets
 import time
 
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import select, update
 
-from app.models import Credential, GroupInvitation
+from app.models import Credential, GroupInvitation, User, UserIdentity
 
 
 TOKEN_PATTERN = re.compile(r"^[A-Za-z0-9_-]{43}$")
@@ -23,6 +23,12 @@ def token_hash(token: str) -> str:
 
 
 def issue_credential(session, user_id: int) -> tuple[str, int]:
+    # Issuance is distinct from authenticating historical credentials: do not
+    # revoke existing sessions, but never claim a Supabase-owned numeric profile.
+    session.execute(update(User).where(User.id == user_id).values(id=User.id))
+    if session.scalar(select(UserIdentity.user_id).where(
+            UserIdentity.user_id == user_id, UserIdentity.supabase_subject.is_not(None))) is not None:
+        raise ValueError("Legacy credential issuance is unavailable for this profile")
     token = secrets.token_urlsafe(32)
     expires = int(time.time()) + OWNER_LIFETIME
     session.add(Credential(user_id=user_id, token_hash=token_hash(token), expires_at=expires))

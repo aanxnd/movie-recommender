@@ -126,7 +126,10 @@ def test_resolution_preserves_ratings_credentials_and_group_invitations(engine, 
     with Session(engine) as session, session.begin():
         database.register_movies(session, [10])
         database.save_rating(session, 104, 10, 3.25)
-        token, _ = security.issue_credential(session, 104)
+        # Deliberately seed a historical credential predating the link. New
+        # issuance is forbidden; read-only resolution must not revoke old state.
+        token = 'x' * 43
+        session.add(Credential(user_id=104, token_hash=security.token_hash(token), expires_at=2**62))
         invitation, _ = security.issue_invitation(session, 207)
     with Session(engine) as session, session.begin():
         before = (session.get(Credential, 104).token_hash, session.get(GroupInvitation, 207).token_hash)

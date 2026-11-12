@@ -96,3 +96,14 @@ Azure release remains manual `workflow_dispatch` with production approval; no re
 workflow is invoked. Vercel PR checks may build previews, not production activation.
 Repository schema 3 does not prove the deployed schema/version. The existing
 [schema-2/3 deployment and rollback gates](DEPLOYMENT.md) remain required.
+# Prompt 23 issuance guard
+
+New Supabase-owned numeric profiles never receive opaque legacy credentials.
+The shared `security.issue_credential` primitive locks the user row and denies
+issuance whenever its identity has a non-null Supabase subject. Operator
+`recover-profile` uses this primitive; denial rolls back expired-credential and
+invitation changes. Historical legacy registration/recovery stays available.
+Authentication of an already-existing credential is unchanged: this is not a
+session revocation or historical account-migration operation. No direct SQL
+issuance, hosted mutation or automatic linking is authorized.
+
