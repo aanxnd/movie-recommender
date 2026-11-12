@@ -77,7 +77,8 @@ export function createNativeEmailSettings(config = {}) {
           const session = getSessionController(client)
           return await session.withAccess(async lease => {
             const proof = await nativeEvidence(client, config, lease, 'email_change', data.session.access_token)
-            return callbackResult((await readEmail(client, proof, lease)).status)
+            const result = await readEmail(client, proof, lease)
+            return Object.freeze({ ...callbackResult(result.status), generation: session.getSnapshot().generation })
           })
         } catch (error) { return callbackResult(passwordFailure(error).status) }
       })

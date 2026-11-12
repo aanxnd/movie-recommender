@@ -79,3 +79,17 @@ The dormant screen resets/aborts on logout, account generation changes or unmoun
 Strict Mode inspection is read-only. Only future backend-authorized profile data
 is shown, separately from device sign-in. Mocked CAS/collision tests demonstrate UI
 protocol behavior, not an implemented transactional backend or provisioning path.
+
+## Email views (dependent PR)
+
+The native email panel returns/displays statuses, not private email strings. User
+input is uncontrolled and cleared at dispatch; no password/address enters React
+state, URLs, logs or application persistence. It reuses Prompt 18's form scope and
+visibility controls. Background reads announce without moving focus; explicit
+requests/errors focus their safe message. Recheck only reads and never sends mail.
+
+Callback snapshots carry the observed local session generation, not an identity
+credential. The UI rejects a cached positive snapshot after logout/account switches.
+It never automatically navigates or declares the requested address verified from
+URL text, null redirectType, current SDK metadata or an old callback result.
+Provider profile information remains separate from backend-authorized Movelle data.

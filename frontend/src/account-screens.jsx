@@ -15,9 +15,9 @@ export function AuthFrame({ title, description, children }) {
   </section></main>
 }
 
-export function AuthNotice({ children, error = false }) {
+export function AuthNotice({ children, error = false, focus = true }) {
   const ref = useRef(null)
-  useEffect(() => { ref.current?.focus() }, [children])
+  useEffect(() => { if (focus) ref.current?.focus() }, [children, focus])
   return <div className={'auth-notice' + (error ? ' auth-error' : '')} ref={ref} tabIndex={-1}
     role={error ? 'alert' : 'status'}>{children}</div>
 }
