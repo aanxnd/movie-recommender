@@ -29,6 +29,27 @@ test('no adapter means pending integration, never a legacy registration fallback
   assert.equal((await pendingProvisioning.provision({ username: 'Abc' }, { signal: new AbortController().signal })).status, 'unavailable')
 })
 
+test('uncertain commit has a focused check-only recovery, never automatic POST replay', async t => {
+  let reads = 0, writes = 0
+  const f = await mount(t, { inspect: async () => ++reads <= 2 ? { status: 'eligible' } : complete('Original'),
+    provision: async () => { writes++; return { status: 'uncertain' } } })
+  f.input('username', 'Alice'); await f.submit()
+  assert.match(f.text(), /setup may have completed/)
+  assert.equal(document.activeElement.getAttribute('role'), 'status')
+  assert.equal(document.querySelector('form'), null)
+  await f.click('button')
+  assert.equal(writes, 1)
+})
+
+test('rate denial is sanitized and offers inspection without retrying a write', async t => {
+  let writes = 0
+  const f = await mount(t, { inspect: eligible, provision: async () => { writes++; return { status: 'rate-limited' } } })
+  f.input('username', 'Alice'); await f.submit()
+  assert.match(f.text(), /Too many setup attempts/)
+  assert.equal(document.querySelector('form'), null)
+  await f.click('button'); assert.equal(writes, 1)
+})
+
 test('SDK-only sign-in cannot bypass backend email eligibility', async t => {
   let writes = 0
   const f = await mount(t, { inspect: async () => ({ status: 'email-required' }), provision: async () => { writes++ } })

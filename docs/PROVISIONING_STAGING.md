@@ -72,3 +72,17 @@ redact validation input and use no-store responses. Admission commits separately
 limits retain public/IP admission and 16-KiB bodies. 409 is username unavailable,
 401/403 denial, 422 invalid input, 429 bounded rate denial, 503 unknown/unavailable.
 Clients must re-inspect after uncertain writes; no automatic POST retry.
+
+## Dormant frontend adapter
+
+`createProfileProvisioning(config)` uses the shared native SDK/controller and
+authenticated API transport, then is passed explicitly as ProfileSetupScreen's
+`service`. No production bootstrap imports it. GET inspection never creates a
+profile. A user must submit the exact username for POST. Shared in-flight state
+prevents duplicate writes across consumers; database idempotency remains final.
+Logout, account A→B→A, caller abort and same-subject token refresh fence pending
+results. No second token store or legacy storage cleanup exists. After an unknown
+write outcome only a same-credential GET may recover complete; otherwise the UI
+shows uncertain and offers inspection, never an automatic POST replay. Rate
+denial/conflict and malformed response fields remain sanitized. A complete result
+does not grant resource authorization or unblock any unresolved MFA gate.

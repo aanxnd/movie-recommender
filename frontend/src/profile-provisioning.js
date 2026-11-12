@@ -1,7 +1,7 @@
-// UI contract only. Prompt 23 must implement the trusted authenticated backend adapter.
-/** @typedef {Readonly<{status: 'eligible'|'email-required'|'unavailable'}> |
+// Sanitized UI contract; the dormant profile-adapter uses the authenticated backend.
+/** @typedef {Readonly<{status: 'eligible'|'email-required'|'unavailable'|'cancelled'|'rate-limited'}> |
  * Readonly<{status: 'complete', username: string}>} ProfileInspection */
-/** @typedef {Readonly<{status: 'username-taken'|'email-required'|'unavailable'}> |
+/** @typedef {Readonly<{status: 'username-taken'|'email-required'|'unavailable'|'cancelled'|'rate-limited'|'uncertain'|'busy'}> |
  * Readonly<{status: 'complete', username: string}>} ProfileProvision */
 /** @typedef {Readonly<{
  * inspect(options: {signal: AbortSignal}): Promise<ProfileInspection>,
@@ -28,6 +28,7 @@ export function profileResult(value, operation) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return { status: 'unavailable' }
   if (value.status === 'complete' && Object.keys(value).sort().join(',') === 'status,username' && !usernameError(value.username))
     return Object.freeze({ status: 'complete', username: value.username })
-  const allowed = operation === 'inspect' ? ['eligible', 'email-required', 'unavailable'] : ['username-taken', 'email-required', 'unavailable']
+  const allowed = ['email-required', 'unavailable', 'cancelled', 'rate-limited',
+    ...(operation === 'inspect' ? ['eligible'] : ['username-taken', 'uncertain', 'busy'])]
   return Object.freeze({ status: Object.keys(value).join(',') === 'status' && allowed.includes(value.status) ? value.status : 'unavailable' })
 }
