@@ -1,0 +1,15 @@
+/* Imported only by dormant settings. */
+.auth-card .account-section + .account-section { border-top: 1px solid var(--line); margin-top: 32px; padding-top: 28px; }
+.account-section h2 { font: 500 28px/1.2 'Cormorant Garamond', Georgia, serif; margin-bottom: 16px; }
+.account-section > p { color: var(--muted); margin-bottom: 18px; }
+.account-review-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
+.account-lifecycle-dialog { width: min(520px, calc(100% - 40px)); max-height: calc(100svh - 40px); margin: auto; overflow: auto; border: 1px solid var(--line); border-radius: 18px; padding: 30px; color: var(--text); background: var(--surface); box-shadow: 0 24px 80px #0008; }
+.account-lifecycle-dialog::backdrop { background: #07100fbd; }
+.account-lifecycle-dialog h2 { font: 500 34px/1.1 'Cormorant Garamond', Georgia, serif; margin: 12px 0 20px; }
+.account-lifecycle-dialog > p, .account-lifecycle-dialog .auth-notice { margin-bottom: 20px; }
+.account-acknowledgement { display: flex; align-items: center; gap: 12px; min-height: 48px; font-size: 12px; }
+.account-acknowledgement input { flex: 0 0 20px; width: 20px; height: 20px; accent-color: var(--brass); }
+.account-lifecycle-dialog :focus-visible { outline: 2px solid var(--brass); outline-offset: 4px; }
+.account-lifecycle-dialog button { min-height: 44px; }
+.account-lifecycle-dialog :disabled { opacity: .6; cursor: not-allowed; }
+@media (max-width: 480px) { .account-lifecycle-dialog { padding: 24px; } .account-review-actions > button { flex: 1 1 100%; justify-content: center; } }

@@ -93,3 +93,62 @@ credential. The UI rejects a cached positive snapshot after logout/account switc
 It never automatically navigates or declares the requested address verified from
 URL text, null redirectType, current SDK metadata or an old callback result.
 Provider profile information remains separate from backend-authorized Movelle data.
+
+## Disable/delete: review-only controls, unavailable execution
+
+There is no application suspension state or approved lifecycle backend. Logout is
+neither disabling nor deletion; bounded issued-JWT validity remains. The native
+confirmation dialogs describe possible consequences, default focus to Cancel,
+trap keyboard focus and restore it on close. Account changes/logout close them.
+Acknowledgement is comprehension only, never ownership or reauthentication proof.
+The final buttons are unconditionally disabled and have **no destructive handler**.
+No service prop, environment flag or frontend checkbox enables either operation.
+`pendingAccountLifecycle` is a typed future boundary returning unavailable, not a
+working endpoint. Even explicit SDK sign-in does not authorize a lifecycle action.
+
+Before implementing disabling, the owner must choose whether it means Movelle-only
+suspension or also blocking provider login. Review the authoritative persisted
+state, enforcement at every personal read/write/group boundary, active sessions,
+reactivation and treatment of concurrent writes. Data/identity mappings remain
+intact here. An app-only flag cannot be presented as a Supabase login ban.
+
+Deletion requires separately reviewed server-side ownership/current-email/MFA and
+operation-specific reauthentication, confirmation, idempotent resumable coordination
+between Auth and Neon, and a barrier against concurrent username/rating/invitation
+writes. A request ID identifies a retry, not a subject or authorization grant.
+Do not promise a distributed atomic transaction or immediate JWT invalidation.
+Completion must be reconciled before reporting success; uncertainty stays pending.
+Review failure/retry ordering, session cleanup and any retained/tombstoned data.
+
+The owner must approve retention/privacy rules and exact referential-integrity
+behavior for the new subject's identity/profile, ratings and invitation capabilities.
+Saved movies are derived from ratings; no separate watchlist or persisted group
+model exists. Never touch another owner's rows, legacy users or public MovieLens
+reference data. Do not link old data by email. Prompt 23 provisioning must respect
+uniqueness and any future suspension/deletion state without recreating a deleted
+account through a stale request. No such state/model/schema is introduced now.
+
+Native [deleteUser](https://supabase.com/docs/reference/javascript/auth-admin-deleteuser)
+is an administrative server-only operation; it cannot be performed by this browser
+flow. Any future trusted coordinator/credential design requires owner review; no
+privileged key is requested, stored or activated here. No deletion, ban or SQL runs.
+The complete NIST assessment and original 16-stage audit must assess these gaps,
+not equate disabled controls or offline mocks with enforced lifecycle guarantees.
+
+## Offline review and activation gates
+
+`/browser/account-demo.html?screen=settings` composes all dormant panels with fixed
+synthetic services; `settings-pending` and `email-callback` preview uncertain flows.
+No provider/backend requests or mail occur. Mocked profile/username success is not
+server authorization evidence. Production entry/build remains unchanged. Run
+`npm test`, `npm run build` and `npm run test:browser -- account-settings`.
+Component fixtures disable Vite WebSockets; actual Chrome checks cover native
+dialog focus/Tab/Escape and desktop/mobile layouts.
+
+Before activation: approve exact origins/callbacks and hosted secure-email-change
+configuration, validate both inbox orders/partial callbacks, signed AMR shapes,
+retained timestamps, expiry/replay, resend/replacement behavior, throttling and
+Gmail delivery. Resolve factor completeness and provider-side reauth limitations.
+Implement/review authenticated profile reads, username CAS/uniqueness/idempotency
+and Prompt 23 interactions. Lifecycle execution remains blocked on the decisions
+above. Do not begin Prompt 20 or enable any production flow through this work.
