@@ -59,7 +59,9 @@ for (const phase of ['challenge', 'verify']) for (const change of ['cancel', 'lo
     if (change === 'logout') await f.session.logout()
     if (change === 'account ABA') {
       await f.client.auth.setSession(await f.sign({ sub: otherSubject }, 'password'))
+      assert.equal(f.session.getSnapshot().userId, otherSubject)
       await f.client.auth.setSession(f.first)
+      assert.equal(f.session.getSnapshot().userId, f.first.user.id)
     }
     if (change === 'refresh') await f.client.auth.setSession(await f.sign({}, 'password'))
     wait.resolve(phase === 'verify' ? json(f.state.promoted) : json({ id: factorId, type: 'totp', expires_at: Date.now()/1000+100 }))
@@ -74,4 +76,22 @@ test('pending factor can only become verified after fresh native verification', 
   assert.equal((await f.service.inspect()).status, 'pending')
   f.state.handler = url => { if (url.pathname.endsWith('/verify')) f.state.factors = [totp()] }
   assert.equal((await f.service.verify(factorId, '123456')).status, 'verified')
+})
+
+for (const claims of [{ session_id: '00000000-0000-0000-0000-000000000000' },
+  { exp: Math.floor(Date.now()/1000)-10 }, { iss: 'https://wrong.invalid/auth/v1' }])
+  test('native verification still rejects invalid signed security claims', async t => {
+    const f = await mfaFixture(t)
+    f.state.promoted = await f.sign({ aal: 'aal2', ...claims }, 'totp')
+    assert.notEqual((await f.service.verify(factorId, '123456')).status, 'verified')
+  })
+
+test('a broken secret-view cleanup cannot interrupt logout', async t => {
+  const { watchCredentialChanges } = await import('./supabase-client.js')
+  const f = await mfaFixture(t)
+  const stop = watchCredentialChanges(f.client, () => { throw new Error('private view diagnostic') })
+  t.after(stop)
+  await f.session.logout()
+  assert.equal(f.session.getSnapshot().status, 'unauthenticated')
+  assert.deepEqual(f.logs, [])
 })

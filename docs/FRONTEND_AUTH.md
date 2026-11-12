@@ -3,7 +3,9 @@
 No module here is mounted/imported by production `main.jsx` or the live API client.
 Existing anonymous browsing and legacy credentials stay unchanged. Dormant account
 screens are described in [Prompt 17](AUTH_SCREENS.md); no backend cutover,
-provisioning, MFA workflow or hosted setting is introduced.
+provisioning or hosted setting is introduced by Prompt 16.
+The separate [Prompt 20 TOTP service/screens](TOTP_MFA.md) remain dormant; unknown
+inventory blocks initial setup and account continuation. Backend policy is unchanged.
 The separate [Prompt 18 password journeys](PASSWORD_SECURITY.md) extend credential
 fences and reuse this SDK/provider; no additional token store or production mount.
 The [Prompt 19 settings](ACCOUNT_SETTINGS.md) distinguish native provider evidence

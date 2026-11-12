@@ -16,7 +16,8 @@ export function cancelCredentialRequests(client) {
   if (!record) return
   record.epoch++
   for (const request of record.pending) request.abort()
-  for (const listener of record.listeners) listener()
+  // A detached view must never prevent logout/credential invalidation.
+  for (const listener of record.listeners) { try { listener() } catch { /* No provider/view diagnostics. */ } }
 }
 
 // Internal credential cleanup observers, not additional SDK subscriptions.

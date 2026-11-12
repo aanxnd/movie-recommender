@@ -2,7 +2,8 @@
 
 No production routing, hosted configuration, account mutation, schema or backend
 authorization changes. The 26-prompt roadmap/audit remain owner-maintained; this
-implements Prompt 19 only. Prompt 23 provisioning and later MFA flows remain separate.
+implements Prompt 19 only. Prompt 23 provisioning and the separate dormant
+[Prompt 20 MFA flows](TOTP_MFA.md) remain outside these settings mutations.
 
 ## Native email changes
 

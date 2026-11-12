@@ -4,11 +4,12 @@
 .mfa-factors li { display: flex; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--line); padding: 14px 0; }
 .mfa-factors strong, .mfa-factors small { display: block; overflow-wrap: anywhere; }
 .mfa-factors small { opacity: .72; margin-top: 5px; }
-.mfa-setup { padding: 20px; margin: 24px 0; background: var(--paper); border: 1px solid var(--line); border-radius: 14px; }
+.mfa-setup { padding: 20px; margin: 24px 0; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
 .mfa-setup p { line-height: 1.6; }
 .mfa-qr { display: block; width: 180px; height: 180px; background: white; margin: 20px auto; padding: 10px; }
 .mfa-qr[hidden] { display: none; }
 .mfa-setup summary { cursor: pointer; text-decoration: underline; text-underline-offset: 4px; }
 .mfa-secret { display: block; overflow-wrap: anywhere; margin-top: 14px; letter-spacing: .08em; }
-.auth-field select { width: 100%; padding: 14px; border: 1px solid var(--line); border-radius: 8px; color: inherit; background: var(--paper); font: inherit; }
+.auth-field select { width: 100%; padding: 14px; border: 1px solid var(--line); border-radius: 8px; color: inherit; background: var(--bg); font: inherit; }
+.auth-field select:focus-visible { outline: 2px solid var(--brass); outline-offset: 4px; }
 @media (max-width: 480px) { .mfa-factors li { align-items: flex-start; } .mfa-setup { padding: 14px; } }

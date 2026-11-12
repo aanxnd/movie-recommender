@@ -10,8 +10,11 @@ const enrolled = () => ({ id: secondId, type: 'totp', totp: { secret,
   qr_code: svg, uri: 'otpauth://totp/Movelle:offline?secret=' + secret + '&issuer=Movelle' } })
 async function enrollmentFixture(t) {
   const f = await mfaFixture(t, { aal: 'aal2' })
-  f.state.handler = url => {
+  f.state.handler = (url, init) => {
     if (url.pathname.endsWith('/factors')) {
+      const request = JSON.parse(init.body)
+      assert.equal(request.factor_type, 'totp')
+      assert.match(request.friendly_name, /^Movelle authenticator [0-9a-f]{8}$/)
       f.state.factors.push(totp('unverified', secondId)); return json(enrolled())
     }
   }
