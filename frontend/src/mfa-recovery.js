@@ -68,7 +68,7 @@ export function createNativeMfaRecovery(config) {
     inspect: () => operation(undefined, async () => {
       const evidence = context ? await bound() : await read()
       const verified = evidence.factors.filter(f => f.status === 'verified')
-      return describe(evidence, context?.phase ?? (!verified.length ? 'abandoned-enrollment' :
+      return describe(evidence, context?.phase ?? (evidence.factors.some(f => f.status === 'unverified') ? 'abandoned-enrollment' :
         evidence.proof.aal === 'aal1' ? 'challenge-required' : verified.length > 1 ? 'alternative-factor-available' : 'verified-factor-present'))
     }),
     verifyAlternative(lostId, alternativeId, code, { signal } = {}) {

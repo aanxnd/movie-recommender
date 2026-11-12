@@ -36,7 +36,7 @@ for (const [name, factors, aal, expected] of [
   ['two registered', [totp(), totp('verified', secondId)], 'aal2', 'alternative-factor-available'],
   ['one registered', [totp()], 'aal2', 'verified-factor-present'],
   ['pending only', [totp('unverified')], 'aal1', 'abandoned-enrollment'],
-  ['one plus pending', [totp(), totp('unverified', secondId)], 'aal1', 'challenge-required'],
+  ['one plus pending', [totp(), totp('unverified', secondId)], 'aal1', 'abandoned-enrollment'],
   ['empty', [], 'aal1', 'inventory-unknown'],
   ['unsupported', [{ ...totp(), factor_type: 'phone' }], 'aal1', 'inventory-unknown'],
   ['duplicates', [totp(), totp()], 'aal1', 'inventory-unknown'],
