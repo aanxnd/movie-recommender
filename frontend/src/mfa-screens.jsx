@@ -14,7 +14,7 @@ const messages = {
   'invalid-code': 'The code was not accepted. Enter a fresh six-digit code from your authenticator.',
   'rate-limited': 'Too many attempts. Wait before trying again.',
   busy: 'Another security request is in progress. Please wait.',
-  removed: 'The authenticator was removed. Another verified authenticator remains.',
+  'removal-unavailable': 'Removal is unavailable here. Concurrent changes could leave you without a verified authenticator.',
   verified: 'This session passed native MFA verification. Protected features still require the server’s checks.',
   pending: 'An authenticator is not verified yet. Enrollment alone does not enable MFA.',
   'setup-pending': 'Setup is not complete. Add this key to your app, then enter its code.',
@@ -83,11 +83,11 @@ export function MfaScreen({ service, login = false }) {
     if (!scope) return
     f.form.current?.reset(); setRemoval(null)
     try {
-      const result = await service?.[kind]?.(...(kind === 'verify' ? [selection, value] : kind === 'remove' ? [value] : []), { signal: scope.signal })
+      const result = await service?.[kind]?.(...(kind === 'verify' ? [selection, value] : []), { signal: scope.signal })
       if (scope.signal.aborted || ticket !== epoch.current) return
       const status = messages[result?.status] ? result.status : 'unavailable'
       scope.report(status)
-      if (['verified', 'setup-pending', 'removed'].includes(status)) apply({ ...result, status: status === 'removed' ? 'verified' : status })
+      if (['verified', 'setup-pending'].includes(status)) apply(result)
       else setView({ status, factors: [] })
     } catch { if (!scope.signal.aborted && ticket === epoch.current) { scope.report('unavailable'); setView({ status: 'unavailable', factors: [] }) } }
     finally { scope.finish() }
@@ -134,9 +134,9 @@ export function MfaScreen({ service, login = false }) {
     <dialog ref={dialog} className="account-lifecycle-dialog" aria-labelledby={id + '-remove'} onKeyDown={containDialogFocus}
       onCancel={event => { event.preventDefault(); setRemoval(null) }}>
       <h2 id={id + '-remove'}>Remove this authenticator?</h2><p>{removal?.label}</p>
-      <p>This stops that app from verifying new challenges. Another verified factor must remain. Issued tokens may remain valid until expiry.</p>
+      <p>Losing all remaining authenticators may lock you out. Removal is unavailable because concurrent changes cannot safely preserve a verified factor. No factor will be deleted here.</p>
       <div className="account-review-actions"><button className="button-secondary" data-cancel onClick={() => setRemoval(null)}>Cancel</button>
-        <button className="button-primary" disabled={f.busy || !removal} onClick={() => act('remove', removal.id)}>Remove authenticator</button></div>
+        <button className="button-primary" disabled>Removal unavailable</button></div>
     </dialog>
   </AuthFrame>
 }

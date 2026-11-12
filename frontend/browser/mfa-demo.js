@@ -16,7 +16,7 @@ export function createMfaPreview(screen) {
       factors = [...factors, { id: 'offline-new', label: 'New authenticator', status: 'unverified' }]
       status = 'setup-pending'; available = true; return result()
     },
-    remove: async id => { factors = factors.filter(f => f.id !== id); status = 'verified'; return { ...result(), status: 'removed' } },
+    remove: async () => ({ status: 'removal-unavailable' }),
     presentSetup(mount) {
       if (!available) return () => {}
       const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120"><rect width="120" height="120" fill="white"/><path d="M10 10h30v30H10zM80 10h30v30H80zM10 80h30v30H10zM50 50h20v20H50zM80 80h10v30H80zM100 60h10v20h-10zM50 90h20v10H50z" fill="black"/></svg>'

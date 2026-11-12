@@ -57,17 +57,17 @@ test('QR and manual key exist only in the dedicated setup view and clear on canc
   assert.equal(document.querySelector('.mfa-qr'), null)
 })
 
-test('factor removal requires review, defaults focus to cancel and calls only selected factor', async t => {
+test('factor removal review defaults focus to cancel and cannot dispatch deletion', async t => {
   const f = await screen(t, 'verified')
   const prototype = f.dom.window.HTMLDialogElement.prototype
   prototype.showModal = function () { this.open = true }
   prototype.close = function () { this.open = false }
   await f.click('.mfa-factors button')
   assert.equal(document.activeElement.textContent, 'Cancel')
-  assert.match(document.querySelector('dialog').textContent, /Another verified factor must remain/)
-  await f.click('dialog .button-primary')
-  assert.deepEqual(f.calls.find(x => Array.isArray(x)), ['remove', 'a'])
-  assert.match(f.text(), /authenticator was removed/)
+  assert.match(document.querySelector('dialog').textContent, /No factor will be deleted/)
+  assert.equal(document.querySelector('dialog .button-primary').disabled, true)
+  assert.equal(f.calls.some(x => Array.isArray(x) && x[0] === 'remove'), false)
+  await f.click('dialog [data-cancel]')
   assert.equal(document.querySelector('dialog').open, false)
 })
 
