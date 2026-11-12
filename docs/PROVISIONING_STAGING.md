@@ -33,3 +33,24 @@ Production remains legacy-only and anonymous browsing is unchanged. Further
 Prompt 23 transaction, issuance-isolation and frontend changes are separate
 reviewable dependencies. No hosted changes, migrations or acceptance tests have
 been performed. Prompt 24 remains on hold at the staging checkpoint.
+
+## Transaction service
+
+`inspect_profile` performs a fresh subject-only lookup. `provision_profile`
+requires the trusted principal plus validated `ProfileInput`; no arbitrary
+idempotency key or legacy owner is accepted. A fresh short Session owns the whole
+User + UserIdentity transaction. The existing permanent capacity lock serializes
+creation with legacy registration; a post-lock subject recheck preserves retries
+at capacity. Database unique constraints remain final authority. No credentials,
+ratings, invitations or extra profile state are initialized. Sequence gaps after
+rollback are harmless; numeric sequences are never reset.
+
+Existing linkage wins without renaming. After any database exception the failed
+transaction closes before a fresh authoritative read. A committed subject is
+returned; an actual competing username is a sanitized 409; unknown outcomes are
+503, never an automatic second INSERT. Expiry is checked before work, before
+commit and before returning. An expired response after commit requires new
+authentication and inspection, not rollback of already-committed state.
+Schema 3 already supplies the constraints; **no migration is required**.
+Offline PostgreSQL tests exercise separate sessions/processes, capacity races,
+case collisions and lost acknowledgements; these are not hosted acceptance tests.

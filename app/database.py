@@ -122,13 +122,17 @@ def create_user(session: Session) -> User:
     return user
 
 
-def enforce_user_capacity(session: Session, maximum: int):
-    from fastapi import HTTPException
+def lock_user_capacity(session: Session):
     # A permanent singleton admission row serializes lifetime count+creation.
     # It is never removed by expired-counter cleanup and never deletes users.
     statement = conflict_insert(RateBucket, session.get_bind().dialect.name).values(
         key='profile-capacity', window=0, count=0, expires_at=2**63 - 1)
     session.execute(statement.on_conflict_do_update(index_elements=['key'], set_={'count': RateBucket.count}))
+
+
+def enforce_user_capacity(session: Session, maximum: int):
+    from fastapi import HTTPException
+    lock_user_capacity(session)
     if session.scalar(select(func.count()).select_from(User)) >= maximum:
         raise HTTPException(503, 'Demo profile storage capacity reached; contact the operator')
 
