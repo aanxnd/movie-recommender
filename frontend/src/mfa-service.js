@@ -54,7 +54,7 @@ export function createNativeMfa(config) {
         clearSetup()
         const assertCurrent = () => { current(); evidence.proof.assertCurrent() }
         const { data, error } = await runCredentialRequest(client, () => client.auth.mfa.enroll({
-          factorType: 'totp', friendlyName: 'Movelle authenticator' }),
+          factorType: 'totp', friendlyName: 'Movelle authenticator ' + crypto.randomUUID().slice(0, 8) }),
         { signal: combined, subject: evidence.proof.subject, assertCurrent })
         assertCurrent()
         if (error) throw error

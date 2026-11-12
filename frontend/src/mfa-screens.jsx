@@ -101,7 +101,7 @@ export function MfaScreen({ service, login = false }) {
   const challenge = usable && view.status !== 'verified' && (!login || view.factors.some(x => x.status === 'verified'))
   return <AuthFrame title={login ? 'One more step.' : 'A second layer of care.'}
     description={login ? 'Use your authenticator to finish this session’s security check.' : 'Optional authenticator protection, with you in control.'}>
-    <p className="auth-hint">Losing every enrolled authenticator may lock you out. Recovery guidance is a separate reviewed step.</p>
+    <p className="auth-hint">Keep another authenticator you can access independently. Losing every enrolled device may lock you out.</p>
     {!authenticated ? <AuthNotice>Sign in before managing authenticators.</AuthNotice> : <>
       <AuthNotice focus={Boolean(f.status)} error={!usable && Boolean(view)}>
         {messages[f.status] || messages[view?.status] || 'Checking your current authenticator evidence…'}

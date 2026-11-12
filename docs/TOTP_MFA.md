@@ -108,3 +108,22 @@ imperative sink and clear on teardown. Removal review focuses Cancel, traps keyb
 focus and explains bounded issued-token validity. Unknown evidence offers reinspection,
 not account continuation. Initial setup remains unavailable at the completeness gate.
 Native verified AAL2 is presentation, not fresh password proof or a backend access grant.
+
+## Offline preview and activation checklist
+
+Run `npm run dev:frontend` and open `/browser/account-demo.html?screen=mfa`,
+`mfa-login`, `mfa-unknown` or `mfa-error`. These are explicitly offline fixtures;
+the illustrative QR is not a usable authenticator credential. No SDK is bootstrapped.
+Chrome tests cover mobile/desktop keyboard continuation, removal dialog focus,
+final-factor denial, unknown evidence and setup-key cleanup. Production entry and
+build excludes MFA screens; neither previews nor frontend presentation grant access.
+
+Before activation, approve a minimal hosted test plan separately. Required gates:
+complete native inventory including proven no-factor semantics (first enrollment
+blocked until resolved); hosted Free QR/URI formats; native challenge replay/expiry
+and throttling; same-subject AAL2/session promotion and concurrent refresh/logout;
+multi-factor ownership/removal and abandonment; sensitive password/email restrictions;
+backend independent AAL/email/mapping/ownership; approved preview/production origins
+and email delivery. No hosted evidence is claimed from mocked HTTP or browser tests.
+NIST assessment and the full professional audit remain required; no compliance claim.
+Prompt 21 was not started. Merge review does not authorize deployment or activation.

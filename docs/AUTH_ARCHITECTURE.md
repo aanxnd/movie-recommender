@@ -1,8 +1,11 @@
 # Authentication architecture contract
 
-Status: **Prompts 1-18 merged; Prompt 19 dormant account settings under review.**
+Status: **Prompts 1-19 merged; Prompt 20 dormant TOTP implementation under review.**
 Authentication remains dormant. See [native callback integration](SIGNUP_CONFIRMATION.md)
-and [account settings](ACCOUNT_SETTINGS.md). The owner/ChatGPT maintains the
+and [account settings](ACCOUNT_SETTINGS.md), plus [native TOTP limits](TOTP_MFA.md).
+Initial enrollment remains blocked on complete native factor evidence; existing
+factor challenges/additional setup/removal are dormant and await hosted acceptance.
+The owner/ChatGPT maintains the
 implementation roadmap and original 16-stage audit separately. No production
 activation or hosted configuration change is authorized.
 

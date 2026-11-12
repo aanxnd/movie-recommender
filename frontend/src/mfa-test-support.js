@@ -23,5 +23,7 @@ export async function mfaFixture(t, options = {}) {
     return json({ message: 'unsupported offline operation' }, 400)
   })
   assert.equal((await f.client.auth.setSession(first)).error, null)
-  return { ...f, ...keys, state, first, service: createNativeMfa(f.config) }
+  const service = createNativeMfa(f.config)
+  t.after(() => service.cancel())
+  return { ...f, ...keys, state, first, service }
 }

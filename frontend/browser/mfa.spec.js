@@ -1,0 +1,57 @@
+import { test, expect } from '@playwright/test'
+
+test('offline MFA continuation supports keyboard factor selection at mobile and desktop sizes', async ({ page }) => {
+  const external = []
+  page.on('request', r => { if (/supabase|\/auth\/v1|\/users(?:\/|\?|$)/.test(r.url())) external.push(r.url()) })
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 1000 })
+    await page.goto('/browser/account-demo.html?screen=mfa-login')
+    const select = page.getByLabel('Authenticator', { exact: true })
+    await select.focus(); await page.keyboard.press('ArrowDown')
+    await page.keyboard.press('Tab')
+    const code = page.getByLabel('Six-digit authenticator code')
+    await expect(code).toBeFocused(); await expect(code).toHaveAttribute('type', 'password')
+    await code.fill('123456'); await page.keyboard.press('Enter')
+    const success = page.getByRole('status').filter({ hasText: 'session passed native MFA' })
+    await expect(success).toBeFocused(); await expect(code).toHaveCount(0)
+    await expect(page.locator('body')).not.toContainText('123456')
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  }
+  expect(external).toEqual([])
+})
+
+test('offline setup and removal review clear credentials and preserve a final factor', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 1000 })
+  await page.goto('/browser/account-demo.html?screen=mfa')
+  await page.getByRole('button', { name: 'Add an authenticator' }).click()
+  await expect(page.getByRole('status').filter({ hasText: 'Setup is not complete' })).toBeVisible()
+  await expect(page.getByRole('img', { name: 'Authenticator setup QR code' })).toBeVisible()
+  await page.getByText('Enter the setup key manually', { exact: true }).click()
+  await expect(page.locator('.mfa-secret')).toContainText('OFFLINEDEMONOTAREALKEY')
+  await page.getByRole('button', { name: 'Cancel setup and check again' }).click()
+  await expect(page.locator('body')).not.toContainText('OFFLINEDEMONOTAREALKEY')
+  await expect(page.locator('.mfa-qr')).toHaveCount(0)
+  await page.goto('/browser/account-demo.html?screen=mfa')
+  const review = page.getByRole('button', { name: 'Review removal' }).first()
+  await review.click()
+  const dialog = page.getByRole('dialog', { name: 'Remove this authenticator?' })
+  await expect(dialog.getByRole('button', { name: 'Cancel' })).toBeFocused()
+  await page.keyboard.press('Shift+Tab')
+  await expect(dialog.getByRole('button', { name: 'Remove authenticator', exact: true })).toBeFocused()
+  await page.keyboard.press('Escape'); await expect(review).toBeFocused()
+  await review.click(); await dialog.getByRole('button', { name: 'Remove authenticator', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Review removal' })).toBeDisabled()
+})
+
+test('unknown inventory and invalid codes never claim MFA completion', async ({ page }) => {
+  await page.goto('/browser/account-demo.html?screen=mfa-unknown')
+  await expect(page.getByRole('alert')).toContainText('incomplete')
+  await expect(page.getByRole('button', { name: 'Add an authenticator' })).toHaveCount(0)
+  await page.goto('/browser/account-demo.html?screen=mfa-error')
+  await page.getByLabel('Six-digit authenticator code').fill('123456')
+  await page.getByRole('button', { name: 'Verify authenticator' }).click()
+  await expect(page.getByRole('alert')).toBeFocused()
+  await expect(page.getByRole('alert')).toContainText('code was not accepted')
+  await expect(page.locator('body')).not.toContainText('123456')
+  await expect(page.locator('body')).not.toContainText('session passed native MFA')
+})

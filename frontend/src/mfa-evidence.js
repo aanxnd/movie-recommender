@@ -3,6 +3,7 @@ import { passwordEvidence, nativeUuid } from './password-evidence.js'
 
 /** @typedef {'not-authenticated'|'inventory-unknown'|'pending'|'challenge-required'|'verified'|'stale'|'unavailable'|'cancelled'|'busy'|'invalid-code'|'rate-limited'|'expired'|'removed'|'setup-pending'} MfaStatus */
 /** @typedef {Readonly<{id:string,label:string,status:'verified'|'unverified'}>} TotpFactor */
+/** @typedef {Readonly<{status:MfaStatus,factors?:ReadonlyArray<TotpFactor>,generation?:number}>} MfaObservation */
 export const mfaResult = (status, fields = {}) => Object.freeze({ ...fields, status })
 export function denyMfa(status) { throw Object.assign(new Error('Authenticator operation unavailable'), { mfaStatus: status }) }
 export function mfaFailure(error) {
