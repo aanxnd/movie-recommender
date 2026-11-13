@@ -79,7 +79,8 @@ class ProviderFixture:
         self.events.append((request.method, path))
         if self.outage: return self.error('fixture_outage', 503)
         try:
-            body = await request.json() if request.method in {'POST', 'PUT'} else {}
+            raw = await request.body()
+            body = json.loads(raw) if raw else {}
             if path == '.well-known/jwks.json': return {'keys': [self.jwk]}
             if path in {'signup', 'recover'}:
                 identifier = next((i for i, u in self.users.items() if u['email'] == body.get('email')), None)
@@ -101,7 +102,10 @@ class ProviderFixture:
                 if not self.users[identifier]['email_confirmed_at']: return self.error('email_not_confirmed')
                 return self.token(identifier)
             c = self.claims(request); user = self.users[c['sub']]
-            if path == 'logout': return {}
+            if path == 'logout':
+                self.refreshes = {key: value for key, value in self.refreshes.items()
+                                  if (value['sub'], value['session_id']) != (c['sub'], c['session_id'])}
+                return {}  # Already-issued JWTs retain bounded validity, matching the approved policy.
             if path == 'user':
                 if request.method == 'GET': return user
                 if any(f['status'] == 'verified' for f in user['factors']) and c['aal'] != 'aal2': return self.error('insufficient_aal', 401)

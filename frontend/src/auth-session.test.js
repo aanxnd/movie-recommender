@@ -40,6 +40,17 @@ test('a newer SDK event cannot be overwritten by late initial restoration', asyn
   assert.equal(f.session.getSnapshot().userId, 'user-b'); stop()
 })
 
+test('observed SDK logout stays distinct from initial absence and fences late restoration', async () => {
+  const f = fixture(), stop = f.session.subscribe(() => {})
+  await tick(); f.emit('SIGNED_OUT', null)
+  f.load.resolve({ data: { session: value() }, error: null }); await tick()
+  assert.equal(f.session.getSnapshot().status, 'unauthenticated')
+  assert.equal(f.session.getSnapshot().logoutOutcome, 'sdk-observed')
+  await assert.rejects(f.session.withAccess(() => true))
+  f.emit('SIGNED_IN', value()) // A subsequent explicit sign-in remains available.
+  assert.equal(f.session.getSnapshot().logoutOutcome, null); stop()
+})
+
 test('multiple consumers share one SDK subscription and unmounted restoration cannot publish', async () => {
   const f = fixture(), stop = f.session.subscribe(() => {}), another = f.session.subscribe(() => {})
   await tick(); stop(); assert.equal(f.counts.cleanup, 0)

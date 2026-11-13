@@ -9,7 +9,7 @@ export const callbackFailure = error => callbackResult(error?.status === 429 ? '
   error?.status === 0 || error?.status >= 500 ? 'unavailable' : 'invalid')
 
 // complete is trusted module code, not a caller/URL assertion. Store only its safe result.
-export function consumePkceCallback(config, purpose, complete) {
+export function consumePkceCallback(config, purpose, complete, prepare) {
   const browser = config.browser ?? globalThis.window
   if (!browser || typeof browser !== 'object') return Promise.resolve(callbackResult('unavailable'))
   const previous = handled.get(browser)
@@ -20,15 +20,18 @@ export function consumePkceCallback(config, purpose, complete) {
     browser.history.replaceState(null, '', '/') // Synchronous, before SDK construction/I/O.
   } catch { return Promise.resolve(callbackResult('unavailable')) }
   const promise = (async () => {
+    let release
     try {
       if (!url.search && !url.hash) return callbackResult('missing')
       if (url.href.length > 4096 || url.origin !== config.appOrigin || url.pathname !== '/' || url.hash ||
           [...url.searchParams].length !== 1 || !codePattern.test(url.searchParams.get('code'))) return callbackResult('invalid')
       const client = getBrowserSupabaseClient(config)
+      if (prepare) release = await prepare(client) // Trusted scheduling only, never authentication evidence.
       const { data, error } = await runCredentialRequest(client, () => client.auth.exchangeCodeForSession(url.searchParams.get('code')))
       if (error) return callbackFailure(error)
       return await complete(client, data)
     } catch { return callbackResult('unavailable') }
+    finally { release?.() }
   })()
   handled.set(browser, { purpose, promise }) // Failures are once-only too; no raw session retained here.
   return promise

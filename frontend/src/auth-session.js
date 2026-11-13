@@ -114,7 +114,9 @@ export function getSessionController(client) {
             if (event === 'SIGNED_OUT') {
               cancelCredentialRequests(client)
               locked = true; invalidate()
-              if (!signingOut) publish('unauthenticated')
+              // An observed SDK logout must not look like initial empty storage.
+              // Presentation/cancellation only; not proof of remote revocation.
+              if (!signingOut) publish('unauthenticated', null, 'sdk-observed')
               return
             }
             if (signingOut || (locked && !['SIGNED_IN', 'PASSWORD_RECOVERY'].includes(event))) return

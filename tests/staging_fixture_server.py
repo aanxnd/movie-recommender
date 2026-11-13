@@ -93,8 +93,8 @@ def staging_fixture(database_url, *, api_port=19001, provider_port=19002):
             directory = Path(stack.enter_context(TemporaryDirectory(prefix='movelle-staging-fixture-')))
             for filename, rows in [('movies.csv', [('movieId','title','genres'), (1,'First Film','Drama'),
                 (2,'Second Film','Drama'), (3,'Third Film','Drama'), (4,'Fourth Film','Drama'), (5,'Fifth Film','Drama')]),
-                ('ratings.csv', [('userId','movieId','rating'), (1,1,1),(1,2,5),(1,3,4),(1,4,3),(1,5,5),
-                                 (2,1,5),(2,2,1),(2,3,3),(2,4,5),(2,5,4)])]:
+                ('ratings.csv', [('userId','movieId','rating')] +
+                 [(uid, mid, 1+(uid+mid*2)%5) for uid in range(1, 26) for mid in range(1, 6)])]:
                 with (directory/filename).open('w', newline='', encoding='utf-8') as file: csv.writer(file).writerows(rows)
             (directory/'README.txt').write_text('Fictional offline integration data', encoding='utf-8')
             prepared = prepare_movielens(directory, directory/'prepared')
@@ -109,11 +109,19 @@ def staging_fixture(database_url, *, api_port=19001, provider_port=19002):
 
 
 if __name__ == '__main__':
+    marker = Path(__file__).resolve().parents[1]/'.pytest-tmp'/'staging-fixture.done'
+    marker.parent.mkdir(exist_ok=True); marker.unlink(missing_ok=True)
+    outcome = 'failed'
     try:
         with staging_fixture(os.environ['POSTGRES_TEST_URL']) as (_, _, stopped):
             signal.signal(signal.SIGTERM, lambda *_: stopped.set())
             signal.signal(signal.SIGINT, lambda *_: stopped.set())
             print('OFFLINE STAGING FIXTURE READY', flush=True)
             stopped.wait()
+        outcome = 'clean'
     except Exception:
         raise SystemExit('Offline staging fixture failed; no hosted request was made') from None
+    finally:
+        temporary = marker.with_suffix('.tmp')
+        temporary.write_text(outcome, encoding='utf-8')
+        temporary.replace(marker)  # Atomic process-lifecycle status, never identity/token evidence.

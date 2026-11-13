@@ -10,11 +10,11 @@ export function createPasswordRecovery(config = {}) {
 }
 
 // Trusted staging composition only. SDK response data never escapes the once-only consumer.
-export function createStagingRecoveryConsumer(config, nonRecovery) {
-  return recoveryConsumer(config, 'staging-account', nonRecovery)
+export function createStagingRecoveryConsumer(config, nonRecovery, prepare) {
+  return recoveryConsumer(config, 'staging-account', nonRecovery, prepare)
 }
 
-function recoveryConsumer(config, purpose, nonRecovery) {
+function recoveryConsumer(config, purpose, nonRecovery, prepare) {
   let current, attempt
   return Object.freeze({
     state: () => current?.state() ?? passwordResult('unproven'),
@@ -25,7 +25,7 @@ function recoveryConsumer(config, purpose, nonRecovery) {
         current = nativeRecovery(config, client)
         const result = await current.accept(data)
         return nonRecovery ? Object.freeze({ ...result, flow: 'recovery' }) : result
-      }).then(result => {
+      }, prepare).then(result => {
         if (result.status === 'verified' && !current) current = nativeRecovery(config, getBrowserSupabaseClient(config))
         return result
       }).catch(() => callbackResult('unavailable'))

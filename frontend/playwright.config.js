@@ -2,7 +2,7 @@ import { defineConfig } from '@playwright/test'
 
 export default defineConfig({
   testDir: './browser',
-  testIgnore: 'profile-provisioning.spec.js', // Uses approved Auth origin via its dedicated config.
+  testIgnore: ['profile-provisioning.spec.js', 'staging-integration.spec.js'], // Dedicated approved-origin configurations.
   workers: 1,
   timeout: 60000,
   expect: { timeout: 12000 },
