@@ -6,13 +6,25 @@ import { passwordEvidence, updateNativePassword, passwordFailure, passwordResult
 const recoveries = new WeakMap()
 /** Native recovery context stays private; components receive only safe statuses, never a grant/token. */
 export function createPasswordRecovery(config = {}) {
+  return recoveryConsumer(config, 'recovery')
+}
+
+// Trusted staging composition only. SDK response data never escapes the once-only consumer.
+export function createStagingRecoveryConsumer(config, nonRecovery) {
+  return recoveryConsumer(config, 'staging-account', nonRecovery)
+}
+
+function recoveryConsumer(config, purpose, nonRecovery) {
   let current, attempt
   return Object.freeze({
     state: () => current?.state() ?? passwordResult('unproven'),
     confirm() {
       // Even factory construction is lazy: URL scrubbing precedes SDK construction/initialization.
-      return attempt ??= consumePkceCallback(config, 'recovery', (client, data) => {
-        current = nativeRecovery(config, client); return current.accept(data)
+      return attempt ??= consumePkceCallback(config, purpose, async (client, data) => {
+        if (nonRecovery && data.redirectType !== 'recovery') return nonRecovery(client, data)
+        current = nativeRecovery(config, client)
+        const result = await current.accept(data)
+        return nonRecovery ? Object.freeze({ ...result, flow: 'recovery' }) : result
       }).then(result => {
         if (result.status === 'verified' && !current) current = nativeRecovery(config, getBrowserSupabaseClient(config))
         return result
