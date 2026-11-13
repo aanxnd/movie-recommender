@@ -8,15 +8,15 @@ The planned Supabase authentication launch is governed by the
 [architecture contract and open validation gates](docs/AUTH_ARCHITECTURE.md).
 The approved launch design uses optional standard TOTP with a second independent
 TOTP factor for backup recovery. Native MFA recovery codes are rejected for initial
-launch; Gmail SMTP production readiness remains open. Supabase auth is not active on application routes.
+launch; Gmail SMTP production readiness remains open. Supabase auth is not active on production routes.
 Schema version 3 adds dormant UUID/username identity mappings without changing legacy
-credentials, numeric IDs or ratings; no user linking or Supabase login runs yet.
-The standalone JWT verifier and existing-link identity resolver are dormant and grant no application access;
+credentials, numeric IDs or ratings; no production user linking or Supabase login runs yet.
+The JWT verifier and identity resolver are dormant in production; identity alone grants no access;
 [JWT verification limits](docs/AUTH_ARCHITECTURE.md#prompt-3a-dormant-jwt-verifier) apply to later integration.
 Read the [identity-resolution trust boundary](docs/AUTH_ARCHITECTURE.md#prompt-3b-dormant-identity-resolution)
 before future route integration; UUID type checking is not proof of authentication.
 The [dormant FastAPI dependency](docs/AUTH_ARCHITECTURE.md#prompt-3c-dormant-fastapi-dependency-activation-blocked)
-composes these foundations only in tests; protected-route activation remains blocked on security-policy review.
+composes these foundations in isolated staging/tests; production activation remains blocked.
 See the [standard Supabase policy](docs/AUTH_POLICY_EVIDENCE.md): native email
 confirmation, bounded JWT validity after logout, and optional TOTP. Public signup
 and anonymous browsing are planned; personal features require backend ownership
@@ -27,8 +27,12 @@ is implemented as a dormant helper. The full NIST assessment and original 16-sta
 audit remain required before launch.
 
 Prompt 17 adds [isolated account screens and profile-setup contracts](docs/AUTH_SCREENS.md),
-with an offline-only preview. They are not imported by production startup; real
+with an offline-only preview. They are not imported by production startup.
 Prompt 23 adds [dormant authoritative provisioning and the staging checkpoint](docs/PROVISIONING_STAGING.md).
+The [Stage 23 integration report](docs/STAGING_CHECKPOINT_REPORT.md) describes the
+separate local native-auth application, synthetic-provider tests and unapproved
+hosted acceptance/deployment. Use [explicit staging commands](docs/STAGING_INTEGRATION.md),
+not the legacy development launcher. Prompt 24 has not begun.
 
 Prompt 18 adds [dormant native password recovery and sensitive password changes](docs/PASSWORD_SECURITY.md).
 The screens remain outside production startup; hosted acceptance and MFA integration

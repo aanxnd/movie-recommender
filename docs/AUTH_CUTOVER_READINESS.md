@@ -8,8 +8,8 @@ cannot change these decisions. No code reads this file to select an auth provide
 | Area | Current state / evidence | Required before cutover |
 |---|---|---|
 | Live production boundary | Legacy opaque profile bearer remains active in `app/main.py`; browser persists `movelle.identity.v1`. | Preserve until a separately reviewed coherent replacement; no mixed-token fallback. |
-| Supabase boundary | Implemented but dormant: explicit SDK/controller and backend principal/policy/resolver. | Owner-approved integration with independent JWT/email/AAL and ownership checks. |
-| Prompt 23 provisioning | **Implemented, dormant, awaiting review**; subject-only principal, atomic schema-3 service, API factory and fenced frontend adapter. | [Staging checkpoint](PROVISIONING_STAGING.md), approved composition/configuration and hosted acceptance; no frontend metadata ownership. |
+| Supabase boundary | Dormant in production; explicit local staging composes SDK/controller and backend principal/policy/resolver. | Review local integration and obtain hosted JWT/email/AAL/ownership acceptance. |
+| Prompt 23 provisioning | **Merged, dormant in production**; subject-only principal, atomic schema-3 service and fenced adapter. | [Integration report](STAGING_CHECKPOINT_REPORT.md), approved configuration and hosted acceptance; no frontend metadata ownership. |
 | Existing users | **Not migrated or automatically linked**; credentials, IDs and data remain. | Owner decision on existing-user access/data disposition. No email/username/code/ID matching or implicit claiming. |
 | Hosted acceptance | **Incomplete**; offline tests are not hosted proof. | Separately approved Free-project tests with sanitized evidence; no hosted test authorization is implied here. |
 | Factor absence / initial enrollment | **Unresolved / blocked** for empty or omitted native inventory. | Supported authoritative completeness evidence/design review; no normalization to no MFA. |
@@ -18,7 +18,7 @@ cannot change these decisions. No code reads this file to select an auth provide
 | MFA-sensitive password/email updates | **Restricted**. AAL2 is not fresh password proof. | Reviewed native same-subject/session/operation reauthentication that preserves assurance and provider requirements. |
 | Redirects / email | Development root `http://127.0.0.1:5173/`; preview/production origins unapproved. Gmail production suitability open. | Exact owner-approved origins/redirects plus delivery, spam placement, sender limits and $0 abuse acceptance. |
 | Data/schema / rollback | Repository schema 3; no hosted version inspected. Earlier deployment evidence describes schema 2. | Verify current production privately, rehearse additive migration and secure schema-compatible rollback. No drops/backfill/reset. |
-| Pre-Prompt-24 staging | **Not deployed or authorized here; Prompt 24 not started**. | Owner-approved isolated deployment and initial integration review before Prompt 24; no automatic release. |
+| Pre-Prompt-24 staging | **Local real-app/PG tests with fictional Auth passed; no hosted acceptance/deployment. Prompt 24 not started**. | Review stacked integration PRs; approve exact private targets, cost/isolation and bounded provider tests separately. |
 | Full assessment/audit | Full NIST SP 800-63B-4 assessment and original 16-stage professional audit remain required. | Document controls, evidence and gaps; no compliance claim from SDK AAL/offline tests. |
 | Prompt 26 activation | **Not authorized**. | Explicit owner release/configuration/activation approval after all prior gates; no automatic merge/deploy. |
 

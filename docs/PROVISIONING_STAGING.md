@@ -1,5 +1,10 @@
 # Prompt 23: dormant provisioning and staging checkpoint
 
+Stage 23 follow-up: the explicitly selected local staging application now composes
+this API and frontend. See the [integration report](STAGING_CHECKPOINT_REPORT.md)
+and [current local commands](STAGING_INTEGRATION.md). Statements below about future
+bootstrap/cloud acceptance describe the original handoff; production remains dormant.
+
 ## Existing model and first boundary
 
 Baseline: `8616a68554fc710b02657190586e66d18332bb90`, schema 3. `users.id`
@@ -117,12 +122,13 @@ Configuration names (never credential values):
   `APP_ENV=development`; cloud production-mode validation requires HTTPS CORS/TLS.
 - Local tooling/test names: `MOVELLE_DEV_API_PORT`, `MOVELLE_DEV_INSTANCE`,
   `POSTGRES_TEST_URL` (disposable loopback only). Existing launchers compose the
-  legacy app, **not** a staged native-auth application.
+  legacy app, **not** a staged native-auth application. The new dedicated
+  `npm run dev:staging` uses only `MOVELLE_STAGING_*` inputs documented separately.
 
-No new enable flag exists. Future staging bootstrap must explicitly mount
+No production enable flag exists. The separate local staging bootstrap mounts
 `make_provisioning_router` with a fresh Session factory and approved origins, and
 inject `createProfileProvisioning` into the shared AuthProvider/ProfileSetupScreen.
-Review this composition before running it; simply setting env variables cannot
+Review the integration PRs before running it; simply setting env variables cannot
 activate dormant production code. Never wrap live POST `/users` as provisioning.
 
 Provider configuration to review privately: Confirm Email enabled, native
