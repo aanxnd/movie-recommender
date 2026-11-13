@@ -3,8 +3,8 @@ import test from 'node:test'
 import { JSDOM } from 'jsdom'
 import { createStagingRuntime } from './staging-runtime.js'
 import { getBrowserSupabaseClient } from './supabase-client.js'
-import { json, projectUrl, syntheticSession, subject } from './password-test-support.js'
-import { tick } from './auth-test-support.js'
+import { json, projectUrl, syntheticSession, subject, signingFixture, code } from './password-test-support.js'
+import { tick, deferred } from './auth-test-support.js'
 
 function config(t, fetcher, path = '/') {
   const dom = new JSDOM('', { url: 'http://127.0.0.1:5173' + path }); t.after(() => dom.window.close())
@@ -47,4 +47,56 @@ test('malicious callback parameters cannot turn staging bootstrap into a provide
   const runtime = createStagingRuntime(c); t.after(() => runtime.stop())
   assert.equal((await runtime.callbackResult).status, 'invalid')
   assert.equal(c.browser.location.href, 'http://127.0.0.1:5173/')
+})
+
+test('fresh bootstrap with a stored session restores before beginning the one PKCE exchange', async t => {
+  const keys = await signingFixture(), old = await keys.sign({}, 'password')
+  const confirmed = await keys.sign({ session_id: crypto.randomUUID() }, 'email_change')
+  Object.assign(confirmed.user, { is_anonymous: false, email_confirmed_at: '2026-01-01T00:00:00Z', factors: [] })
+  let exchanges = 0
+  const c = config(t, async url => {
+    const path = new URL(url).pathname
+    if (path.endsWith('/token')) { exchanges++; return json(confirmed) }
+    if (path.endsWith('/jwks.json')) return json(keys.jwks)
+    if (path.endsWith('/user')) return json(confirmed.user)
+    assert.fail('Unexpected provider request')
+  }, '/?code=' + code)
+  c.browser.localStorage.setItem('movelle.signup-confirmation', JSON.stringify({ ...old, expires_at: Math.floor(Date.now()/1000)+600 }))
+  c.browser.localStorage.setItem('movelle.signup-confirmation-code-verifier', JSON.stringify('synthetic-verifier'))
+  const runtime = createStagingRuntime(c); t.after(() => runtime.stop())
+  assert.equal(c.browser.location.href, 'http://127.0.0.1:5173/')
+  assert.deepEqual(await runtime.callbackResult, { status: 'current-confirmed', flow: 'email-change' })
+  assert.equal(runtime.session.getSnapshot().userId, subject); assert.equal(exchanges, 1)
+})
+
+test('explicit logout during restoration prevents deferred callback redemption', async t => {
+  const blocked = deferred(), calls = []
+  const c = config(t, async url => { calls.push(new URL(url).pathname); return json({}) }, '/?code=' + code)
+  c.storage = { getItem: key => key === 'movelle.signup-confirmation' ? blocked.promise : null,
+    setItem() {}, removeItem() {} }
+  const runtime = createStagingRuntime(c); t.after(() => runtime.stop())
+  const logout = runtime.session.logout()
+  assert.equal((await runtime.callbackResult).status, 'unavailable')
+  blocked.resolve(null); await logout
+  assert.equal(calls.filter(path => path.endsWith('/token')).length, 0)
+  assert.equal(runtime.session.getSnapshot().status, 'unauthenticated')
+})
+
+test('pinned SDK cross-tab logout during restoration prevents deferred callback redemption', async t => {
+  const blocked = deferred(), calls = []
+  const c = config(t, async url => {
+    const path = new URL(url).pathname; calls.push(path)
+    return json(path.endsWith('/token') ? syntheticSession() : {})
+  }, '/?code=' + code)
+  c.storage = { getItem: key => key === 'movelle.signup-confirmation' ? blocked.promise :
+    key.endsWith('-code-verifier') ? JSON.stringify('synthetic-verifier') : null,
+    setItem() {}, removeItem() {} }
+  const runtime = createStagingRuntime(c); t.after(() => runtime.stop())
+  // Exact pinned SDK incoming BroadcastChannel path; private method is test-only.
+  await getBrowserSupabaseClient(c).auth._notifyAllSubscribers('SIGNED_OUT', null, false)
+  blocked.resolve(null)
+  assert.equal((await runtime.callbackResult).status, 'unavailable')
+  assert.equal(calls.filter(path => path.endsWith('/token')).length, 0)
+  assert.equal(runtime.session.getSnapshot().status, 'unauthenticated')
+  assert.equal(runtime.session.getSnapshot().logoutOutcome, 'sdk-observed')
 })

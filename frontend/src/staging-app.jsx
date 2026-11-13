@@ -36,8 +36,10 @@ function Workspace({ runtime }) {
     lost: <MfaRecoveryScreen service={runtime.recovery} onManageAuthenticators={() => go('authenticators')} />,
     movies: <StagingMovies api={runtime.movies} onProfile={() => go(auth.status === 'authenticated' ? 'profile' : 'login')} />,
     callback: <AuthFrame title="Account link checked." description="Your account service and backend check access separately.">
-      <AuthNotice>{callback?.flow === 'email-change' ? 'Native current-email state: ' + callback.status :
-        'This link does not establish signup confirmation. Sign in to continue; account access is checked separately.'}</AuthNotice>
+      <AuthNotice>{['expired', 'invalid', 'unavailable', 'rate-limited'].includes(callback?.status) ?
+        'The link could not be used. It may have expired or already been handled. Start a new request when available.' :
+        callback?.flow === 'email-change' ? 'The account service checked your current email. Profile access still requires the backend checks.' :
+          'This link does not establish signup confirmation. Sign in to continue; account access is checked separately.'}</AuthNotice>
       <button onClick={() => go('login')}>Go to sign in</button></AuthFrame>,
   }
   return <><header className="staging-bar"><strong>PRIVATE LOCAL STAGING — NOT PRODUCTION</strong>
