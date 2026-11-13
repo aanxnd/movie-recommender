@@ -8,7 +8,7 @@ import { AccountLifecycleControls } from './account-lifecycle.jsx'
 import './account-settings.css'
 
 /** @param {{account?:import('./account-settings-contract.js').AccountSettingsService, emailSettings?:ReturnType<typeof import('./email-settings.js').createNativeEmailSettings>, children?:import('react').ReactNode}} props */
-export function AccountSettingsScreen({ account = pendingAccountSettings, emailSettings, children }) {
+export function AccountSettingsScreen({ account = pendingAccountSettings, emailSettings, children, readOnlyProfile = false }) {
   const auth = useAuth(), id = useId(), form = useRef(null), scope = useRef(null), active = useRef(false)
   const [view, setView] = useState({ status: 'loading', generation: -1 }), [retry, setRetry] = useState(0)
   const signedIn = auth.status === 'authenticated'
@@ -48,7 +48,7 @@ export function AccountSettingsScreen({ account = pendingAccountSettings, emailS
       {!signedIn ? <AuthNotice>Sign in to check your account settings.</AuthNotice> : current.status === 'loading' ?
         <AuthNotice>Checking profile access…</AuthNotice> : current.status === 'ready' ? <>
           <p>Your authorized profile: <strong>{current.username}</strong></p>
-          <form ref={form} onSubmit={submit} aria-busy={Boolean(current.busy)}>
+          {readOnlyProfile ? <p>Username editing is unavailable in this staging composition.</p> : <form ref={form} onSubmit={submit} aria-busy={Boolean(current.busy)}>
             <div className="auth-field"><label htmlFor={id}>New username</label>
               <input id={id} name="username" defaultValue={current.username} required minLength={3} maxLength={30}
                 pattern="[A-Za-z0-9_]{3,30}" autoComplete="off" autoCapitalize="none" spellCheck={false}
@@ -57,7 +57,7 @@ export function AccountSettingsScreen({ account = pendingAccountSettings, emailS
             {current.error && <AuthNotice error>{current.error}</AuthNotice>}
             {current.notice && <AuthNotice>{current.notice}</AuthNotice>}
             <button className="button-primary auth-submit" disabled={current.busy}>{current.busy ? 'Saving…' : 'Save username'}</button>
-          </form></> : <AuthNotice error={current.status === 'conflict'}>{
+          </form>}</> : <AuthNotice error={current.status === 'conflict'}>{
             current.status === 'conflict' ? 'Your profile changed during this request. Check again before choosing a username.' :
               ['email-required', 'reauthentication-required', 'mfa-required'].includes(current.status) ?
                 'The account service requires another security step. This update is unavailable until that step is supported.' :
