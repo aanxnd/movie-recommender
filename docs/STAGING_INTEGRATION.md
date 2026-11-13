@@ -41,6 +41,20 @@ unproven. No signup success is inferred from an old confirmation timestamp. Raw
 SDK response data never reaches React, and no publicly callable recovery-accept
 method or new verification ledger is introduced. The ordinary dormant standalone
 consumers preserve their contracts and share the existing once-only boundary.
+
+The separate `staging/index.html`/`staging-main.jsx` entry composes one native
+runtime and AuthProvider with signup/login, confirmation dispatch, profile setup,
+read-only profile settings, email/password services, TOTP challenge/enrollment and
+lost-device screens, plus the movie workspace. It accepts only the approved local
+origin and `/api`. `VITE_STAGING_SUPABASE_URL` and
+`VITE_STAGING_SUPABASE_PUBLISHABLE_KEY` are explicit public inputs; ambient
+production Supabase frontend variables cannot select this project. A dedicated
+Vite configuration/launcher follows; normal `npm run build` still builds the
+legacy production entry. Native SDK storage/controller remain the sole session
+owner. Callback scrubbing precedes SDK construction; a bootstrap subscription uses
+the same controller, not another auth store. Read-only settings adapt the owned
+username to a display snapshot; `revision=read-only` is never a write precondition
+or ownership assertion. Username editing/account lifecycle operations stay disabled.
 Known empty/omitted factor, initial-MFA, removal/recovery and sensitive-update
 restrictions remain. Native authentication is active only in explicitly created
 local staging applications/tests, never production. Offline provider fixtures do

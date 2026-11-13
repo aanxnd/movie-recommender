@@ -1,0 +1,5 @@
+.staging-bar { padding: 1rem; border-bottom: 1px solid currentColor; }
+.staging-bar nav { display: flex; flex-wrap: wrap; gap: .5rem; margin-block: 1rem; }
+.staging-bar button { padding: .5rem; border: 1px solid currentColor; border-radius: .25rem; }
+.staging-bar [aria-current] { text-decoration: underline; }
+.staging-bar :focus-visible { outline: 3px solid currentColor; outline-offset: 2px; }
