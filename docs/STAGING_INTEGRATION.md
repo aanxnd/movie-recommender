@@ -83,6 +83,20 @@ Do not click hosted account mutations until the exact test plan is approved.
 For a direct staging build, supply the two public `VITE_STAGING_*` variables above.
 The current composition deliberately accepts only the approved local origin;
 cloud origins/targets and a reviewed host/database allowlist require owner approval.
+
+## Local integration evidence categories
+
+`tests/staging_provider.py` is a fictional HTTP Auth simulator with ephemeral local
+ES256 keys and published synthetic OTP vectors. It is not a second application
+authentication service and is never imported by runtime/release code. The fixture
+owns a random schema in a validated disposable loopback PostgreSQL database. Real
+HTTP requests exercise the actual staging app, signature/current-email/AAL checks,
+provisioning, numeric ratings and shutdown. Only test code redirects the pinned
+project's transports to the simulator; no runtime environment flag permits this.
+Provider shapes, PKCE, MFA and mailbox events here are **simulated**, not proof of
+Supabase Free behavior, actual mail delivery or authenticator independence. Normal
+staging uses the unchanged TLS-pinned hosted provider transports, after approval.
+Both local launchers disable forwarded-header trust; no client header selects IP.
 Known empty/omitted factor, initial-MFA, removal/recovery and sensitive-update
 restrictions remain. Native authentication is active only in explicitly created
 local staging applications/tests, never production. Offline provider fixtures do
