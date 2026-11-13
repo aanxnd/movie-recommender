@@ -31,6 +31,16 @@ status changes. Existing raw-rating metadata, invitation capabilities and scoped
 group calculation are retained. Local staging disables external artwork keys and
 disk caches rather than silently using ambient production provider configuration;
 fallback covers still work. Personal Fanart-key UI remains unmounted in staging.
+
+The staging root has one PKCE consumer. It scrubs first and redeems once through
+the shared SDK, then reuses the existing recovery/email validators. A recovery
+hint still requires signed recovery AMR/session evidence; only that private
+continuation enables the password form. A null hint is ambiguous: email change
+requires its signed method and fresh user state, otherwise confirmation stays
+unproven. No signup success is inferred from an old confirmation timestamp. Raw
+SDK response data never reaches React, and no publicly callable recovery-accept
+method or new verification ledger is introduced. The ordinary dormant standalone
+consumers preserve their contracts and share the existing once-only boundary.
 Known empty/omitted factor, initial-MFA, removal/recovery and sensitive-update
 restrictions remain. Native authentication is active only in explicitly created
 local staging applications/tests, never production. Offline provider fixtures do

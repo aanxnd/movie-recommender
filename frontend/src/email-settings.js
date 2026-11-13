@@ -32,6 +32,20 @@ async function readEmail(client, proof, lease, signal) {
   return outcome(pending ? 'change-pending' : 'current-confirmed')
 }
 
+// Internal shared callback validator: cryptographic AMR/session binding and fresh
+// native user evidence are still required. No callback hint is confirmation proof.
+export async function inspectEmailCallback(config, client, data) {
+  if (data.redirectType !== null || !data.session || data.user?.id !== data.session.user?.id) return callbackResult('unproven')
+  try {
+    const session = getSessionController(client)
+    return await session.withAccess(async lease => {
+      const proof = await nativeEvidence(client, config, lease, 'email_change', data.session.access_token)
+      const result = await readEmail(client, proof, lease)
+      return Object.freeze({ ...callbackResult(result.status), generation: session.getSnapshot().generation })
+    })
+  } catch (error) { return callbackResult(passwordFailure(error).status) }
+}
+
 export function createNativeEmailSettings(config = {}) {
   let attempt
   const configured = () => {
@@ -71,17 +85,7 @@ export function createNativeEmailSettings(config = {}) {
       } finally { if (acquired) busy.delete(client) }
     },
     confirm() {
-      return attempt ??= consumePkceCallback(config, 'email-change', async (client, data) => {
-        if (data.redirectType !== null || !data.session || data.user?.id !== data.session.user?.id) return callbackResult('unproven')
-        try {
-          const session = getSessionController(client)
-          return await session.withAccess(async lease => {
-            const proof = await nativeEvidence(client, config, lease, 'email_change', data.session.access_token)
-            const result = await readEmail(client, proof, lease)
-            return Object.freeze({ ...callbackResult(result.status), generation: session.getSnapshot().generation })
-          })
-        } catch (error) { return callbackResult(passwordFailure(error).status) }
-      })
+      return attempt ??= consumePkceCallback(config, 'email-change', (client, data) => inspectEmailCallback(config, client, data))
     },
   })
 }
