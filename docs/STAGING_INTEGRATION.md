@@ -19,7 +19,7 @@ Staging provides ratings/profile/invitation and personal/group recommendation HT
 operations. Computation reuses the unchanged production mathematics; database
 transactions close before CPU work. Group consent uses the existing scoped native
 invitation helpers, never legacy authentication. Raw peer ratings stay private.
-Frontend integration follows as separate reviewed PRs.
+Frontend integration is included in the dependent review stack below.
 
 The separate staging movie workspace reuses Library, CatalogueExplore,
 Recommendations and ArtworkProvider through explicit API injection. Their default
@@ -41,6 +41,10 @@ unproven. No signup success is inferred from an old confirmation timestamp. Raw
 SDK response data never reaches React, and no publicly callable recovery-accept
 method or new verification ledger is introduced. The ordinary dormant standalone
 consumers preserve their contracts and share the existing once-only boundary.
+The staging-only scheduling hook waits for the existing controller's initial
+restoration before credential fencing/redemption. It does not establish identity;
+logout/unavailable states abort without redemption. This fixes a real stored-session
+email-change callback race without weakening the credential fence.
 
 The separate `staging/index.html`/`staging-main.jsx` entry composes one native
 runtime and AuthProvider with signup/login, confirmation dispatch, profile setup,
@@ -101,3 +105,8 @@ Known empty/omitted factor, initial-MFA, removal/recovery and sensitive-update
 restrictions remain. Native authentication is active only in explicitly created
 local staging applications/tests, never production. Offline provider fixtures do
 not establish hosted Supabase behavior. No hosted tests/deployments are authorized.
+
+The [checkpoint report](STAGING_CHECKPOINT_REPORT.md) records 11 real Chrome
+composition journeys, PG isolation/cleanup, regression evidence, exact review
+commits and remaining approval gates. CI also builds staging and runs this isolated
+browser checkpoint; its fictional provider is never hosted acceptance evidence.

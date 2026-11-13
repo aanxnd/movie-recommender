@@ -1,7 +1,9 @@
 # Authentication architecture contract
 
-Status: **Prompts 1-21 merged; Prompt 22 retirement preparation under review.**
-Authentication remains dormant. See [native callback integration](SIGNUP_CONFIRMATION.md)
+Status: **Prompts 1-23 merged; Stage 23 isolated integration under review. Prompt 24 on hold.**
+Native authentication remains dormant in production. The explicitly selected
+[local staging composition](STAGING_CHECKPOINT_REPORT.md) exercises these components
+without production cutover. See [native callback integration](SIGNUP_CONFIRMATION.md)
 and [account settings](ACCOUNT_SETTINGS.md), plus [native TOTP limits](TOTP_MFA.md).
 Initial enrollment remains blocked on complete native factor evidence; existing
 factor challenges/additional setup are dormant and await hosted acceptance.
@@ -59,7 +61,8 @@ supplied names need a later ownership/collision review; never silently import or
 rename them. Numeric IDs, sequences, ratings, recommendation inputs, credentials
 and group invitations remain untouched. Referential integrity rejects orphan links.
 
-Prompt 23 adds an unmounted [atomic provisioning service/API](PROVISIONING_STAGING.md).
+Prompt 23 adds an [atomic provisioning service/API](PROVISIONING_STAGING.md),
+mounted only in the explicit local staging composition, never production.
 New-account provisioning creates a fresh local user and unique subject/username
 mapping; never transfer existing users or their data. An identity row alone grants no access. Legacy
 authentication remains unchanged. Migrations from versions 1/2 are additive,
