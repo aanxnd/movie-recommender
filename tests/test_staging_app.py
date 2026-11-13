@@ -122,3 +122,24 @@ def test_staging_never_automatically_upgrades_an_old_schema(pg_engine, api_paths
     with pytest.raises(ValueError, match='migration required'):
         with TestClient(application): pass
     with Session(pg_engine) as session: assert session.get(SchemaVersion, 1).version == 2
+
+
+@pytest.mark.parametrize('forbidden', ['schema', 'artwork'])
+def test_staging_startup_never_calls_migrator_or_ambient_artwork(pg_engine, api_paths, monkeypatch, forbidden):
+    from app import artwork, database, migrations
+    def unexpected(*args, **kwargs):
+        pytest.fail('Staging used a legacy initializer')
+    if forbidden == 'schema':
+        monkeypatch.setattr(database, 'create_schema', unexpected)
+        monkeypatch.setattr(migrations, 'migrate', unexpected)
+    else:
+        monkeypatch.setattr(artwork, 'configure', unexpected)
+    for name in ('TRAKT_CLIENT_ID', 'FANART_API_KEY', 'MOVELLE_ARTWORK_LINKS', 'MOVELLE_ARTWORK_CACHE_DIR'):
+        monkeypatch.setenv(name, 'audit-synthetic-production-input')
+    application = create_staging_app(prepared_dir=api_paths[0],
+        database_url=pg_engine.url.render_as_string(hide_password=False),
+        project_url='https://' + 'a' * 20 + '.supabase.co', publishable_key='sb_publishable_offline')
+    with TestClient(application) as client:
+        assert client.get('/ready').status_code == 200
+        store = application.state.artwork
+        assert store.trakt_id == store.fanart_key == '' and store.cache is None

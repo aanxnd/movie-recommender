@@ -1,11 +1,11 @@
 """Separate, explicit local staging factory. No production flag, default app or hosted I/O on import."""
 from contextlib import asynccontextmanager
 
-from fastapi import HTTPException, Request, Response
+from fastapi import Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
-from app import artwork, config, database, limits
+from app import artwork, config, limits
 from app.main import create_app
 from app.migrations import check_schema
 from app.provisioning_routes import make_provisioning_router
@@ -24,7 +24,10 @@ def create_staging_app(*, prepared_dir, database_url, project_url, publishable_k
     if config.production():
         raise ValueError('Local staging cannot use production mode')
     url = local_staging_url(database_url)
-    application = create_app(prepared_dir=prepared_dir, database_url=url.render_as_string(hide_password=False))
+    def keyless_artwork(app):
+        app.state.artwork = artwork.ArtworkStore(app.state.catalog)
+    application = create_app(prepared_dir=prepared_dir, database_url=url.render_as_string(hide_password=False),
+                             schema_initializer=check_schema, artwork_initializer=keyless_artwork)
     # Reuse public algorithms/lifespan/middleware, retaining NO legacy private
     # handler. An allowlist means a new production route cannot leak into staging.
     application.router.routes = [r for r in application.routes if getattr(r, 'path', None) in PUBLIC
@@ -38,13 +41,13 @@ def create_staging_app(*, prepared_dir, database_url, project_url, publishable_k
 
     @asynccontextmanager
     async def lifespan(app):
-        engine = database.create_database_engine(database_url=url.render_as_string(hide_password=False))
         try:
-            check_schema(engine)  # Explicit initialization required; no startup migration.
-        finally:
-            engine.dispose()
-        async with inherited(app):
-            yield
+            # The shared lifecycle checks schema 3 directly, never its legacy
+            # development migrator or ambient production artwork configuration.
+            async with inherited(app):
+                yield
+        except Exception:
+            raise RuntimeError('Staging preflight failed; privately verify the isolated schema-3 database') from None
     application.router.lifespan_context = lifespan
 
     def sessions():
