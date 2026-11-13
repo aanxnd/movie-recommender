@@ -9,6 +9,8 @@
     "test:dev": "node scripts/check-dev-lifecycle.mjs",
     "dev": "node scripts/dev.mjs",
     "dev:frontend": "vite",
+    "dev:staging": "node scripts/staging.mjs",
+    "build:staging": "vite build --config vite.staging.config.js",
     "build": "vite build",
     "preview": "vite preview"
   },

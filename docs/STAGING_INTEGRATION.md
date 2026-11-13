@@ -55,6 +55,34 @@ owner. Callback scrubbing precedes SDK construction; a bootstrap subscription us
 the same controller, not another auth store. Read-only settings adapt the owned
 username to a display snapshot; `revision=read-only` is never a write precondition
 or ownership assertion. Username editing/account lifecycle operations stay disabled.
+
+## Explicit local run/build (no hosted approval implied)
+
+Privately set `MOVELLE_STAGING_DATABASE_URL` to a disposable loopback PostgreSQL
+database named `movelle_staging_local` (or another `movelle_staging_` name),
+`MOVELLE_STAGING_PREPARED_DIR` to verified local prepared MovieLens, and
+`MOVELLE_STAGING_SUPABASE_URL`/`MOVELLE_STAGING_PUBLISHABLE_KEY` to the approved
+development project's public configuration. Never paste the database URL into
+commands/reports. No production database/SMTP/administrative credential is needed.
+
+From repository root, explicitly initialize/check only that local database:
+`.venv/Scripts/python.exe -m app.staging_entry init` then
+`.venv/Scripts/python.exe -m app.staging_entry check` (POSIX: `.venv/bin/python`).
+Prepare repository Small locally if needed:
+`.venv/Scripts/python.exe scripts/prepare_movielens.py --source data --output .pytest-tmp/staging-prepared`.
+From `frontend`, run `npm run dev:staging`. The dedicated launcher checks ports,
+starts only loopback native API 8011 and frontend 5173, verifies health/readiness
+through the proxy, and stops both on Ctrl+C or component failure. It passes an
+allowlisted OS/staging environment, not ambient production/cloud secrets. API
+access logs are disabled and preflight/unexpected failures have redacted errors.
+It does not create a database/container, send email or configure hosted services.
+Do not click hosted account mutations until the exact test plan is approved.
+
+`npm run build:staging` uses the explicit staging HTML/config and writes only
+`frontend/dist-staging`; normal `npm run build` still writes the production build.
+For a direct staging build, supply the two public `VITE_STAGING_*` variables above.
+The current composition deliberately accepts only the approved local origin;
+cloud origins/targets and a reviewed host/database allowlist require owner approval.
 Known empty/omitted factor, initial-MFA, removal/recovery and sensitive-update
 restrictions remain. Native authentication is active only in explicitly created
 local staging applications/tests, never production. Offline provider fixtures do
