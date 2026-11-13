@@ -113,9 +113,13 @@ def compute_recommendations(*args, **kwargs):
 def create_app(
     prepared_dir: Path | None = None,
     database_path: Path | None = None,
-    *, database_url: str | None = None,
+    *, database_url: str | None = None, schema_initializer=None, artwork_initializer=None,
 ) -> FastAPI:
-    """Explicit database arguments override environment production configuration."""
+    """Explicit database arguments override environment production configuration.
+
+    Initializers are trusted composition hooks, never environment/request inputs.
+    Omitted hooks preserve the production and legacy-development lifecycle.
+    """
     prepared_dir = Path(prepared_dir) if prepared_dir is not None else Path(
         os.environ.get("MOVIELENS_PREPARED_DIR", str(DEFAULT_DATA_DIR / "prepared" / "ml-32m-v1"))
     )
@@ -141,10 +145,12 @@ def create_app(
                 ) for row in historical.catalog["movies"]
             }
             application.state.release_years = historical.release_years
-            artwork.configure(application)
+            (artwork_initializer or artwork.configure)(application)
             application.state.genres = historical.genres
             engine = database.create_database_engine(database_path, database_url=database_url)
-            if config.production():
+            if schema_initializer is not None:
+                schema_initializer(engine)
+            elif config.production():
                 from app.migrations import check_schema
                 check_schema(engine)
             else:
