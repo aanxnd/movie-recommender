@@ -11,6 +11,7 @@ from app.migrations import check_schema
 from app.provisioning_routes import make_provisioning_router
 from app.staging_database import local_staging_url
 from app.staging_profiles import profile_router
+from app.staging_recommendations import recommendation_router
 from app.supabase_auth import make_supabase_auth_dependency
 
 
@@ -55,6 +56,7 @@ def create_staging_app(*, prepared_dir, database_url, project_url, publishable_k
     authenticate = make_supabase_auth_dependency(project_url=project_url, audience=audience,
         publishable_key=publishable_key, session_factory=sessions)
     application.include_router(profile_router(authenticate))
+    application.include_router(recommendation_router(authenticate))
     application.include_router(make_provisioning_router(project_url=project_url, audience=audience,
         publishable_key=publishable_key, session_factory=sessions, allowed_origins=[ORIGIN]))
 
