@@ -15,8 +15,11 @@ random isolated CI schemas in the `disposable` database are also permitted.
 No hosted database URL or startup migration is accepted. Native personal artwork
 uses native authentication, not the production legacy handler.
 
-This first dependency provides ratings/profile/invitation HTTP operations.
-Recommendation/group and frontend integration follow as separate reviewed PRs.
+Staging provides ratings/profile/invitation and personal/group recommendation HTTP
+operations. Computation reuses the unchanged production mathematics; database
+transactions close before CPU work. Group consent uses the existing scoped native
+invitation helpers, never legacy authentication. Raw peer ratings stay private.
+Frontend integration follows as separate reviewed PRs.
 Known empty/omitted factor, initial-MFA, removal/recovery and sensitive-update
 restrictions remain. Native authentication is active only in explicitly created
 local staging applications/tests, never production. Offline provider fixtures do
