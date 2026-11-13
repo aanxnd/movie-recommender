@@ -119,7 +119,7 @@ def test_staging_never_automatically_upgrades_an_old_schema(pg_engine, api_paths
     with Session(pg_engine) as session, session.begin(): session.get(SchemaVersion, 1).version = 2
     application = create_staging_app(prepared_dir=api_paths[0], database_url=pg_engine.url.render_as_string(hide_password=False),
         project_url='https://' + 'a' * 20 + '.supabase.co', publishable_key='sb_publishable_offline')
-    with pytest.raises(ValueError, match='migration required'):
+    with pytest.raises(RuntimeError, match='Staging preflight failed'):
         with TestClient(application): pass
     with Session(pg_engine) as session: assert session.get(SchemaVersion, 1).version == 2
 
