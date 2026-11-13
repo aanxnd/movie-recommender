@@ -37,3 +37,4 @@ frontend/dist/
 
 # Unused font variant retained locally from design exploration.
 /frontend/public/fonts/cormorant-garamond-italic.woff2
+/frontend/dist-staging/

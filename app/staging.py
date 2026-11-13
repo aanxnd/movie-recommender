@@ -66,7 +66,12 @@ def create_staging_app(*, prepared_dir, database_url, project_url, publishable_k
         if origins and origins != [ORIGIN]:
             from fastapi.responses import JSONResponse
             return JSONResponse({'detail': 'Origin not permitted'}, status_code=403, headers={'Cache-Control': 'no-store'})
-        response = await call_next(request)
+        try:
+            response = await call_next(request)
+        except Exception:
+            from fastapi.responses import JSONResponse
+            return JSONResponse({'detail': 'Staging operation unavailable'}, status_code=503,
+                                headers={'Cache-Control': 'no-store'})
         response.headers['Cache-Control'] = 'no-store'
         return response
 
