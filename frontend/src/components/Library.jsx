@@ -6,6 +6,7 @@ import { EmptyState, SectionHeading, Skeletons } from './ui.jsx'
 import CatalogueExplore from './CatalogueExplore.jsx'
 
 export default function Library({
+  api = request,
   user,
   ratings,
   pendingRatings,
@@ -22,6 +23,7 @@ export default function Library({
   headingAs = 'h2',
   focusRequest = 0,
   findRequest,
+  ratingsRevision,
 }) {
   const [view, setView] = useState(requestedView)
   const [query, setQuery] = useState('')
@@ -43,6 +45,9 @@ export default function Library({
   useEffect(() => {
     setView(requestedView)
   }, [requestedView])
+  useEffect(() => {
+    if (result?.query) findMovies(result.query)
+  }, [ratingsRevision]) // Explicit staging refresh; production's undefined value stays unchanged.
 
   function changeView(next) {
     setView(next)
@@ -66,12 +71,12 @@ export default function Library({
     controller.current = current
     setBusy(true)
     try {
-      let movies = await request(
+      let movies = await api(
         `/movies/search?q=${encodeURIComponent(title.trim())}&limit=30`,
         { signal: current.signal },
       )
       if (user && movies.length) {
-        const saved = await request(`/users/${user.id}/ratings/lookup`, {
+        const saved = await api(`/users/${user.id}/ratings/lookup`, {
           token: user.token,
           method: 'POST',
           body: { movie_ids: movies.map((movie) => movie.movie_id) },
@@ -164,6 +169,7 @@ export default function Library({
           {busy && <Skeletons label="Searching the catalogue…" />}
           {!busy && !error && !result && (
             <CatalogueExplore
+              api={api}
               onPick={(movie) => {
                 setQuery(movie.title)
                 findMovies(movie.title)

@@ -14,6 +14,7 @@ const modes = {
 }
 
 export default function Recommendations({
+  api = request,
   user,
   revision,
   requestedMode,
@@ -42,7 +43,7 @@ export default function Recommendations({
     const current = new AbortController()
     setDecadesBusy(true)
     setDecadesError('')
-    request('/movies/decades', { signal: current.signal })
+    api('/movies/decades', { signal: current.signal })
       .then((values) => {
         if (!current.signal.aborted) setDecades(values)
       })
@@ -53,7 +54,7 @@ export default function Recommendations({
         if (!current.signal.aborted) setDecadesBusy(false)
       })
     return () => current.abort()
-  }, [decadesReload])
+  }, [decadesReload, api])
 
   useEffect(() => {
     controller.current?.abort()
@@ -127,7 +128,7 @@ export default function Recommendations({
       }
       setBusy(true)
       inFlight.current = true
-      const movies = await request(path, {
+      const movies = await api(path, {
         ...options,
         token: user?.token,
         signal: current.signal,

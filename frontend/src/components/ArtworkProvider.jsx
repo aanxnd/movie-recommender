@@ -3,7 +3,7 @@ import { request } from '../api.js'
 import FilmDialog from './FilmDialog.jsx'
 import { ArtworkContext } from '../artwork.js'
 
-export default function ArtworkProvider({ children, onFind, user }) {
+export default function ArtworkProvider({ children, onFind, user, api = request }) {
   const [items, setItems] = useState(new Map())
   const [selectedCovers, setSelectedCovers] = useState(new Map())
   const reportCover = useCallback((id, choice) => setSelectedCovers(previous => {
@@ -17,7 +17,7 @@ export default function ArtworkProvider({ children, onFind, user }) {
   const session = useMemo(() => ({
     controller: new AbortController(), known: new Set(), queue: new Set(), timer: null, running: false,
     personalKey, token: personalOwner,
-  }), [personalKey, personalOwner])
+  }), [personalKey, personalOwner, api])
   const current = useRef(session)
   current.current = session
   useLayoutEffect(() => {
@@ -36,7 +36,7 @@ export default function ArtworkProvider({ children, onFind, user }) {
     const controller = session.controller
     let rows = []
     try {
-      const reply = await request('/movies/artwork', {
+      const reply = await api('/movies/artwork', {
         method: 'POST', token: session.personalKey ? session.token : undefined,
         body: { movie_ids: batch, ...(session.personalKey ? { personal_key: session.personalKey } : {}), ...(details ? { include_credits: true } : {}) },
         signal: controller.signal, timeoutMs: 30000,
@@ -61,7 +61,7 @@ export default function ArtworkProvider({ children, onFind, user }) {
       }
       return next
     })
-  }, [session])
+  }, [session, api])
   const enqueue = useCallback(movie => {
     if (session.known.has(movie.movie_id)) return
     session.known.add(movie.movie_id)

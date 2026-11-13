@@ -101,23 +101,23 @@ function FilmShelf({ movies, title, onPick }) {
   )
 }
 
-function GenreShelf({ genre, title, onPick }) {
+function GenreShelf({ genre, title, onPick, api }) {
   const [movies, setMovies] = useState([])
   useEffect(() => {
     const controller = new AbortController()
-    request(`/recommendations/genre/${encodeURIComponent(genre)}?limit=10`, {
+    api(`/recommendations/genre/${encodeURIComponent(genre)}?limit=10`, {
       signal: controller.signal,
     })
       .then(setMovies)
       .catch(() => {})
     return () => controller.abort()
-  }, [genre])
+  }, [genre, api])
   return movies.length ? (
     <FilmShelf movies={movies} title={title} onPick={onPick} />
   ) : null
 }
 
-export default function CatalogueExplore({ onPick }) {
+export default function CatalogueExplore({ onPick, api = request }) {
   const [movies, setMovies] = useState([])
   const [busy, setBusy] = useState(true)
   const [error, setError] = useState('')
@@ -133,7 +133,7 @@ export default function CatalogueExplore({ onPick }) {
     const path = genre
       ? `/recommendations/genre/${encodeURIComponent(genre)}?limit=16`
       : '/recommendations/popular?limit=16'
-    request(path, { signal: controller.signal })
+    api(path, { signal: controller.signal })
       .then((data) => {
         if (!controller.signal.aborted) setMovies(data)
       })
@@ -144,7 +144,7 @@ export default function CatalogueExplore({ onPick }) {
         if (!controller.signal.aborted) setBusy(false)
       })
     return () => controller.abort()
-  }, [revision, genre])
+  }, [revision, genre, api])
   return (
     <div className="catalogue-explore">
       <div className="discovery-genres" aria-label="Discover by genre">
@@ -186,8 +186,9 @@ export default function CatalogueExplore({ onPick }) {
           />
           {!genre && (
             <>
-              <GenreShelf genre="Thriller" title="Thrillers" onPick={pick} />
+              <GenreShelf genre="Thriller" title="Thrillers" onPick={pick} api={api} />
               <GenreShelf
+                api={api}
                 genre="Sci-Fi"
                 title="Science fiction"
                 onPick={pick}

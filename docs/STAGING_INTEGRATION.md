@@ -20,6 +20,17 @@ operations. Computation reuses the unchanged production mathematics; database
 transactions close before CPU work. Group consent uses the existing scoped native
 invitation helpers, never legacy authentication. Raw peer ratings stay private.
 Frontend integration follows as separate reviewed PRs.
+
+The separate staging movie workspace reuses Library, CatalogueExplore,
+Recommendations and ArtworkProvider through explicit API injection. Their default
+production transport is unchanged. Staging sends private calls through the shared
+native lease/controller; it rejects legacy token/header overrides, never restores
+`movelle.identity.v1`, and does not replay mutations. Numeric display identity comes
+only from authenticated `/users/me`. Workspace state is discarded on generation/
+status changes. Existing raw-rating metadata, invitation capabilities and scoped
+group calculation are retained. Local staging disables external artwork keys and
+disk caches rather than silently using ambient production provider configuration;
+fallback covers still work. Personal Fanart-key UI remains unmounted in staging.
 Known empty/omitted factor, initial-MFA, removal/recovery and sensitive-update
 restrictions remain. Native authentication is active only in explicitly created
 local staging applications/tests, never production. Offline provider fixtures do
