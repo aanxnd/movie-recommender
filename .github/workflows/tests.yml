@@ -47,6 +47,17 @@ jobs:
           PY
       - name: Run complete pytest suite
         run: python -m pytest -q -p no:cacheprovider
+      - name: Build private image and verify unapproved startup is refused
+        run: |
+          cp deploy/private-stage23/targets.example.json deploy/private-stage23/targets.reviewed.json
+          docker build -f deploy/private-stage23/Dockerfile -t movelle-private:ci .
+          python - <<'PY'
+          import subprocess
+          result = subprocess.run(['docker', 'run', '--rm', 'movelle-private:ci'], capture_output=True, text=True, timeout=30)
+          assert result.returncode != 0
+          assert result.stderr.strip() == 'Private application startup refused'
+          print('Private image refused unapproved startup; no hosted target was contacted')
+          PY
 
   frontend:
     name: Frontend build
