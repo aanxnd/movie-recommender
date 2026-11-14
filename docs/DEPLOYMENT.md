@@ -1,5 +1,9 @@
 # Controlled deployment and rollback
 
+Private Stage23 uses the separate [owner-only runbook](PRIVATE_STAGE23_RUNBOOK.md),
+native entry and isolated source bundle. Do not dispatch the production workflow
+or use the live targets below for it. Preparation/CI is not deployment approval.
+
 No production rollout, secret update, push, or cloud mutation was performed during implementation. These are operator steps. The existing API is `movie-recommender-api` in resource group `movie-recommender-rg`, in Express environment `managedEnvironment-movierecommende-9747`. This environment does not support Container Apps Jobs, so the protected GitHub-hosted runner executes migrations directly from the tested release image. No Azure migration job is required.
 
 ## One-time prerequisites
