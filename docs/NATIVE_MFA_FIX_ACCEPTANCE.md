@@ -1,6 +1,6 @@
 # Approved native factor contract: implementation and acceptance
 
-**PARTIAL REAL-PROVIDER VALIDATION - FINAL FIRST-MFA RETEST PENDING**
+**REQUIRED NATIVE MFA JOURNEY PASSED - PRIVATE DEPLOYMENT NOT APPROVED**
 
 The owner approved PR88's native omission contract and acknowledged silent provider
 response loss/non-atomic reads. PR89 implements it without production activation.
@@ -49,9 +49,15 @@ The existing bundled MovieLens Small prepared artifact was reused without downlo
 | B zero-factor contract | Fresh user omitted `factors`; backend provisioning policy accepted under explicit owner approval. | PASS |
 | B profile | Actual UI selected username; local schema3 allocated numeric identity, `/users/me`200; no client-selected owner or legacy credential. | PASS |
 | B first TOTP enrollment | Actual UI/native factors POST200; setup display did not complete, no challenge/verification dispatched. | FAILED setup compatibility; factor left unverified |
-| B final logout | Native logout204 observed; local UI completion wait timed out after HMR. Browser/controller were then closed. | Server acknowledgement only; no invented UI pass |
-| C corrected QR/first TOTP/AAL2 | Fresh zero-factor retest prepared, no signup sent before owner readiness. | PENDING |
-| C ratings/recommendations/IDOR | Requires successful legitimate signed AAL2 and local profile first. | NOT RUN yet |
+| B final logout | Native logout204; helper's exact UI-text wait timed out (the app appends provider status). Browser/controller closed. | Server acknowledgement only |
+| C signup/confirmation/profile | Signup200, native verify303/PKCE200, clean URL, fresh omitted-factor response; actual UI allocated a second distinct numeric profile. | PASS |
+| C corrected QR/first TOTP | Native enrollment200; actual QR406,128 characters with inert namespace/styles rendered; setup secret used only in private process memory. | PASS |
+| C verification | Native challenge200/verify200; signed AAL2 with `totp` AMR, fresh provider factor verified, same numeric profile; setup DOM cleared. | PASS |
+| C stale/fresh AAL1 | Pre-enrollment AAL1 denied401 after verification; subsequent native password login produced fresh AAL1 and was also denied401/provisioning denied. | PASS |
+| C second MFA challenge | Native challenge200/verify200 restored signed AAL2 with password/TOTP AMR and the same profile. | PASS |
+| C movie functionality | Actual search/rating UI saved five ratings; authenticated recommendations GET200 returned10 items. | PASS; recommendation API, not a recommendation-screen assertion |
+| C foreign ownership | Actual C bearer denied404 for B's profile through a temporary read-only loopback probe, then probe removed. | PASS; helper originally expected403, correctly rejected its own assertion |
+| C logout | Both native logout requests returned204; exact-text helper timed out on the informational suffix. Context/processes closed. | Provider acknowledgement; no invented UI-completion pass |
 
 Positive native signup PKCE is now observed, unlike the initial A campaign's
 wrong-browser handoff. The app still makes no unsupported signup provenance claim
@@ -69,6 +75,8 @@ and [dependency versions](https://github.com/supabase/auth/blob/v2.197.0/go.mod)
 Their stock output contains root `xmlns:xlink`, exact black/white rectangle styles
 and one rectangle per QR cell. Offline source-shaped responses reproduced rejection
 by the old allowlist; verbose output can exceed its previous200,000-character cap.
+The C retest directly confirmed the native406,128-character response and both inert
+forms; it does not retrospectively establish B's original response size.
 
 PR89 permits only that inert namespace and those exact rectangle styles. It keeps
 secret/URI binding, trusted origin/subject/session fencing and all active-content
@@ -78,26 +86,29 @@ CSS URLs, wrong namespaces, xlink references, oversize and excessive nodes, whil
 existing script/event/external-image/URI-mismatch cases remain enabled.
 No unverified-factor removal, out-of-band enrollment or validation bypass was used.
 
-## Resource budget and safe retest prerequisite
+## Final campaign budget and cleanup
 
-At B shutdown: **2/4 accounts**, **7 email-capable requests**, **1 possible delayed
-password-notification reservation retained**, **1/10 new factors, zero verified**.
-A had5 messages and B had1 signup message when checked; no B MFA message observed.
+At final shutdown: **3/4 accounts**, **8 email-capable requests**, **2 possible
+notifications reserved** (A password update and C MFA verification): **10/10**.
+There were **2/10 new factors**: B unverified, C verified. At mailbox inspection,
+A had5 messages, B1 and C1; seven actually received does not release reservations.
 The pinned provider sends its enrollment notification only after factor verification.
 B never issued a verification request and will not be reused, so its untriggered
 MFA-notification reservation was explicitly released; no outstanding email was refunded.
 
-One new C signup plus one possible verified-MFA notification would bring the total
-conservative reservation to **10/10** (3/4 accounts,2/10 factors). No resends, further
-recovery, duplicate signup or extra notification-producing operations are planned.
-Stop on rate limits, unexpected provider behavior or unavailable safe prerequisites.
-Only ask for private-file availability; general bounded testing is already approved.
+No more hosted email/factor/account mutations are planned under this campaign.
+Additional testing needs a separately reconciled budget and safe prerequisites.
 
-Accounts A/B remain pending supported owner cleanup. No account was deleted and
+Accounts A/B/C remain pending supported owner cleanup. No account was deleted and
 no pre-existing account/factor was modified. B's setup secret was not retained;
-do not weaken pending-factor/removal restrictions to recover it. Local B profile
-data stays in the synthetic-only disposable database while C is prepared. Private
-input files are consumed, and no password/JWT/OTP/seed/address/key belongs here.
+do not weaken pending-factor/removal restrictions to recover it. C's seed was not
+retained after testing. The synthetic database retains2 users/identities and5 ratings,
+with zero legacy credentials and distinct numeric ownership; no production DB access.
+Owned staging/browser/controller processes and PostgreSQL container were stopped;
+ports5173/8011/19003/55441 had no listeners. B/C private input links were consumed,
+the controller capability file removed, and temporary probe code restored exactly.
+Ignored local configuration and prepared reference data remain private for owner use.
+No password/JWT/OTP/seed/address/key belongs in committed evidence or reports.
 
 ## Automated checks: separate from hosted acceptance
 
@@ -108,15 +119,21 @@ input files are consumed, and no password/JWT/OTP/seed/address/key belongs here.
 - Fictional-provider staging Chrome: **11 passed (52.3s)**, including signup callback,
   profile, first TOTP, AAL2, ratings and fresh-AAL1 denial. This is not real-provider proof.
 - Production and staging builds passed; existing staging chunk-size warning remains.
-- PR89's final-head CI and size evidence are recorded in its PR handoff. No check
-  was disabled or skipped to obtain a pass; platform/opt-in skips are reported.
+- PR89's unchanged final-head [CI rerun](https://github.com/aanxnd/movie-recommender/actions/runs/43568173321)
+  passed: backend1424/9 skips, frontend598/zero skips, browser11, both builds.
+  The initial frontend job stalled after account-screen tests and was owner-canceled;
+  no failed assertion was logged. Identical runtime source passed in PR90 and the
+  unchanged-commit retry; the stall is not reproduced or conclusively root-caused.
+  No code/workflow change, skipped test or weakened check was used for the retry.
 - An earlier helper-creation action did not execute because automatic approval
   review hit a usage limit. Tool access later resumed normally; no check was bypassed.
 
 ## Remaining gates
 
-Finish the corrected native first-factor/AAL2/movie journey within the reconciled
-budget and report its actual outcome. Enrolled sensitive-action restrictions,
+The required real-provider first-factor/AAL2/movie journey passed. Multi-device
+backup, removal, intentional provider outage/throttling/expiry and all Stage23
+acceptance combinations were not exercised by this bounded campaign. Offline
+adversarial tests are separate evidence. Enrolled sensitive-action restrictions,
 all-factor-loss lockout, no removal, Gmail production deliverability and production
 cutover/audit gates remain. No production deployment or final audit is authorized.
 The cloud plan also needs account-specific $0 proof and separate private resource,
