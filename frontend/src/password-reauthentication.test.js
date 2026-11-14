@@ -4,7 +4,7 @@ import { createSensitiveReauthentication } from './password-reauthentication.js'
 import { passwordFixture, signingFixture, json, subject, otherSubject } from './password-test-support.js'
 import { deferred, tick } from './auth-test-support.js'
 
-async function setup(t, { factors = [], failure, pending, sameSession = false } = {}) {
+async function setup(t, { factors = [], failure, pending, sameSession = false, omitFactors = false } = {}) {
   const keys = await signingFixture(), old = await keys.sign({}, 'oauth')
   const fresh = await keys.sign({ session_id: sameSession ? undefined : crypto.randomUUID() }, 'password')
   if (sameSession) fresh.access_token = (await keys.sign({}, 'password')).access_token
@@ -15,7 +15,7 @@ async function setup(t, { factors = [], failure, pending, sameSession = false } 
       const user = keys.users.get(init.headers.Authorization?.slice(7))
       if (!user) return json({ code: 'bad_jwt' }, 401)
       if (failure === 'provider' && ++userReads > 1) return json({ code: 'unexpected_failure', msg: 'synthetic-private' }, 503)
-      return json({ ...user, is_anonymous: false, factors, ...(failure === 'missing-factors' ? { factors: undefined } : {}) })
+      return json({ ...user, is_anonymous: false, factors: omitFactors ? undefined : failure === 'null-factors' ? null : factors })
     }
     if (url.pathname.endsWith('/token')) {
       if (pending && failure === 'signin') await pending.promise
@@ -45,11 +45,18 @@ test('fresh provider password sign-in, not refresh, scopes one credential update
   assert.ok(!JSON.stringify(result).includes('synthetic')); assert.ok(!f.logs.join('').includes('synthetic'))
 })
 
-for (const failure of ['invalid', 'missing-factors', 'weak']) {
+test('native omitted inventory still requires a fresh same-subject password sign-in', async t => {
+  const f = await setup(t, { omitFactors: true })
+  assert.equal((await f.actions.changePassword('synthetic-current', 'synthetic-new')).status, 'changed')
+  assert.equal(f.writes.length, 1)
+  assert.ok(f.calls.includes('/auth/v1/token'))
+})
+
+for (const failure of ['invalid', 'null-factors', 'weak']) {
   test('password change fails closed for ' + failure, async t => {
     const f = await setup(t, { failure })
     const result = await f.actions.changePassword('synthetic-current', 'synthetic-new')
-    assert.equal(result.status, { invalid: 'invalid', 'missing-factors': 'unavailable', weak: 'invalid-password' }[failure])
+    assert.equal(result.status, { invalid: 'invalid', 'null-factors': 'unavailable', weak: 'invalid-password' }[failure])
     if (failure !== 'weak') assert.equal(f.writes.length, 0)
   })
 }

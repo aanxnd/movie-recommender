@@ -8,7 +8,7 @@ const factors = [{ id: 'a', label: 'Personal phone', status: 'verified' }, { id:
 async function screen(t, status = 'challenge-required', login = false) {
   const reading = deferred(), calls = []
   let f, clear
-  const observation = (state, list = factors) => ({ status: state, factors: list, generation: f.session.getSnapshot().generation })
+  const observation = (state, list = state === 'not-enrolled' ? [] : factors) => ({ status: state, factors: list, generation: f.session.getSnapshot().generation })
   const service = { inspect: () => reading.promise, cancel: () => { clear?.(); calls.push('cancel') },
     verify: async (...args) => { calls.push(args); return observation('verified') },
     enroll: async () => observation('setup-pending', [...factors, { id: 'c', label: 'New device', status: 'unverified' }]),
@@ -55,6 +55,16 @@ test('QR and manual key exist only in the dedicated setup view and clear on canc
   await f.click('button.text-link.auth-submit')
   assert.doesNotMatch(f.text(), /SYNTHETICSETUPKEY/)
   assert.equal(document.querySelector('.mfa-qr'), null)
+})
+
+test('zero-factor screen offers optional first setup without a code form or access grant', async t => {
+  const f = await screen(t, 'not-enrolled')
+  assert.match(f.text(), /No authenticator is enrolled/)
+  assert.equal(document.querySelector('form'), null)
+  assert.equal(document.querySelector('button.button-secondary.auth-submit').disabled, false)
+  await f.click('button.button-secondary.auth-submit')
+  assert.match(f.text(), /Setup is not complete/)
+  assert.doesNotMatch(f.text(), /MFA enabled|MFA complete/)
 })
 
 test('factor removal review defaults focus to cancel and cannot dispatch deletion', async t => {

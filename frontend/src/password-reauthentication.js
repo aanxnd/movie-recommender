@@ -13,10 +13,12 @@ export async function withFreshPassword(client, config, session, currentPassword
     const before = await passwordEvidence(client, config, lease)
     const { data, error } = await client.auth.getUser(lease.authorization.slice(7))
     before.assertCurrent()
-    const user = data?.user, factors = user?.factors
+    const user = data?.user
     if (error || user?.id !== before.subject || user?.is_anonymous !== false ||
-        typeof user.email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(user.email) ||
-        !Array.isArray(factors) || factors.length > 10 || factors.some(f => !f || !nativeUuid(f.id) ||
+        typeof user.email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(user.email)) denyPassword('unavailable')
+    // Same approved native contract, only after fresh authenticated subject matching.
+    const factors = Object.hasOwn(user, 'factors') ? user.factors : []
+    if (!Array.isArray(factors) || factors.length > 10 || factors.some(f => !f || !nativeUuid(f.id) ||
           f.factor_type !== 'totp' || !['verified', 'unverified'].includes(f.status)) ||
         new Set(factors.map(f => f.id)).size !== factors.length) denyPassword('unavailable')
     // Password sign-in creates AAL1. Do not downgrade an enrolled MFA account or bypass its factor.

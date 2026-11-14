@@ -5,8 +5,8 @@ Native authentication remains dormant in production. The explicitly selected
 [local staging composition](STAGING_CHECKPOINT_REPORT.md) exercises these components
 without production cutover. See [native callback integration](SIGNUP_CONFIRMATION.md)
 and [account settings](ACCOUNT_SETTINGS.md), plus [native TOTP limits](TOTP_MFA.md).
-Initial enrollment remains blocked on complete native factor evidence; existing
-factor challenges/additional setup are dormant and await hosted acceptance.
+The owner approved native omission/empty semantics for zero-factor AAL1 first
+enrollment/provisioning; implementation stays dormant and awaits hosted acceptance.
 All removal is unavailable pending authoritative concurrency protection; see
 [recovery and lockout](MFA_RECOVERY.md). Password/email recovery never substitutes for TOTP.
 The owner/ChatGPT maintains the

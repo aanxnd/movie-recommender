@@ -21,13 +21,14 @@ The current/next distinction is signed current AAL versus the AAL attainable wit
 verified factors. Neither AAL2 nor AMR proves recent MFA, complete inventory or
 real-time session revocation.
 
-Missing/null, empty, duplicate, unsupported or malformed inventory fails closed.
-Nonempty native TOTP lists distinguish pending, challenge-required and verified.
-An AAL2 token with only unverified factors is conflicting/stale. **No observable
-"not enrolled" state or first enrollment from an empty list is enabled yet.**
-The hosted completeness gate must establish supported absence semantics before
-that branch can exist; SDK normalization is not evidence. This intentionally
-retains the Prompt 11 activation blocker rather than weakening the backend policy.
+Owner-approved PR88 semantics interpret omission/empty as no factors only after
+fresh authenticated exact-subject matching and signed evidence. Null, duplicate,
+unsupported or malformed inventories deny. No-factor AAL1 offers optional first
+setup; pending factors resume challenge. Verified factors require AAL2 for access
+and additional setup. AAL2 without verified factors is stale/conflicting.
+This trusts native serialization, not SDK-normalized arrays. The owner accepts
+provider-response loss and non-atomic freshness limitations documented in the
+[inventory review](MFA_FACTOR_INVENTORY_REVIEW.md). Hosted acceptance is still required.
 
 ## Sources and remaining acceptance
 
@@ -69,9 +70,9 @@ a needless first-factor signin/downgrade. Backend access remains independent.
 
 [enroll](https://supabase.com/docs/reference/javascript/auth-mfa-enroll) returns an
 unverified factor plus QR/secret/URI; only a subsequent challenge can verify it.
-Additional enrollment currently requires fresh verified AAL2 evidence and no pending
-factor. Unknown/empty inventory blocks initial enrollment. This is an intentional
-partial implementation pending the completeness gate, not a production-ready setup.
+Additional enrollment requires fresh verified AAL2 evidence and no pending factor.
+First enrollment requires fresh no-factor AAL1 evidence. Unknown inventory denies;
+no enrollment alone grants backend access. Production activation remains unapproved.
 An uncertain enrollment latches further enrollment off for that service lifetime;
 inspect after reload, then explicitly verify or safely remove a pending factor.
 Cancellation cannot undo provider work, and no automatic cleanup/retry occurs.
@@ -82,6 +83,12 @@ cancel/unmount/logout/refresh/account changes/verification. No React/global stor
 clipboard, logging or app persistence. The provider SVG must pass a small structural
 allowlist before becoming an encoded image URL; it is never injected as markup.
 Strict parsing may reject future provider QR formats; hosted compatibility is required.
+The pinned GoTrue renderer uses SVGo's inert root `xmlns:xlink` declaration and
+goqrsvg's exact rectangle styles `fill:black;stroke:none` / `fill:white;stroke:none`.
+These specific forms are allowed; links, arbitrary CSS, scripts, events and other
+attributes remain rejected. Source-shaped fixtures are not hosted QR proof.
+The verbose native rectangle format is bounded to 1MiB and10,000 opening tags
+before XML parsing; oversized/node-heavy content is rejected, never truncated.
 
 [unenroll](https://supabase.com/docs/reference/javascript/auth-mfa-unenroll) requires
 AAL2 for verified factors. **Prompt 21 supersedes the earlier client-only removal
@@ -108,7 +115,7 @@ Mode; enrollment/challenge/removal require explicit actions. Forms mask and imme
 clear OTPs; no code/secret enters React state. QR/manual credentials use a dedicated
 imperative sink and clear on teardown. Removal review focuses Cancel, traps keyboard
 focus and explains bounded issued-token validity. Unknown evidence offers reinspection,
-not account continuation. Initial setup remains unavailable at the completeness gate.
+not account continuation. First setup uses the approved native no-factor observation.
 Native verified AAL2 is presentation, not fresh password proof or a backend access grant.
 
 ## Offline preview and activation checklist
@@ -121,8 +128,7 @@ final-factor denial, unknown evidence and setup-key cleanup. Production entry an
 build excludes MFA screens; neither previews nor frontend presentation grant access.
 
 Before activation, approve a minimal hosted test plan separately. Required gates:
-complete native inventory including proven no-factor semantics (first enrollment
-blocked until resolved); hosted Free QR/URI formats; native challenge replay/expiry
+approved native no-factor semantics and first enrollment; hosted Free QR/URI formats; native challenge replay/expiry
 and throttling; same-subject AAL2/session promotion and concurrent refresh/logout;
 multi-factor ownership/removal and abandonment; sensitive password/email restrictions;
 backend independent AAL/email/mapping/ownership; approved preview/production origins

@@ -1,14 +1,12 @@
 # Hosted factor-inventory review - Stage 23, not Prompt 24
 
-**BLOCKED — NO AUTHORITATIVE SOLUTION ESTABLISHED**
+**OWNER-APPROVED CONTRACT - IMPLEMENTATION UNDER REVIEW**
 
-Under the current omission-denial requirement, no independent negative inventory
-authority was established. The source-backed standard-provider candidate below
-requires an explicit policy/trust decision. This is an unapproved proposal, not a
-policy fix or activation approval.
-Existing omission/null/malformed denials, empty-inventory provisioning/enrollment
-restrictions, production isolation and ownership checks are unchanged. No hosted
-account/email/factor operation or configuration change was performed for this review.
+The owner approved the response contract and non-atomic freshness limitations
+below. This implementation allows native no-factor AAL1 provisioning/first setup;
+null/malformed/unsupported evidence and verified-factor AAL2 requirements remain.
+The earlier blocked verdict described the superseded omission-denial policy.
+Hosted validation and separate merge/deployment approvals are still required.
 
 ## Evidence and precise conclusion
 
@@ -65,7 +63,7 @@ responses are indistinguishable on this wire. SDK normalization cannot repair it
 | Mandatory AAL2 for every account | Changes optional MFA to mandatory and still needs approved bootstrap; not selected. |
 | Admin listing, Auth DB reader or new custom ledger | Outside approval, unnecessary for the proposed standard design; not implemented. |
 
-## Proposed replacement after explicit approval
+## Approved replacement; code review and hosted validation pending
 
 Trust one fresh TLS-pinned provider response, obtained with the exact already
 verified token, as the inventory snapshot **only if the owner approves that API
@@ -131,14 +129,14 @@ the same offline tests passed with process permission. No test was weakened.
 Full `npm test`: **586 passed**; production and staging builds passed (existing
 staging chunk-size warning). No runtime, dependency, schema or hosted change.
 
-Before a separate implementation PR, the owner must decide:
+The owner has now approved both decisions for implementation:
 
-- Approve or reject the narrow trusted-provider response contract and its explicit
-  inability to detect silently incomplete valid JSON; retain denial until reviewed.
+- Use the narrow trusted-provider response contract, accepting its inability to
+  independently detect silently incomplete valid JSON.
 - Accept fresh-read/in-flight concurrency limits rather than an atomic cross-database
   enrollment guarantee. Keep optional MFA, backend enforcement and all other gates.
 
-After approval, implement/test this shared semantic change in focused PRs, each
+Implement/test this approved semantic change in focused PRs, each
 at most500 changed lines. Required adversarial coverage: zero/pending/verified/
 multiple factors at both AALs, null/unknown evidence, previously enrolled response
 loss under the chosen contract, switching/refresh/logout, timeouts and enrollment

@@ -32,6 +32,8 @@ def account(evidence, monkeypatch):
 @pytest.mark.parametrize("aal", ["aal1", "aal2"])
 def test_native_confirmation_and_standard_token_lifetime(account, aal):
     e, client, user, calls = account
+    if aal == "aal2":
+        user["factors"] = [dict(id=str(uuid4()), factor_type="totp", status="verified")]
     token = e.sign({"aal": aal})
     # No session-row lookup or logout status is needed. An unexpired token can
     # remain usable after logout if the provider still accepts it.
@@ -109,22 +111,36 @@ def test_provider_rejection(account, monkeypatch, status):
 
 
 @pytest.mark.parametrize("aal", ["aal1", "aal2"])
-@pytest.mark.parametrize("missing", [False, True])
-def test_enrolled_user_with_later_missing_or_null_factors_is_unknown(account, aal, missing):
+def test_enrolled_user_with_later_null_factors_is_unknown(account, aal):
     e, client, user, _ = account
     user["factors"] = [dict(id=str(uuid4()), factor_type="totp", status="verified")]
     client.check(e.sign({"aal": "aal2"}))
-    if missing:
-        del user["factors"]
-    else:
-        user["factors"] = None
+    user["factors"] = None
     with pytest.raises(policy.AccessDenied): client.check(e.sign({"aal": aal}))
 
 
-def test_source_compatible_omitted_empty_factors_cannot_establish_no_mfa(account):
+@pytest.mark.parametrize("omitted", [True, False])
+def test_approved_native_zero_factor_contract(account, omitted):
     e, client, user, _ = account
-    del user["factors"]  # Auth User.Factors uses omitempty; hosted compatibility is a gate.
-    with pytest.raises(policy.AccessDenied): client.check(e.sign())
+    if omitted:
+        del user["factors"]
+    assert client.check_for_provisioning(e.sign()).subject == e.subject
+    with pytest.raises(policy.AccessDenied): client.check(e.sign({"aal": "aal2"}))
+
+
+def test_inventory_is_fresh_and_enrollment_cannot_keep_using_aal1(account):
+    e, client, user, calls = account
+    del user["factors"]
+    token = e.sign()
+    client.check_for_provisioning(token)
+    user["factors"] = [dict(id=str(uuid4()), factor_type="totp", status="verified")]
+    with pytest.raises(policy.AccessDenied): client.check_for_provisioning(token)
+    client.check_for_provisioning(e.sign({"aal": "aal2"}))
+    del user["factors"]  # Approved provider trust: no independent response-loss detector.
+    assert client.check(token).subject == e.subject
+    user["id"] = str(uuid4())
+    with pytest.raises(policy.AccessDenied): client.check(token)
+    assert len(calls) == 5
 
 
 def test_address_change_requires_native_confirmation_again(account):

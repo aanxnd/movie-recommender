@@ -5,6 +5,7 @@ import { useFormScope } from './password-screens.jsx'
 import { containDialogFocus } from './dialog.js'
 
 const messages = {
+  'not-enrolled': 'No authenticator is enrolled. Optional first setup is available in authenticator settings.',
   'alternative-factor-available': 'Verified authenticators are registered. Choose one you can still access; registration does not prove independent devices.',
   'verified-factor-present': 'One verified authenticator is registered. While you still have access, use authenticator settings to add and verify another on an independently accessible device.',
   'challenge-required': 'Your first-factor session still needs an accessible, already verified authenticator.',
