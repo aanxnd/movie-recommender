@@ -83,6 +83,12 @@ cancel/unmount/logout/refresh/account changes/verification. No React/global stor
 clipboard, logging or app persistence. The provider SVG must pass a small structural
 allowlist before becoming an encoded image URL; it is never injected as markup.
 Strict parsing may reject future provider QR formats; hosted compatibility is required.
+The pinned GoTrue renderer uses SVGo's inert root `xmlns:xlink` declaration and
+goqrsvg's exact rectangle styles `fill:black;stroke:none` / `fill:white;stroke:none`.
+These specific forms are allowed; links, arbitrary CSS, scripts, events and other
+attributes remain rejected. Source-shaped fixtures are not hosted QR proof.
+The verbose native rectangle format is bounded to 1MiB and10,000 opening tags
+before XML parsing; oversized/node-heavy content is rejected, never truncated.
 
 [unenroll](https://supabase.com/docs/reference/javascript/auth-mfa-unenroll) requires
 AAL2 for verified factors. **Prompt 21 supersedes the earlier client-only removal

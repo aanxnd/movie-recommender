@@ -119,7 +119,7 @@ class ProviderFixture:
                 factor = dict(id=str(uuid4()), factor_type='totp', status='unverified', friendly_name=body['friendly_name'])
                 user['factors'].append(factor)
                 return dict(id=factor['id'], type='totp', totp=dict(secret=SECRET,
-                    qr_code='<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120"><path d="M0 0h10v10H0z"/></svg>',
+                    qr_code='<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="120" height="120"><rect x="0" y="0" width="3" height="3" style="fill:black;stroke:none"/></svg>',
                     uri='otpauth://totp/Movelle:fixture?secret='+SECRET+'&issuer=Movelle'))
             parts = path.split('/')
             if len(parts) == 3 and parts[0] == 'factors':
