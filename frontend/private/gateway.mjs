@@ -12,7 +12,7 @@ const exactOrigin = value => typeof value === 'string' && /^https:\/\/[a-z0-9]+(
 const id = '[1-9][0-9]{0,18}'
 const routes = [
   ['GET', '/(?:health|ready|movies/search|movies/decades|users/me|auth/profile|recommendations/popular)'],
-  ['GET', '/movies/' + id], ['GET', '/movies/artwork-image/' + id + '/(?:poster|background)'],
+  ['GET', '/movies/' + id], ['GET', '/movies/artwork-image/' + id + '/(?:poster|backdrop)'],
   ['GET', '/recommendations/genre/[A-Za-z()-]+(?: [A-Za-z()-]+)*'],
   ['GET', '/users/' + id + '(?:/ratings(?:/details)?|/recommendations)?'],
   ['POST', '/(?:auth/profile|movies/artwork|recommendations/group)'],

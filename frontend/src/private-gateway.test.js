@@ -38,6 +38,24 @@ test('pins one destination, preserves JWT, overwrites capability and drops cooki
   assert.deepEqual(Object.keys(r.headers).sort(), ['cache-control', 'content-type', 'x-content-type-options'])
 })
 
+test('tested native movie/profile/rating/invitation contracts are reachable without adding legacy routes', async () => {
+  for (const [method, path] of [['GET', '/health'], ['GET', '/ready'], ['GET', '/movies/1'],
+    ['GET', '/movies/decades'], ['GET', '/movies/artwork-image/1/backdrop'], ['GET', '/recommendations/popular'],
+    ['GET', '/recommendations/genre/Sci-Fi'], ['GET', '/recommendations/genre/(no genres listed)'],
+    ['GET', '/users/1/ratings/details'], ['GET', '/users/1/ratings'], ['GET', '/users/1/recommendations'],
+    ['POST', '/auth/profile'], ['POST', '/movies/artwork'], ['POST', '/users/1/ratings/lookup'],
+    ['POST', '/recommendations/group'], ['POST', '/users/1/group-invitation'],
+    ['PUT', '/users/1/ratings/1'], ['DELETE', '/users/1/group-invitation']]) {
+    const write = ['POST', 'PUT'].includes(method)
+    const result = await call({ method, path, chunks: write ? ['{}'] : [],
+      headers: write ? { 'content-type': 'application/json' } : {}, fetcher: async (url, init) => {
+        assert.equal(new URL(url).origin, backend); assert.equal(init.method, method)
+        return Response.json({ ok: true })
+      } })
+    assert.equal(result.statusCode, 200, method + ' ' + path)
+  }
+})
+
 for (const pins of [{ approved: false }, { supabase_url: 'https://other.supabase.co' },
   { backend_origin: 'https://movie-recommender-api.nicetree-0929c2a3.canadacentral.azurecontainerapps.io' },
   { backend_origin: backend + '/' }, { backend_origin: 'http://private.azurecontainerapps.io' },
