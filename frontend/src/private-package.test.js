@@ -17,7 +17,8 @@ test('explicit private bundle builds separately, packages only selected source a
     database_host: 'ep-private-test.canadacentral.azure.neon.tech', protected_database_hosts: ['ep-protected.neon.tech'] }
   const file = join(work, 'targets.json'); await writeFile(file, JSON.stringify(targets))
   const vars = { MOVELLE_PRIVATE_TARGETS_FILE: file, VITE_PRIVATE_PUBLISHABLE_KEY: 'sb_publishable_offline',
-    MOVELLE_PRIVATE_GATE_SECRET: 'SERVER_ONLY_GATE_MARKER', DATABASE_URL: 'SERVER_ONLY_DATABASE_MARKER', VITE_API_BASE_URL: 'https://must-not-use.invalid' }
+    MOVELLE_PRIVATE_GATE_SECRET: 'SERVER_ONLY_GATE_MARKER', DATABASE_URL: 'SERVER_ONLY_DATABASE_MARKER',
+    VITE_PRIVATE_PUBLIC_GATE_SECRET: 'ACCIDENTAL_VITE_GATE_MARKER', VITE_API_BASE_URL: 'https://must-not-use.invalid' }
   const previous = Object.fromEntries(Object.keys(vars).map(k => [k, process.env[k]]))
   Object.assign(process.env, vars)
   t.after(() => { for (const [k, v] of Object.entries(previous)) { if (v === undefined) delete process.env[k]; else process.env[k] = v } })
@@ -26,7 +27,7 @@ test('explicit private bundle builds separately, packages only selected source a
   await assert.rejects(preparePrivate(resolve(repo, 'frontend')))
   const root = join(bundle, 'frontend'), assets = join(root, 'public/assets')
   const js = (await Promise.all((await readdir(assets)).filter(f => f.endsWith('.js')).map(f => readFile(join(assets, f), 'utf8')))).join('')
-  for (const secret of ['SERVER_ONLY_GATE_MARKER', 'SERVER_ONLY_DATABASE_MARKER', 'must-not-use.invalid', targets.database_host, targets.backend_origin]) assert.ok(!js.includes(secret), secret)
+  for (const secret of ['SERVER_ONLY_GATE_MARKER', 'SERVER_ONLY_DATABASE_MARKER', 'ACCIDENTAL_VITE_GATE_MARKER', 'must-not-use.invalid', targets.database_host, targets.backend_origin]) assert.ok(!js.includes(secret), secret)
   assert.ok(js.includes(targets.frontend_origin) && js.includes(targets.supabase_url))
   assert.deepEqual((await readdir(root)).sort(), ['api', 'package.json', 'private', 'public', 'vercel.json'])
   assert.match(await readFile(join(root, 'api/gateway.mjs'), 'utf8'), /\.\.\/private\/gateway.mjs/)
