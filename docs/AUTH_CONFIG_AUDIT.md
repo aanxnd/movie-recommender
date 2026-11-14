@@ -7,7 +7,9 @@ Prompts 11-13 are merged; [native confirmation](SIGNUP_CONFIRMATION.md) and
 [current email validation](EMAIL_CHANGE.md) remain dormant. Prompt 14 extends the
 [central dependency](AUTH_ARCHITECTURE.md#prompt-14-central-principal-and-verification-order-dormant)
 to return a typed principal; it does not attach it to application routes.
-Hosted acceptance and activation are not approved.
+Bounded Stage 23 development-project testing is now owner-authorized; current
+[acceptance results](STAGING_SUPABASE_ACCEPTANCE.md) are blocked by missing configuration
+and inbox designation. Production activation and hosted configuration changes remain unapproved.
 
 ## Evidence boundaries
 
