@@ -97,8 +97,8 @@ export function createGateway(env, targets, fetcher = fetch) {
       if (response.status >= 300 && response.status < 400) throw new Error('Redirect')
       if (response.status >= 500) { await response.body?.cancel(); return fail(res, 503) }
       const bytes = response.body ? await bounded(response.body, 2 * 1024 * 1024, signal) : Buffer.alloc(0)
-      const type = response.headers.get('content-type') ?? 'application/json'
-      if (bytes.includes(Buffer.from(gate)) || !/^(application\/json|image\/(jpeg|png|webp|gif))(;.*)?$/.test(type)) throw new Error('Response')
+      const type = (response.headers.get('content-type') ?? 'application/json').split(';')[0]
+      if (bytes.includes(Buffer.from(gate)) || !/^(application\/json|image\/(jpeg|png|webp|gif))$/.test(type)) throw new Error('Response')
       res.statusCode = response.status
       res.setHeader('Cache-Control', 'no-store')
       res.setHeader('X-Content-Type-Options', 'nosniff')

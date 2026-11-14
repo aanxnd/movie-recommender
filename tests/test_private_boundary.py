@@ -39,7 +39,8 @@ def test_pinned_settings_have_no_secret_repr_or_ambient_fallback(private_inputs)
     ('frontend_origin', 'https://owner-preview.vercel.app/'), ('frontend_origin', 'https://evil.invalid'),
     ('backend_origin', PRODUCTION_API), ('backend_origin', 'https://user:secret@private.azurecontainerapps.io'),
     ('backend_origin', 'http://private.azurecontainerapps.io'), ('backend_origin', 'https://private.azurecontainerapps.io:443'),
-    ('database_host', 'ep-production.neon.tech'), ('protected_database_hosts', []), ('branch_id', None)])
+    ('database_host', 'ep-production.neon.tech'), ('protected_database_hosts', []), ('branch_id', None),
+    ('protected_database_hosts', ['EP-PRIVATE-TEST.CANADACENTRAL.AZURE.NEON.TECH'])])
 def test_unapproved_or_production_targets_deny(private_inputs, key, value):
     env, targets = private_inputs
     targets[key] = value
