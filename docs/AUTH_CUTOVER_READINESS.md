@@ -22,6 +22,9 @@ cannot change these decisions. No code reads this file to select an auth provide
 | Full assessment/audit | Full NIST SP 800-63B-4 assessment and original 16-stage professional audit remain required. | Document controls, evidence and gaps; no compliance claim from SDK AAL/offline tests. |
 | Prompt 26 activation | **Not authorized**. | Explicit owner release/configuration/activation approval after all prior gates; no automatic merge/deploy. |
 
+See [post-approval MFA acceptance](NATIVE_MFA_FIX_ACCEPTANCE.md) and the
+[unapproved private deployment plan](PRIVATE_STAGE23_DEPLOYMENT_PLAN.md) for current evidence and cost/isolation gates.
+
 Overall decision: **NOT READY / DO NOT CUT OVER**. An unavailable feature must remain
 unavailable; it must not silently restore legacy credentials after Supabase rejection.
 
