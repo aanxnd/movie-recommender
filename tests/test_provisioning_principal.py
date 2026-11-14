@@ -48,19 +48,26 @@ def test_verified_unlinked_subject_needs_no_database(provision_auth):
 
 
 @pytest.mark.parametrize('factors', [None, [], {}, [{'status': 'verified'}]])
-def test_unknown_or_empty_inventory_never_qualifies(provision_auth, factors):
+def test_unknown_or_conflicting_inventory_never_qualifies(provision_auth, factors):
     e, _, user, _, client, results = provision_auth
     user['factors'] = factors
     response = client.get('/probe', headers={'Authorization': 'Bearer ' + e.sign({'aal': 'aal2'})})
     assert response.status_code in {401, 503} and not results
 
 
-def test_existing_global_policy_is_unchanged(account):
+def test_provisioning_uses_the_same_zero_factor_policy(account):
     e, policy, user, _ = account
     assert policy.check(e.sign()).aal == 'aal1'
-    with pytest.raises(AccessDenied): policy.check_for_provisioning(e.sign())
-    del user['factors']
-    with pytest.raises(AccessDenied): policy.check_for_provisioning(e.sign())
+    assert policy.check_for_provisioning(e.sign()).subject == e.subject
+
+
+@pytest.mark.parametrize('omitted', [False, True])
+def test_native_zero_factor_subject_can_provision_without_mfa(provision_auth, omitted):
+    e, _, user, _, client, results = provision_auth
+    user['factors'] = []
+    if omitted: del user['factors']
+    assert client.get('/probe', headers={'Authorization': 'Bearer ' + e.sign()}).status_code == 200
+    assert results[-1].subject == e.subject
 
 
 @pytest.mark.parametrize('status,aal,code', [('verified', 'aal1', 401), ('verified', 'aal2', 200),

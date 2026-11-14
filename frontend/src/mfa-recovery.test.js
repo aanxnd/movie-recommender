@@ -37,7 +37,7 @@ for (const [name, factors, aal, expected] of [
   ['one registered', [totp()], 'aal2', 'verified-factor-present'],
   ['pending only', [totp('unverified')], 'aal1', 'abandoned-enrollment'],
   ['one plus pending', [totp(), totp('unverified', secondId)], 'aal1', 'abandoned-enrollment'],
-  ['empty', [], 'aal1', 'inventory-unknown'],
+  ['empty', [], 'aal1', 'not-enrolled'],
   ['unsupported', [{ ...totp(), factor_type: 'phone' }], 'aal1', 'inventory-unknown'],
   ['duplicates', [totp(), totp()], 'aal1', 'inventory-unknown'],
 ]) test('recovery observation: ' + name, async t => {

@@ -61,7 +61,7 @@ for (const failure of [undefined, 'exists', 'limited', 'network']) {
     assert.doesNotMatch(f.logs.join(''), /private@example.invalid/)
   })
 }
-for (const user of [{ new_email: 'pending@example.invalid' }, { email_confirmed_at: null }, { factors: undefined },
+for (const user of [{ new_email: 'pending@example.invalid' }, { email_confirmed_at: null }, { factors: null },
   { factors: [{ id: crypto.randomUUID(), factor_type: 'totp', status: 'verified' }] }]) {
   test('pending/unconfirmed/unknown-MFA/enrolled accounts never silently start a sensitive update', async t => {
     const f = await setup(t, { user })

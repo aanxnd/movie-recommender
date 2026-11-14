@@ -69,7 +69,7 @@ for (const width of [1440, 390]) test('real movie/profile/rating roundtrip and r
   await expect(page.getByText('Your authorized profile: MovieFan')).toHaveCount(0)
 })
 
-test('signup/confirmation stays ambiguous and no-factor initial enrollment is blocked', async ({ page, request }) => {
+test('native signup callback, optional profile, first TOTP and authenticated movies', async ({ page, request }) => {
   await nav(page, 'Sign up')
   await page.getByLabel('Email address').fill('new@example.invalid')
   await page.getByLabel('Password', { exact: true }).fill('fixture-password')
@@ -80,10 +80,26 @@ test('signup/confirmation stays ambiguous and no-factor initial enrollment is bl
   await page.goto('/?code='+link.code)
   await expect(page.locator('body')).toContainText('does not establish signup confirmation')
   await expect(page).toHaveURL('http://127.0.0.1:5173/')
-  await nav(page, 'Authenticators'); await expect(page.locator('body')).toContainText('Authenticator information is incomplete')
-  await expect(page.getByRole('button', { name: 'Add an authenticator' })).toHaveCount(0)
-  await nav(page, 'Profile setup'); await expect(page.getByLabel('Profile username')).toHaveCount(0)
-  expect((await state(request)).users).toBe(0)
+  await provision(page, 'FirstFactorFan')
+  await nav(page, 'Authenticators'); await expect(page.locator('body')).toContainText('No authenticator is enrolled')
+  await page.getByRole('button', { name: 'Add an authenticator', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Add to your authenticator' })).toBeVisible()
+  const code = (await (await request.get(provider+'/_fixture/otp')).json()).code
+  await page.getByLabel('Six-digit authenticator code').fill(code)
+  await page.getByRole('button', { name: 'Verify authenticator', exact: true }).click()
+  await expect(page.getByRole('status').filter({ hasText: 'passed native MFA verification' })).toBeVisible()
+  await nav(page, 'Movies')
+  await page.getByPlaceholder('Search movie titles\u2026').fill('First')
+  await page.getByRole('button', { name: 'Search', exact: true }).click()
+  await page.getByLabel('Rating for First Film').selectOption('4')
+  await page.locator('.rating-control').getByRole('button').click()
+  await expect.poll(async () => (await state(request)).ratings).toBe(1)
+  expect((await state(request)).users).toBe(1)
+  expect((await state(request)).credentials).toBe(0)
+  await nav(page, 'Sign out'); await login(page, 'new@example.invalid')
+  await nav(page, 'Movies'); await expect(page.locator('body')).toContainText('Personal access requires')
+  await mfa(page, request)
+  await nav(page, 'Settings'); await expect(page.locator('body')).toContainText('Your authorized profile: FirstFactorFan')
 })
 
 test('failed login, wrong/expired signed JWTs, provider outage and account substitution deny', async ({ page, request }) => {

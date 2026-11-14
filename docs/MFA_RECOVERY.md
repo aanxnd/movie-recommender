@@ -24,7 +24,7 @@ claim follows merely from navigation or enrollment. Backend authorization is sep
 This is a Movelle workflow restriction: Supabase may permit native management from
 an existing AAL2 session. This flow does not use that as all-devices-lost recovery
 or claim a provider-wide prohibition; no generic provider API restriction is invented.
-Empty/omitted inventory remains unknown; Prompt 20's initial-enrollment/no-MFA gate
+Native omission/empty uses the owner-approved no-factor contract; null/unknown evidence
 is unchanged. Unknown, expired, conflicting or unavailable evidence cannot authorize.
 
 ## Removal safety correction
@@ -107,7 +107,7 @@ not provider evidence. No real QR, native user/factor, email or hosted mutation 
 Owner-approved hosted acceptance is still required, separately from merge review:
 
 - Free-project factor-list completeness and exact raw shapes at AAL1/AAL2; empty
-  and omitted fields remain unknown. Initial enrollment stays unavailable.
+  and omitted fields use the approved no-factor contract. Null/malformed data denies.
 - Independent Google Authenticator/Duo Mobile factors, configured verified-factor
   capacity, fresh alternative challenge, same-subject AAL2 and exact new session
   binding. A legitimate native promotion may replace the signed session UUID;

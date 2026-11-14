@@ -27,32 +27,21 @@ The existing email reader and this policy share current-address validation;
 `new_email` never replaces `email`. [Prompt 13](EMAIL_CHANGE.md) documents native
 pending/partial changes, retained timestamps and acceptance limits.
 
-A verified provider TOTP factor requires signed `aal2`; an explicit empty list
-or only unverified factors permits `aal1`. Missing/null/malformed factor evidence
-fails closed, including at AAL2. AAL2 proves the token's assurance,
-not recent MFA. No five-minute challenge ledger is required. The implementation
-follows the provider's [server AAL API](https://supabase.com/docs/reference/javascript/auth-mfa-getauthenticatorassurancelevel)
-and [verified-factor selection](https://github.com/supabase/supabase-js/blob/v2.119.0/packages/core/auth-js/src/GoTrueClient.ts#L5885-L5915).
+The owner approved PR88's provider trust contract: after signature verification
+and a fresh successful exact-subject `/user` read, omitted `factors` or `[]` means
+zero factors. Explicit null, malformed, duplicate and unsupported factors deny.
+Verified TOTP requires signed AAL2; zero or only unverified factors permits AAL1.
+AAL2 without any verified factor is stale/conflicting and denies. Provisioning
+uses this same policy; it does not require optional MFA or grant resource access.
 
-**Activation blocker:** SDK `listFactors()` also reads `/user` and normalizes
-missing factors; it is not independent completeness evidence. Auth's
-[`Factors` field](https://github.com/supabase/auth/blob/master/internal/models/user.go)
-uses `omitempty`, so even legitimate non-MFA users may omit it and be denied by
-this stricter dormant policy. Do not normalize absence into permission. The
-[public API specification](https://github.com/supabase/auth/blob/master/openapi.yaml)
-provides no separate non-admin factor-list endpoint. Offline response fixtures
-are not hosted acceptance: separately approved Free-project tests must check
-non-MFA, unverified/verified TOTP and AAL1/AAL2 response shapes before activation.
-An omitted-field deployment remains blocked pending a supported completeness
-contract/owner design review; no custom DB, privileged key or service is added.
-The [pinned-provider inventory review](MFA_FACTOR_INVENTORY_REVIEW.md) proposes a
-standard API contract for owner approval; it does not change this denial policy.
-
-Prompt 23 provisioning additionally rejects **empty** factor inventories through
-`check_for_provisioning`; it does not change the existing global `check` policy.
-The dedicated unlinked-subject dependency does not resolve/create an account or
-grant resource access. [Provisioning/staging](PROVISIONING_STAGING.md) documents
-the unavailable no-factor path, reviewed boundaries and hosted acceptance gates.
+This relies on reviewed [GoTrue v2.197.0](https://github.com/supabase/auth/blob/v2.197.0/internal/models/user.go)
+eager loading and `omitempty` serialization. SDK list/AAL helpers still provide no
+independent completeness evidence. The owner accepts silently incomplete valid
+provider responses cannot be independently detected and reads are not atomic with
+Supabase enrollment or Neon writes. See [review](MFA_FACTOR_INVENTORY_REVIEW.md).
+No client claims, cached inventory, Auth DB, privileged key or fallback is used.
+Hosted no-factor/pending/verified/AAL1/AAL2 journey acceptance is still required;
+implementation review does not authorize deployment or production activation.
 
 [Standard sessions](https://supabase.com/docs/guides/auth/sessions) permit issued
 access tokens to remain valid until expiry after logout. Fresh

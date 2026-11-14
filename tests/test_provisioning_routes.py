@@ -69,13 +69,25 @@ def test_cross_origin_and_owner_query_denied(setup_route, origin):
     assert counts(s.engine) == (0, 0, 0, 0, 0)
 
 
-def test_http_auth_and_empty_inventory_remain_closed(setup_route):
+def test_http_auth_and_null_inventory_remain_closed(setup_route):
     s = setup_route
     for header in ({}, {'Authorization': 'Bearer ' + 'a' * 43}):
         assert s.client.post('/auth/profile', headers=header, json={'username': 'Alice'}).status_code == 401
-    s.user['factors'] = []
+    s.user['factors'] = None
     assert s.client.post('/auth/profile', headers=s.headers, json={'username': 'Alice'}).status_code == 401
     assert counts(s.engine) == (0, 0, 0, 0, 0)
+
+
+@pytest.mark.parametrize('omitted', [False, True])
+def test_zero_factor_profile_preserves_numeric_identity_and_issues_no_legacy_token(setup_route, omitted):
+    s = setup_route
+    s.user['factors'] = []
+    if omitted: del s.user['factors']
+    headers = {**s.headers, 'Authorization': 'Bearer ' + s.evidence.sign()}
+    first = s.client.post('/auth/profile', headers=headers, json={'username': 'Alice'})
+    assert first.status_code == 200
+    assert s.client.post('/auth/profile', headers=headers, json={'username': 'Other'}).json() == first.json()
+    assert counts(s.engine) == (1, 1, 0, 0, 0)
 
 
 def test_different_subject_cannot_claim_name_or_read_profile(setup_route):

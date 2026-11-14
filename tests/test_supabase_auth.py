@@ -124,6 +124,8 @@ def test_valid_context_cannot_select_another_user(environment):
 @pytest.mark.parametrize("aal", ["aal1", "aal2"])
 def test_principal_uses_current_email_and_verified_binding_once_per_request(environment, aal, caplog):
     state = environment
+    if aal == "aal2":
+        state.overrides["factors"] = [dict(id=str(uuid4()), factor_type="totp", status="verified")]
     state.overrides.update(new_email="pending@example.invalid", email_change_sent_at="2026-01-01T00:00:00Z")
     token = state.token({"aal": aal, "email": "stale@example.invalid"})
     with TestClient(state.app) as client, caplog.at_level(logging.DEBUG):
@@ -159,7 +161,7 @@ def test_ineligible_or_incomplete_provider_evidence_denies_before_neon(environme
     assert state.order == ["jwt", "provider"] and state.sessions == [] and state.principals == []
 
 
-@pytest.mark.parametrize("field", ["is_anonymous", "factors", "email", "email_confirmed_at"])
+@pytest.mark.parametrize("field", ["is_anonymous", "email", "email_confirmed_at"])
 def test_omitted_security_evidence_never_becomes_permission(environment, field):
     state = environment
     state.omitted.add(field)

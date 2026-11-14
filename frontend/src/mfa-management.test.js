@@ -8,13 +8,14 @@ const secret = 'JBSWY3DPEHPK3PXP'
 const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120"><path fill="#000" d="M0 0h10v10H0z"/></svg>'
 const enrolled = () => ({ id: secondId, type: 'totp', totp: { secret,
   qr_code: svg, uri: 'otpauth://totp/Movelle:offline?secret=' + secret + '&issuer=Movelle' } })
-async function enrollmentFixture(t) {
-  const f = await mfaFixture(t, { aal: 'aal2' })
+async function enrollmentFixture(t, options = { aal: 'aal2' }) {
+  const f = await mfaFixture(t, options)
   f.state.handler = (url, init) => {
     if (url.pathname.endsWith('/factors')) {
       const request = JSON.parse(init.body)
       assert.equal(request.factor_type, 'totp')
       assert.match(request.friendly_name, /^Movelle authenticator [0-9a-f]{8}$/)
+      f.state.factors ??= []
       f.state.factors.push(totp('unverified', secondId)); return json(enrolled())
     }
   }
@@ -73,12 +74,26 @@ for (const [name, change] of [
 })
 
 for (const [name, factors, aal] of [
-  ['empty inventory', [], 'aal1'], ['omission', null, 'aal1'],
+  ['null inventory', null, 'aal1'], ['stale empty AAL2', [], 'aal2'],
   ['AAL1', [totp()], 'aal1'], ['pending factor', [totp(), totp('unverified', secondId)], 'aal2'],
 ]) test('enrollment eligibility fails closed: ' + name, async t => {
-  const f = await mfaFixture(t, { factors: factors ?? [], aal })
+  const f = await mfaFixture(t, { aal }); f.state.factors = factors
   assert.notEqual((await f.service.enroll()).status, 'setup-pending')
   assert.deepEqual(f.state.actions, [])
+})
+
+for (const omitted of [false, true]) test('first TOTP setup and signed AAL2 verification: omitted=' + omitted, async t => {
+  const f = await enrollmentFixture(t, { aal: 'aal1', factors: [] })
+  if (omitted) f.state.factors = undefined
+  assert.equal((await f.service.inspect()).status, 'not-enrolled')
+  assert.equal((await f.service.enroll()).status, 'setup-pending')
+  assert.equal((await f.service.enroll()).status, 'unavailable')
+  f.state.handler = url => {
+    if (url.pathname.endsWith('/verify')) f.state.factors = [totp('verified', secondId)]
+  }
+  assert.equal((await f.service.verify(secondId, '123456')).status, 'verified')
+  assert.deepEqual(f.state.actions.map(x => x.path.split('/').pop()), ['factors', 'challenge', 'verify'])
+  assert.deepEqual(f.logs, [])
 })
 
 test('uncertain enrollment never automatically repeats after cancellation', async t => {

@@ -1,7 +1,7 @@
 // Dormant native evidence. Neither this observation nor its AAL grants backend access.
 import { passwordEvidence, nativeUuid } from './password-evidence.js'
 
-/** @typedef {'not-authenticated'|'inventory-unknown'|'pending'|'challenge-required'|'verified'|'stale'|'unavailable'|'cancelled'|'busy'|'invalid-code'|'rate-limited'|'expired'|'removal-unavailable'|'setup-pending'} MfaStatus */
+/** @typedef {'not-authenticated'|'not-enrolled'|'inventory-unknown'|'pending'|'challenge-required'|'verified'|'stale'|'unavailable'|'cancelled'|'busy'|'invalid-code'|'rate-limited'|'expired'|'removal-unavailable'|'setup-pending'} MfaStatus */
 /** @typedef {Readonly<{id:string,label:string,status:'verified'|'unverified'}>} TotpFactor */
 /** @typedef {Readonly<{status:MfaStatus,factors?:ReadonlyArray<TotpFactor>,generation?:number}>} MfaObservation */
 export const mfaResult = (status, fields = {}) => Object.freeze({ ...fields, status })
@@ -21,10 +21,11 @@ export async function observeMfa(client, config, lease) {
   if (error) throw error
   const user = data?.user
   if (user?.id !== proof.subject || user?.is_anonymous !== false) denyMfa('stale')
-  // listFactors() normalizes omission to []; getAAL() decodes claims without verifying.
-  // Neither can independently establish completeness. Empty remains unknown until hosted acceptance.
-  if (!Array.isArray(user.factors) || !user.factors.length || user.factors.length > 10) denyMfa('inventory-unknown')
-  const factors = user.factors.map(f => {
+  // Approved native omitempty semantics apply only to this fresh bound response,
+  // never caller input or SDK-normalized listFactors(). Null remains unknown.
+  const rawFactors = Object.hasOwn(user, 'factors') ? user.factors : []
+  if (!Array.isArray(rawFactors) || rawFactors.length > 10) denyMfa('inventory-unknown')
+  const factors = rawFactors.map(f => {
     if (!f || !nativeUuid(f.id) || f.factor_type !== 'totp' || !['verified', 'unverified'].includes(f.status) ||
         (f.friendly_name !== undefined && (typeof f.friendly_name !== 'string' ||
           f.friendly_name.length > 64 || /[\x00-\x1f\x7f]/.test(f.friendly_name)))) denyMfa('inventory-unknown')
@@ -34,7 +35,7 @@ export async function observeMfa(client, config, lease) {
   const enrolled = factors.some(f => f.status === 'verified')
   if (!enrolled && proof.aal === 'aal2') denyMfa('stale')
   return Object.freeze({ proof, factors: Object.freeze(factors),
-    status: enrolled ? proof.aal === 'aal2' ? 'verified' : 'challenge-required' : 'pending' })
+    status: enrolled ? proof.aal === 'aal2' ? 'verified' : 'challenge-required' : factors.length ? 'pending' : 'not-enrolled' })
 }
 
 export async function inspectMfa(client, config, session) {

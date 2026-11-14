@@ -40,13 +40,13 @@ class SupabaseAccessPolicy:
 
     def check_with_email(self, token: str) -> tuple[VerifiedTokenClaims, ProviderEmailConfirmation]:
         """One signature verification and one fresh user read; no resource access grant."""
-        return self._check(token, provisioning=False)
+        return self._check(token)
 
     def check_for_provisioning(self, token: str) -> VerifiedTokenClaims:
-        """Empty inventories remain unproven for new-account provisioning (Prompt 20)."""
-        return self._check(token, provisioning=True)[0]
+        """Use the same approved provider evidence, without linking an account."""
+        return self.check(token)
 
-    def _check(self, token: str, *, provisioning: bool):
+    def _check(self, token: str):
         try:
             claims = self._verifier.verify_claims(token)
             user = json.loads(_read_user(self._url, self._key, token), object_pairs_hook=_unique_object)
@@ -59,10 +59,10 @@ class SupabaseAccessPolicy:
             if user.get("banned_until") is not None:
                 if self._timestamp(user["banned_until"]) > now:
                     raise AccessDenied
-            # Require explicit evidence: SDK null/omission normalization is not a
-            # server guarantee that this account has no verified factor.
-            factors = user.get("factors")
-            if not isinstance(factors, list) or len(factors) > 10 or (provisioning and not factors):
+            # Owner-approved GoTrue omitempty contract, only after this fresh,
+            # authenticated exact-subject read. Explicit null is still unknown.
+            factors = user["factors"] if "factors" in user else []
+            if not isinstance(factors, list) or len(factors) > 10:
                 raise AccessDenied
             verified = False
             seen = set()
@@ -76,7 +76,7 @@ class SupabaseAccessPolicy:
                     raise AccessDenied
                 seen.add(identifier)
                 verified |= factor["status"] == "verified"
-            if (verified and claims.aal != "aal2") or claims.expires_at <= now.timestamp():
+            if (verified != (claims.aal == "aal2")) or claims.expires_at <= now.timestamp():
                 raise AccessDenied
             return claims, email
         except (AccessDenied, InvalidAccessToken, EmailConfirmationDenied):

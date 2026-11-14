@@ -6,6 +6,7 @@ import './account-settings.css'
 import './mfa-screens.css'
 
 const messages = {
+  'not-enrolled': 'No authenticator is enrolled. You can add optional TOTP protection.',
   'inventory-unknown': 'Authenticator information is incomplete. Setup and account continuation are unavailable here.',
   stale: 'The account evidence changed. Check again before continuing.',
   unavailable: 'The operation could not be confirmed. It may have reached the service. Check your authenticators before trying again.',
@@ -50,13 +51,14 @@ export function MfaScreen({ service, login = false }) {
   const f = useFormScope(), id = useId(), dialog = useRef(null), epoch = useRef(0)
   const [view, setView] = useState(null), [selection, setSelection] = useState(''), [removal, setRemoval] = useState(null)
   const authenticated = f.auth.status === 'authenticated'
-  const usable = view && ['verified', 'challenge-required', 'pending', 'setup-pending'].includes(view.status)
+  const usable = view && ['not-enrolled', 'verified', 'challenge-required', 'pending', 'setup-pending'].includes(view.status)
   const apply = result => {
-    const positive = ['verified', 'challenge-required', 'pending', 'setup-pending'].includes(result?.status)
+    const positive = ['not-enrolled', 'verified', 'challenge-required', 'pending', 'setup-pending'].includes(result?.status)
     if (!positive) {
       setView({ status: messages[result?.status] ? result.status : 'unavailable', factors: [] }); return
     }
-    if (result.generation !== f.auth.generation || !Array.isArray(result.factors) || !result.factors.length ||
+    if (result.generation !== f.auth.generation || !Array.isArray(result.factors) ||
+        (result.status === 'not-enrolled' ? result.factors.length !== 0 : !result.factors.length) ||
         result.factors.length > 10 || result.factors.some(x => !x || typeof x.id !== 'string' ||
           typeof x.label !== 'string' || !['verified', 'unverified'].includes(x.status))) {
       setView({ status: 'stale', factors: [] }); return
@@ -98,7 +100,7 @@ export function MfaScreen({ service, login = false }) {
     try { const result = await service?.inspect?.(); if (ticket === epoch.current) apply(result) }
     catch { if (ticket === epoch.current) setView({ status: 'unavailable', factors: [] }) }
   }
-  const challenge = usable && view.status !== 'verified' && (!login || view.factors.some(x => x.status === 'verified'))
+  const challenge = usable && view.factors.length > 0 && view.status !== 'verified' && (!login || view.factors.some(x => x.status === 'verified'))
   return <AuthFrame title={login ? 'One more step.' : 'A second layer of care.'}
     description={login ? 'Use your authenticator to finish this session’s security check.' : 'Optional authenticator protection, with you in control.'}>
     <p className="auth-hint">Keep another authenticator you can access independently. Losing every enrolled device may lock you out.</p>
@@ -127,7 +129,7 @@ export function MfaScreen({ service, login = false }) {
             pattern="[0-9]{6}" minLength={6} maxLength={6} required disabled={f.busy || !selection} /></div>
         <button className="button-primary auth-submit" disabled={f.busy || !selection}>{f.busy ? 'Checking…' : 'Verify authenticator'}</button>
       </form>}
-      {!login && usable && <button type="button" className="button-secondary auth-submit" disabled={f.busy || view.status !== 'verified' || view.factors.some(x => x.status !== 'verified')}
+      {!login && usable && <button type="button" className="button-secondary auth-submit" disabled={f.busy || !['not-enrolled', 'verified'].includes(view.status) || view.factors.some(x => x.status !== 'verified')}
         onClick={() => act('enroll')}>Add an authenticator</button>}
       <button type="button" className="text-link auth-submit" disabled={f.busy || !view} onClick={check}>Cancel setup and check again</button>
     </>}

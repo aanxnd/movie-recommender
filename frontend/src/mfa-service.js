@@ -47,8 +47,8 @@ export function createNativeMfa(config) {
     },
     async enroll({ signal } = {}) {
       return operation(signal, async (evidence, lease, combined, current) => {
-        // First enrollment is blocked while native absence/completeness remains unproven.
-        if (enrollmentAttempted || evidence.status !== 'verified' || evidence.factors.length >= 10 ||
+        const first = evidence.status === 'not-enrolled' && evidence.proof.aal === 'aal1' && !evidence.factors.length
+        if (enrollmentAttempted || (!first && evidence.status !== 'verified') || evidence.factors.length >= 10 ||
             evidence.factors.some(f => f.status === 'unverified')) denyMfa('unavailable')
         enrollmentAttempted = true // No automatic retry after an uncertain provider mutation.
         clearSetup()

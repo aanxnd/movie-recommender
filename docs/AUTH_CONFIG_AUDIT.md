@@ -57,12 +57,10 @@ Launch tests must cover JWT expiry/tampering/rotation, native unverified email,
 provider errors/rate limits, AAL1-vs-enrolled-MFA, logout/refresh limits, email change,
 recovery, ownership/IDOR/group privacy and concurrent clean provisioning. Offline
 fixtures do not establish hosted guarantees; future hosted tests need authorization.
-MFA compatibility is specifically blocked until that review: `/user` may omit
-`factors` for non-MFA users, and SDK list/AAL helpers normalize the same field.
-The dormant policy requires an explicit list; missing/null evidence never means
-unenrolled. Approve a controlled development-only response-shape matrix for no
-factors, unverified/verified TOTP and AAL1/AAL2 before activation. If the provider
-omits the list, resolve the supported completeness contract first; do not bypass.
+The owner approved the reviewed native omission/empty factor contract at the fresh
+subject-bound provider boundary. Null/malformed data still denies; verified TOTP
+requires signed AAL2. SDK-normalized arrays are not independent authority. Hosted
+zero/pending/verified/AAL1/AAL2 and first-enrollment acceptance remains a gate.
 Reported ban/deletion or provider rejection denies; no instantaneous revocation
 promise follows from `/user`, token expiry or a session UUID. Never use JWT-only,
 cached user state or legacy authentication as a policy-failure fallback.

@@ -67,6 +67,7 @@ export function createNativeMfaRecovery(config) {
     allInaccessible() { cancel(); return mfaResult('recovery-unavailable') },
     inspect: () => operation(undefined, async () => {
       const evidence = context ? await bound() : await read()
+      if (evidence.status === 'not-enrolled') return describe(evidence, 'not-enrolled')
       const verified = evidence.factors.filter(f => f.status === 'verified')
       return describe(evidence, context?.phase ?? (evidence.factors.some(f => f.status === 'unverified') ? 'abandoned-enrollment' :
         evidence.proof.aal === 'aal1' ? 'challenge-required' : verified.length > 1 ? 'alternative-factor-available' : 'verified-factor-present'))

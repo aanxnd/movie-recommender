@@ -23,11 +23,11 @@ ES256 verification and a fresh native current-email/factor check. No routes are
 mounted. This is not a resource-access grant, real-time revocation check or proof
 of recent MFA. Existing resource dependencies and global policy are unchanged.
 
-Provisioning explicitly denies missing, null **and empty** factor inventories.
-Prompt 20's authoritative no-factor completeness blocker remains: legitimate
-accounts without provable inventory cannot provision. Nonempty provider evidence
-uses the existing verified-TOTP → signed AAL2 rule. Initial MFA enrollment is not
-unblocked here. Offline fixtures do not establish hosted response completeness.
+Owner-approved native omission/empty semantics allow confirmed zero-factor AAL1
+users to provision without mandatory MFA. Null/malformed evidence still denies;
+verified TOTP requires signed AAL2. The backend shares the standard policy rather
+than an extra empty-inventory restriction. Fresh reads are not atomic with provider
+enrollment; the owner accepted this limit. Hosted acceptance remains required.
 
 The request contract accepts only `username`: 3–30 ASCII letters, digits or `_`,
 case preserved, no trimming/Unicode normalization. Reserved names match the
@@ -134,8 +134,8 @@ activate dormant production code. Never wrap live POST `/users` as provisioning.
 Provider configuration to review privately: Confirm Email enabled, native
 email/password signup and recovery, ES256 signing/audience, optional TOTP and
 independent backup factor. Keep the maximum factor count consistent with the
-current limit of 10. Current factor completeness is unresolved: empty/omitted
-inventories deny provisioning, including AAL2. Initial enrollment, final-factor
+current limit of 10. Omitted/empty inventory uses the approved native contract;
+null/malformed evidence still denies. First enrollment requires AAL1. Final-factor
 deletion and all-devices-lost recovery remain blocked; no email-only bypass.
 MFA-sensitive password/email changes remain restricted by the existing native
 reauthentication limitations. This prompt does not change any of these decisions.
