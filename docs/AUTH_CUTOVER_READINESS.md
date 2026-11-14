@@ -11,16 +11,19 @@ cannot change these decisions. No code reads this file to select an auth provide
 | Supabase boundary | Dormant in production; explicit local staging composes SDK/controller and backend principal/policy/resolver. | Review local integration and obtain hosted JWT/email/AAL/ownership acceptance. |
 | Prompt 23 provisioning | **Merged, dormant in production**; subject-only principal, atomic schema-3 service and fenced adapter. | [Integration report](STAGING_CHECKPOINT_REPORT.md), approved configuration and hosted acceptance; no frontend metadata ownership. |
 | Existing users | **Not migrated or automatically linked**; credentials, IDs and data remain. | Owner decision on existing-user access/data disposition. No email/username/code/ID matching or implicit claiming. |
-| Hosted acceptance | **Incomplete**; bounded dev testing approved, real signup/session behavior verified; omitted factors block provisioning/MFA. | Complete the [real-provider campaign](STAGING_SUPABASE_ACCEPTANCE.md); offline passes do not establish hosted compatibility. |
-| Factor absence / initial enrollment | **Owner-approved native omission/empty contract; implementation under review.** | Hosted zero/pending/verified/AAL1/AAL2 acceptance; null/malformed evidence still denies. |
+| Hosted acceptance | **Partial real-provider acceptance:** signup, provisioning, first TOTP/AAL2, ratings and recommendations passed; additional failure and multi-device cases remain. | See [initial campaign](STAGING_SUPABASE_ACCEPTANCE.md) and [follow-up acceptance](NATIVE_MFA_FIX_ACCEPTANCE.md); complete remaining hosted security gates. |
+| Factor absence / initial enrollment | **Implemented; first enrollment and AAL2 passed real-provider acceptance.** | Retain denial for null/malformed evidence and complete remaining adversarial/MFA journeys before activation. |
 | Lost all authenticators | **Recovery unavailable**. | No email/password/recovery-AMR/support bypass. Any different provider-supported design needs explicit review. |
 | Factor removal | **All Movelle deletion disabled**. | Authoritative final-factor concurrency protection or explicitly approved alternative policy; client counts/postchecks are insufficient. |
 | MFA-sensitive password/email updates | **Restricted**. AAL2 is not fresh password proof. | Reviewed native same-subject/session/operation reauthentication that preserves assurance and provider requirements. |
 | Redirects / email | Development root `http://127.0.0.1:5173/`; preview/production origins unapproved. Gmail production suitability open. | Exact owner-approved origins/redirects plus delivery, spam placement, sender limits and $0 abuse acceptance. |
 | Data/schema / rollback | Repository schema 3; no hosted version inspected. Earlier deployment evidence describes schema 2. | Verify current production privately, rehearse additive migration and secure schema-compatible rollback. No drops/backfill/reset. |
-| Pre-Prompt-24 staging | **Local real-app/PG tests with fictional Auth passed; no hosted acceptance/deployment. Prompt 24 not started**. | Review stacked integration PRs; approve exact private targets, cost/isolation and bounded provider tests separately. |
+| Pre-Prompt-24 staging | **Local and bounded real-provider acceptance recorded; no private cloud deployment. Prompt 24 not started.** | Approve exact private targets, cost/isolation and additional hosted tests separately. |
 | Full assessment/audit | Full NIST SP 800-63B-4 assessment and original 16-stage professional audit remain required. | Document controls, evidence and gaps; no compliance claim from SDK AAL/offline tests. |
 | Prompt 26 activation | **Not authorized**. | Explicit owner release/configuration/activation approval after all prior gates; no automatic merge/deploy. |
+
+See [post-approval MFA acceptance](NATIVE_MFA_FIX_ACCEPTANCE.md) and the
+[unapproved private deployment plan](PRIVATE_STAGE23_DEPLOYMENT_PLAN.md) for current evidence and cost/isolation gates.
 
 Overall decision: **NOT READY / DO NOT CUT OVER**. An unavailable feature must remain
 unavailable; it must not silently restore legacy credentials after Supabase rejection.
