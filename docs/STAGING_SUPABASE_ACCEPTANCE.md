@@ -2,8 +2,8 @@
 
 **PARTIAL HOSTED ACCEPTANCE — SECURITY GATES REMAIN**
 
-Real signup, confirmed password login, JWT verification, restoration, refresh and
-logout passed. The fresh provider response **omitted `factors`**; Movelle correctly
+Real signup, confirmed password login, JWT verification, restoration, refresh,
+native recovery/password reset and logout passed. The fresh provider response **omitted `factors`**; Movelle correctly
 denied provisioning and initial enrollment. Authenticated application acceptance is
 blocked. This is not Prompt 24, production activation or deployment approval.
 
@@ -69,7 +69,8 @@ UI and hosted transport: no Auth interception, shared profile, traces or screens
 | M04 | Backup/removal/lost devices | BLOCKED: no eligible enrolled account; no out-of-band setup or recovery bypass. | Existing restrictions preserved |
 | W01 | Recovery request | PASS: native POST recovery200 for same campaign account. | Actual UI/SDK/provider |
 | W02 | Expired recovery flow | PASS refusal: native verify303, PKCE exchange422 `flow_state_expired`; no recovery session/password update. | Actual provider after manual handoff delay |
-| W03 | Fresh recovery callback/update | BLOCKED: private file absent; renewed flow also aged during handoff. No password change claimed. | Same account, one fresh request only |
+| W03 | Fresh recovery callback | PASS: native verify303, PKCE exchange200, signed recovery AMR, clean root URL and private new-password form. | Real originating browser/provider; no confirmation inferred from URL |
+| W05 | Native password reset | PASS: actual UI/user PUT200; logout then new-password login succeeded with signed password AMR. Profile remained401. | Same campaign account; no generated password logged |
 | W04 | Sensitive password/email change | BLOCKED: incomplete factor evidence; no fabricated recent-password proof. | Existing policy |
 | U01 | Profile provisioning/uniqueness | BLOCKED by M01; no profile POST, injected principal or local writes. | Actual profile denial, empty DB |
 | U02 | Ratings/personal recommendations/groups/switching | BLOCKED for real-provider acceptance by U01. | Fictional-provider results kept separate |
@@ -97,7 +98,10 @@ Observed recovery rejection occurred over eight minutes after email receipt.
 The matching [GoTrue v2.197.0 PKCE implementation](https://github.com/supabase/auth/blob/v2.197.0/internal/api/token.go)
 checks configurable flow-state expiry before verifier comparison. The precise hosted
 flow-state timeout was not inspected; email age alone does not prove its value.
-The expired attempt was recorded, not suppressed by a successful retry.
+The expired attempt was recorded, not suppressed by a successful retry. A second
+request aged without private handoff and was not redeemed. After owner readiness,
+fresh flows completed within their validity. Recovery evidence and password update
+remained separate from backend access; the unknown-factor denial still applied.
 
 Fresh user rejected a logged-out session while its issued JWT remained valid. This
 point-in-time result does not establish every revocation, deletion, ban or expiry
@@ -111,6 +115,17 @@ dependency, route, policy or production setting changed. Private setup normalize
 the supplied REST URL and used existing preparation/initialization commands.
 A temporary helper needed its import path corrected; inaccessible artifacts were
 not overwritten. Unknown-factor denial is intentional and remains enforced.
+
+A temporary harness rejected SDK2.119.0 password-update bodies because the SDK
+always adds null `code_challenge` and `code_challenge_method`. That request was
+aborted locally before Supabase; no password changed. The private harness now
+allows exactly the expected password and those null fields, with offline checks
+rejecting extra email/current-password fields and non-null challenges. An initial
+fixture-command quoting error was corrected and checks passed. A fresh genuine
+recovery flow then completed through unchanged application code. A stale local
+navigation timeout was also resolved by restarting only the isolated test context;
+request counters proved it sent no additional email. A private-file read before
+writing finished failed validation without dispatch; the owner-ready read passed.
 
 Automatic approval rejected an early proposed command containing an encoded link
 before execution: encoding still exposes tokens in command history. All subsequent
@@ -131,18 +146,24 @@ seeds, raw email links, credentials or key values belong in this report or ledge
 | Resource | Used/reserved | Ceiling |
 |---|---:|---:|
 | New synthetic accounts | **1 (A)** | 4 |
-| Email-capable signup/recovery requests | **4 reserved** | 10 total provider emails |
-| Received matching messages | **3** (signup, two recovery) | Same email ceiling |
+| Email-capable signup/recovery requests | **6 reserved** | 10 total provider emails |
+| Possible password-change notification | **1 additionally reserved** | Combined conservative reservation **7/10** |
+| Received matching messages | **5** (signup, four recovery), all INBOX / zero SPAM at close | Same email ceiling |
 | New MFA factors | **0** | 10 |
 
 Duplicate signup was conservatively counted despite no observed extra message.
-Any password-change notification must also fit the email ceiling. No rate limit
+A notification reservation is separate from received-message counts. No rate limit
 or quota was deliberately tested. Campaign A is independently creation-bound and
 cleanup-eligible; deletion remains **pending supported owner cleanup**. Public user
 APIs provide no reviewed self-delete path; no privileged workaround was used.
 No pre-existing account/session/factor, hosted SQL/configuration, production resource
-or paid service changed. Local services remain active only for pending handoff;
-final shutdown/port release must be verified before claiming local cleanup complete.
+or paid service changed. Final native logout passed. The isolated browser and
+frontend/backend/controller were stopped; the owned local PostgreSQL container is
+stopped and retained with its empty synthetic database. Zero listeners remain on
+5173/8011/19003/55441. Both private link files were consumed/removed. Ephemeral
+controller capability/inbox configuration were removed; owner-requested ignored
+`.env.staging.local` and prepared artifact remain for later approved local testing.
+The stopped database must be started explicitly before that launcher can run.
 
 ## F. Commands and separate automated regressions
 
@@ -154,11 +175,11 @@ final shutdown/port release must be verified before claiming local cleanup compl
 - `python -m pytest -q tests/test_supabase_policy.py tests/test_supabase_email.py -p no:cacheprovider`: **87 passed**, one existing deprecation warning.
 - `cd frontend; npx playwright test`: **36 passed (4.3m)**, existing local browser regressions including offline auth screens; no real customer data.
 
-Earlier report-head CI b325f9c passed **1420 backend / 9 optional skips**, **576
-frontend**, both builds and **11 fictional-provider staging browser tests**.
+Report-head CI 8c29234 ([run43541015222](https://github.com/aanxnd/movie-recommender/actions/runs/43541015222))
+passed **1420 backend / 9 optional skips**, **576 frontend**, both builds and
+**11 fictional-provider staging browser tests (39.3s)**. Its PR-size check passed.
 These are offline regressions, never added to real-provider acceptance counts.
-Final report-head CI, PR size and additional production browser results are recorded
-in the PR handoff. No test, required check or fail-closed rule was bypassed.
+Final report-head CI and complete PR size are recorded in the PR handoff. No test, required check or fail-closed rule was bypassed.
 
 ## G. Remaining decisions and private deployment readiness
 
