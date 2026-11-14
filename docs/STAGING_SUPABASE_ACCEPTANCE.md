@@ -192,4 +192,6 @@ Separate approval is required for exact frontend/backend/database hosting target
 private ingress/isolation, HTTPS root callbacks/origins, CORS/TLS adaptation and
 verified incremental $0 cost. Existing local guards intentionally reject cloud
 hosts. Full NIST assessment, original professional audit and Stages24-26 remain
-separate. Production authentication is dormant. No deployment or merge occurred.
+separate. Production authentication is dormant. No production deployment or merge
+occurred. Existing Vercel PR automation ran its preview check for the legacy entry;
+no native-auth deployment or hosting-setting change was initiated.
