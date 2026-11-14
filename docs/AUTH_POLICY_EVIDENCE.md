@@ -45,6 +45,8 @@ are not hosted acceptance: separately approved Free-project tests must check
 non-MFA, unverified/verified TOTP and AAL1/AAL2 response shapes before activation.
 An omitted-field deployment remains blocked pending a supported completeness
 contract/owner design review; no custom DB, privileged key or service is added.
+The [pinned-provider inventory review](MFA_FACTOR_INVENTORY_REVIEW.md) proposes a
+standard API contract for owner approval; it does not change this denial policy.
 
 Prompt 23 provisioning additionally rejects **empty** factor inventories through
 `check_for_provisioning`; it does not change the existing global `check` policy.
