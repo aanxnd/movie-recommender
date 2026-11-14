@@ -1,5 +1,10 @@
 # Stage 23 integration checkpoint — not Prompt 24
 
+The owner subsequently approved a bounded real-development-project campaign.
+See [current hosted acceptance evidence and access blockers](STAGING_SUPABASE_ACCEPTANCE.md).
+Statements below about unapproved hosted tests describe this original checkpoint;
+configuration changes, deployment and production activation remain unapproved.
+
 Baseline main: `4fa3d446a4c9d99d28eb959b3ee1a613cd19f03f`, merged PRs 69,
 71 and 72–77 verified. Production `app.main:app` and React `main.jsx` remain
 legacy-only. Explicit staging composition is separate; no environment flag
