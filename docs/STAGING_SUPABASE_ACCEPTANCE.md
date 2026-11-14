@@ -1,157 +1,174 @@
-# Stage 23 real Supabase acceptance — 2026-11-13
+# Stage 23 real Supabase acceptance - 2026-11-13
 
-**HOSTED TESTING BLOCKED — CONFIGURATION OR ACCESS REQUIRED**
+**PARTIAL HOSTED ACCEPTANCE — SECURITY GATES REMAIN**
 
-This is the final Stage 23 acceptance campaign, not Prompt 24 or production activation.
-Bounded testing is owner-authorized; fresh configuration/access requirements below
-remain unsatisfied. Public-key discovery is real hosted evidence, not authenticated
-signup/session/MFA/application acceptance. No blocked journey is counted as passed.
+Real signup, confirmed password login, JWT verification, restoration, refresh and
+logout passed. The fresh provider response **omitted `factors`**; Movelle correctly
+denied provisioning and initial enrollment. Authenticated application acceptance is
+blocked. This is not Prompt 24, production activation or deployment approval.
 
-## A. Verified environment
+## A. Verified environment and private configuration
 
-- Fetched `origin/main`: **`597d13b1c823a1c3cdf7adc193343f6274f0d560`**, as expected.
-  Its source tree matches audited head `0178e273b5bf5ce8b8406a0ae5fab2add691aee8`.
-  Work starts from this main on `test/stage23-supabase-acceptance`, not an old stack branch.
-- Intended project: **movelle-auth-dev**, mapped by prior owner-supplied configuration
-  and repository evidence to `https://jsbulnrcxtvslvvxjizq.supabase.co`.
-  The destination was pinned explicitly, never substituted from an environment value.
-  Current dashboard project name/Free-plan/settings were not independently inspected.
-- One credential-free HTTPS read of that project's `/auth/v1/.well-known/jwks.json`
-  passed the existing bounded/no-proxy/no-redirect `_download` and `_parse` functions.
-  Observed: **one EC/P-256/ES256 public key**, accepted by Movelle; no private-key field.
-  No user access JWT was obtained, decoded or cryptographically tested in this campaign.
-- Required configuration names: `MOVELLE_STAGING_SUPABASE_URL`,
-  `MOVELLE_STAGING_PUBLISHABLE_KEY`, `MOVELLE_STAGING_PREPARED_DIR`,
-  `MOVELLE_STAGING_DATABASE_URL`. Direct builds use public `VITE_STAGING_SUPABASE_URL`
-  and `VITE_STAGING_SUPABASE_PUBLISHABLE_KEY`; no privileged key is needed.
-- No dedicated staging values were loaded in the process environment or root/frontend
-  `.env*` files. The earlier private validation directory was inspected for configuration
-  presence only; no reusable approved project key was found. Old accounts/state were not used.
-- Native/browser dashboard tools failed to start their Node runtime (`os error 3`).
-  No dashboard setting was clicked or altered. Callback allowlist, Confirm Email,
-  Site URL, template, SMTP, factor limit and current project settings remain unverified.
-- Exact local app origin/root callback: **`http://127.0.0.1:5173/`**. Source pins this
-  origin and loopback listeners; relevant ports were free. No staging service was started
-  against the real provider without completing its required configuration.
-- A newly owned Docker PostgreSQL **17** fixture was bound only to `127.0.0.1:55441`.
-  Explicit `staging_entry.initialize('init')` and `initialize('check')` passed.
-  Schema version **3** and zero users, credentials and ratings were verified.
-  Generated local fixture credentials were not printed or placed in the campaign ledger.
-  No Neon, hosted database, production copy, Auth DB or production records were accessed.
+Base main: `597d13b1c823a1c3cdf7adc193343f6274f0d560`; its source tree matches
+audited `0178e273b5bf5ce8b8406a0ae5fab2add691aee8`. PR87 changes documentation only.
+The owner-approved **movelle-auth-dev** target is pinned to
+`https://jsbulnrcxtvslvvxjizq.supabase.co`. Private preparation removed `/rest/v1/`
+from the supplied REST URL for SDK configuration; runtime URL validation is unchanged.
+Project identity/Free plan are owner-attested; public endpoints do not attest billing.
 
-## B. Sanitized test ledger
+Owner-confirmed: connected Gmail aliases approved, exact
+`http://127.0.0.1:5173/` allowlisted, Confirm Email enabled, Site URL unchanged.
+Actual `/auth/v1/settings`: HTTP200, `disable_signup=false`,
+`mailer_autoconfirm=false`, `external.email=true`. Actual health: GoTrue v2.197.0.
+The pinned JWKS supplied one EC/P-256/ES256 public key accepted by existing code;
+actual issued JWTs subsequently passed existing cryptographic verification.
+No hosted setting was changed.
 
-| ID | Intended check | Actual result | Evidence / reason |
+Private configuration: Git-ignored repository-root **`.env.staging.local`** with
+`MOVELLE_STAGING_SUPABASE_URL`, `MOVELLE_STAGING_PUBLISHABLE_KEY`,
+`MOVELLE_STAGING_PREPARED_DIR`, `MOVELLE_STAGING_DATABASE_URL`; values withheld.
+The launcher requires explicit loading from root:
+`node --env-file=.env.staging.local frontend/scripts/staging.mjs`.
+Node's [env-file option](https://nodejs.org/api/cli.html#--env-filefile) loads it;
+Vite receives only the intended public inputs. Never put privileged keys in VITE.
+
+Old prepared directories were inaccessible and left untouched. The existing
+preparer safely refused overwrite; bundled MovieLens CSVs were prepared offline
+into fresh `.pytest-tmp/stage23-hosted-reference` and passed `verify_local`.
+Only owned PostgreSQL17 container `movelle-supabase-acceptance-pg`, loopback55441,
+database `movelle_staging_acceptance`, was initialized to schema3. Actual aggregate
+checks found **users0, identities0, ratings0, legacy credentials0** after login tests.
+No Neon or copied personal data was used. API8011, frontend5173 and private test
+controller19003 bind loopback. Fresh isolated Chrome used actual SDK2.119.0,
+UI and hosted transport: no Auth interception, shared profile, traces or screenshots.
+
+## B. Sanitized real-provider ledger
+
+| ID | Intended behavior | Actual observation / result | Evidence |
 |---|---|---|---|
-| P01 | Merged audited source | PASS | Fresh Git fetch and exact tree comparison above. |
-| P02 | Dev target signing compatibility | PASS | Real public JWKS; existing parser accepted one ES256/P-256 key. Does not prove actual access-token claims. |
-| P03 | Current project/dashboard settings | BLOCKED | Dashboard runtime unavailable; current private configuration/owner confirmation needed. |
-| P04 | Disposable PG17/schema 3 isolation | PASS | Real local database init/check and aggregate empty-table assertions. |
-| P05 | Exact root callback permitted | BLOCKED | Required origin is fixed in code; actual Supabase allowlist cannot be verified. No redirect-dependent request sent. |
-| A01 | Signup / duplicate / unconfirmed restrictions | BLOCKED | Missing approved publishable-key configuration and designated test inbox; no signup request. |
-| A02 | Confirmation delivery / PKCE / reuse / expired link | BLOCKED | No message/account created; callback configuration unverified. No raw links collected. |
-| A03 | Confirmed password login | BLOCKED | No campaign-created confirmed identity or private credentials exist. |
-| S01 | Real signed subject/session/AAL/AMR/current-user shape | BLOCKED | Requires an authorized synthetic session; JWKS alone establishes none of these. |
-| S02 | Restore / refresh / logout / issued-token lifetime | BLOCKED | No session obtained; no pre-existing session was touched. |
-| E01 | Confirmed/unconfirmed/pending current email | BLOCKED | No real `/user` observation available; no email-change mutation. |
-| M01 | Zero-factor raw inventory | BLOCKED | Requires the first legitimate campaign session; SDK omission normalization cannot supply evidence. |
-| M02 | Unverified / one verified / multiple factors; AAL1/AAL2 | BLOCKED | No eligible account; initial-enrollment gate remains enforced. No out-of-band enrollment bypass. |
-| M03 | Additional/backup authenticator recovery | BLOCKED | Requires supported existing-factor evidence/challenges; no factors created. |
-| W01 | Recovery request / callback / password update | BLOCKED | Controlled inbox/configuration missing; existing sensitive-action restrictions unchanged. |
-| W02 | Email/password changes / reauthentication | BLOCKED | No eligible current session/evidence; no assurance invented from AAL2. |
-| U01 | Native profile creation / uniqueness / idempotency | BLOCKED | Requires an eligible real subject; no fabricated principal, profile link or legacy credential. |
-| U02 | Hosted-auth ratings / personal/group resources / switching | BLOCKED | No real eligible principal reaches the local app. Earlier fictional-provider passes are separate evidence. |
-| N01 | Malformed callbacks / provider outage / actual expiry | NOT RUN | No authenticated real-provider campaign started. Existing offline adversarial tests are not fresh hosted results. |
+| P01 | Audited main | PASS: exact commit/tree comparison above. | Git |
+| P02 | ES256 compatibility | PASS: real public JWKS and issued-token verification. | Existing backend verifier |
+| P03 | Signup settings | PASS: native email enabled; automatic confirmation false. | Actual public settings API |
+| P04 | Local isolation | PASS: schema3/empty app tables; loopback services. | Actual local PostgreSQL17 |
+| A01 | Signup | PASS: one campaign account, matching user response, HTTP200. | Actual staging UI/SDK/provider |
+| A02 | Unconfirmed restriction | PASS: password grant HTTP400 `email_not_confirmed`; no session. | Actual provider |
+| A03 | Email delivery | PASS: campaign messages delivered to INBOX, not SPAM. | Connected Gmail, private recipient binding |
+| A04 | Signup confirmation state | PASS: after owner clicked in another browser, later password login/fresh user proved confirmation and matched original created subject. | Actual provider; not inferred from callback UI |
+| A05 | Same-browser signup PKCE | NOT RUN successfully: owner opened initial link outside test browser. Original callback showed generic failure; exact original error unavailable. | Owner report; no invented success |
+| A06 | Original link retry | PASS rejection: HTTP303 to exact root, no code, `otp_expired`. Consumption versus natural expiry not distinguishable. | One safe native verification read; redirects not followed |
+| A07 | Duplicate signup | PASS: HTTP200/generic UI, no local session, no additional account. Subsequent original-password login succeeded. | Actual UI/SDK/provider |
+| A08 | Malicious/malformed callback | PASS: malformed code plus external next value scrubbed; zero PKCE calls, no external navigation. | Actual local browser; provider deliberately not called |
+| S01 | Signed token evidence | PASS: ES256/issuer/audience, UUID subject/session, `aal1`, password AMR, 3600s issuance-to-expiry. | Actual JWT through existing verifier; values withheld |
+| S02 | Restore and refresh | PASS: reload restored session; manual refresh returned valid token and fresh user. | Actual UI/SDK/provider |
+| S03 | Logout/stale token | PASS: logout204/local session cleared; old JWT still cryptographically/time-valid, fresh user403 `session_not_found`, policy denied. | Point-in-time real observation, not universal instant-revocation guarantee |
+| E01 | Current email | PASS: fresh user confirmed current email, authenticated audience/role, explicit non-anonymous, no pending email. Existing native-email policy accepted. | Actual user response |
+| E02 | Pending email changes | NOT RUN: no email-change mutation or assurance bypass. | Blocked sensitive-action prerequisite |
+| M01 | Zero-factor account shape | PASS observation: raw fresh user **omitted** `factors`, including after refresh. Not converted to an empty inventory. | Actual raw response shape, no identifiers recorded |
+| M02 | Unknown-inventory denial | PASS boundary: profile GET401; UI disclosed incomplete inventory and offered zero enrollment controls. | Actual backend/UI |
+| M03 | Pending/verified/multiple TOTP, AAL2 | BLOCKED: initial enrollment requires supported complete evidence; zero factor mutations. | Existing reviewed policy preserved |
+| M04 | Backup/removal/lost devices | BLOCKED: no eligible enrolled account; no out-of-band setup or recovery bypass. | Existing restrictions preserved |
+| W01 | Recovery request | PASS: native POST recovery200 for same campaign account. | Actual UI/SDK/provider |
+| W02 | Expired recovery flow | PASS refusal: native verify303, PKCE exchange422 `flow_state_expired`; no recovery session/password update. | Actual provider after manual handoff delay |
+| W03 | Fresh recovery callback/update | BLOCKED: private file absent; renewed flow also aged during handoff. No password change claimed. | Same account, one fresh request only |
+| W04 | Sensitive password/email change | BLOCKED: incomplete factor evidence; no fabricated recent-password proof. | Existing policy |
+| U01 | Profile provisioning/uniqueness | BLOCKED by M01; no profile POST, injected principal or local writes. | Actual profile denial, empty DB |
+| U02 | Ratings/personal recommendations/groups/switching | BLOCKED for real-provider acceptance by U01. | Fictional-provider results kept separate |
+| B01 | Anonymous browse/search | PASS: actual local MovieLens browse/search, canonical movie1, no rating controls/provider calls. | Local application, not authenticated provider proof |
+| N01 | Natural JWT expiry/outage/other project | NOT RUN against hosted service; no one-hour wait, outage injection or second project. | Offline adversarial coverage remains separate |
 
-## C. Provider compatibility
+## C. Provider compatibility and limitations
 
-Only public JWKS compatibility was observed live. Actual JWT claims, native `/user`
-fields, email timestamps/status, factor inventories and session behavior remain unknown.
-Do not infer those properties from public signing keys, documentation or historical tests.
-Official [getUser](https://supabase.com/docs/reference/javascript/auth-getuser),
+Actual signed tokens and native current-user evidence are compatible with existing
+verification. The account was confirmed independently of the owner's generic
+callback error. Missing original-browser PKCE verifier plausibly explains that
+error, but is an **inference**, not a captured original error. No extra signup or
+confirmation resend was needed. Positive recovery does not prove signup provenance.
+
+Observed missing factor inventory is a substantive **activation blocker**, not
+proof of no MFA and not a runtime defect fixed by normalizing absent fields.
+No out-of-band initial enrollment or fabricated provisioning principal is allowed.
+Official [getUser](https://supabase.com/docs/reference/javascript/auth-getuser) and
 [listFactors](https://supabase.com/docs/reference/javascript/auth-mfa-listfactors)
-and [redirect configuration](https://supabase.com/docs/guides/auth/redirect-urls)
-describe supported interfaces; they do not attest this hosted project's configuration.
-Pinned SDK **2.119.0** and existing signup PKCE/S256 root mechanism remain unchanged.
-An omitted, null or empty factor response must not unlock initial enrollment/provisioning.
-If observed, preserve denial and submit a separate supported-completeness/design decision.
+are interface evidence; they do not alone establish hosted inventory completeness.
+A supported completeness/design decision needs separate owner security review.
 
-## D. Defects and corrections
+Supabase documents [single-use, five-minute PKCE codes](https://supabase.com/docs/guides/auth/sessions/pkce-flow).
+Observed recovery rejection occurred over eight minutes after email receipt.
+The matching [GoTrue v2.197.0 PKCE implementation](https://github.com/supabase/auth/blob/v2.197.0/internal/api/token.go)
+checks configurable flow-state expiry before verifier comparison. The precise hosted
+flow-state timeout was not inspected; email age alone does not prove its value.
+The expired attempt was recorded, not suppressed by a successful retry.
 
-No actual account-response or application/provider defect could be established before
-the configuration gate. No runtime code, policy, tests, dependencies or hosted settings
-were changed. The temporary local preflight script initially lacked the repository import
-path; that harness-only error was corrected before its successful local assertions.
-Browser runtime failure is a tooling/access blocker, not evidence of a Movelle defect.
-This report PR records partial preflight and blockers; it does not certify hosted acceptance.
+Fresh user rejected a logged-out session while its issued JWT remained valid. This
+point-in-time result does not establish every revocation, deletion, ban or expiry
+scenario, nor change approved bounded-token behavior. Gmail INBOX delivery does not
+close production deliverability, Outlook junk-placement, sender-limit or SMTP gates.
 
-## E. Security gates preserved
+## D. Defects, tooling and security boundaries
 
-Native email confirmation and exact project JWT verification precede application access.
-Fresh factor evidence, required AAL, numeric mapping, ownership and group consent remain
-independent checks. No normalization of unknown factors, JWT-only authorization, legacy
-fallback, account claiming, email-only MFA recovery or fabricated recent-password proof.
-All factor removal, lost-all-authenticators recovery and enrolled sensitive updates retain
-their existing restrictions. No previous user, factor, session or credential was inspected
-or changed. Credentials, addresses, tokens, links, seeds and provider bodies are absent here.
+No provider-specific runtime defect has been established. No application code,
+dependency, route, policy or production setting changed. Private setup normalized
+the supplied REST URL and used existing preparation/initialization commands.
+A temporary helper needed its import path corrected; inaccessible artifacts were
+not overwritten. Unknown-factor denial is intentional and remains enforced.
 
-## F. Resource budget and private ledger
+Automatic approval rejected an early proposed command containing an encoded link
+before execution: encoding still exposes tokens in command history. All subsequent
+link operations read owner-created private files at runtime, validate pinned
+host/path/type/root, consume inputs and keep tokens out of arguments/output.
+A separate approval-review timeout happened before logout; one permitted retry
+succeeded. Neither tooling event is a provider/test failure.
+Dashboard UI tooling could not initialize; isolated CLI Playwright worked.
 
-| Resource | Used | Ceiling |
+JWT verification precedes evidence/ownership. No legacy fallback, client-selected
+owner, email-only MFA recovery, final-factor deletion or invented assurance was used.
+Only campaign account A was touched. Passwords remained in test-process memory;
+SDK session state stayed in isolated Chrome. No addresses, subject IDs, tokens,
+seeds, raw email links, credentials or key values belong in this report or ledger.
+
+## E. Resources and cleanup
+
+| Resource | Used/reserved | Ceiling |
 |---|---:|---:|
-| New synthetic Supabase accounts | **0** | 4 |
-| Provider-generated authentication emails | **0** | 10 |
-| New MFA enrollments | **0** | 10 |
+| New synthetic accounts | **1 (A)** | 4 |
+| Email-capable signup/recovery requests | **4 reserved** | 10 total provider emails |
+| Received matching messages | **3** (signup, two recovery) | Same email ceiling |
+| New MFA factors | **0** | 10 |
 
-There was **one public JWKS GET**, zero authenticated Auth requests and zero provider
-mutations. A connected Gmail profile was detected privately; it was not automatically
-designated a test inbox, and no email contents were searched/read or messages sent.
-Private temporary ledger reserves labels A/B only; records contain purposes, not addresses,
-passwords, JWTs, links or seeds. Both are not-created, MFA-not-started, cleanup-not-applicable.
-No account cleanup is needed; no unrelated or previous synthetic account is eligible.
-The owned local PG container was stopped/removed; no staging listener remains.
-No paid resource, SMTP probe, quota stress or cloud provisioning occurred.
+Duplicate signup was conservatively counted despite no observed extra message.
+Any password-change notification must also fit the email ceiling. No rate limit
+or quota was deliberately tested. Campaign A is independently creation-bound and
+cleanup-eligible; deletion remains **pending supported owner cleanup**. Public user
+APIs provide no reviewed self-delete path; no privileged workaround was used.
+No pre-existing account/session/factor, hosted SQL/configuration, production resource
+or paid service changed. Local services remain active only for pending handoff;
+final shutdown/port release must be verified before claiming local cleanup complete.
 
-## G. Executed tests and evidence boundaries
+## F. Commands and separate automated regressions
 
-Commands executed from repository root:
+- `git fetch origin main` and exact commit/tree comparison: PASS.
+- Existing JWKS/token/current-email/policy helpers with real provider evidence: outcomes in B.
+- `python scripts/prepare_movielens.py --source data --output .pytest-tmp/stage23-hosted-reference`: PASS, bundled offline source.
+- Existing `staging_entry.initialize('init')` / `('check')`: PASS, isolated PostgreSQL17.
+- Private campaign driver via explicit env-file launcher: real UI/provider observations in B; never CI.
+- `python -m pytest -q tests/test_supabase_policy.py tests/test_supabase_email.py -p no:cacheprovider`: **87 passed**, one existing deprecation warning.
+- `cd frontend; npx playwright test`: **36 passed (4.3m)**, existing local browser regressions including offline auth screens; no real customer data.
 
-- `git fetch origin main`; `git rev-parse origin/main`: expected SHA in A.
-- `git diff --quiet 0178e273b5bf5ce8b8406a0ae5fab2add691aee8 HEAD`: matching merged tree.
-- `.venv/Scripts/python.exe` with existing `SupabaseTokenVerifier`, `_download` and
-  `_parse` against the explicit public JWKS: PASS, sanitized algorithm/curve/count output only.
-- `.venv/Scripts/python.exe .pytest-tmp/acceptance_local_preflight.py`: PASS for PG17,
-  schema 3, empty synthetic database and loopback-only Docker port binding. Temporary
-  helper is uncommitted; it obtains only its owned local container credentials privately.
-- UI tool initialization: BLOCKED, Node runtime path unavailable; no screenshots or
-  authentication content captured. Local port inspection found no staging listeners.
+Earlier report-head CI b325f9c passed **1420 backend / 9 optional skips**, **576
+frontend**, both builds and **11 fictional-provider staging browser tests**.
+These are offline regressions, never added to real-provider acceptance counts.
+Final report-head CI, PR size and additional production browser results are recorded
+in the PR handoff. No test, required check or fail-closed rule was bypassed.
 
-No runtime fix was made, so earlier full suites/builds were not relabeled as newly executed
-real-provider tests. The [pre-merge audit](STAGING_PREMERGE_AUDIT.md) records historical
-offline/fictional-provider results; those remain useful regressions, not hosted proof.
-Report-only PR size and hosted CI results are recorded on its exact head in the PR ledger.
+## G. Remaining decisions and private deployment readiness
 
-## H. Private deployment readiness
+Not ready for private cloud deployment. First review supported factor-completeness
+options and the resulting provisioning/initial-enrollment decision. Positive signup
+PKCE and all blocked hosted journeys still need acceptance; retain current denial.
+Owner cleanup must identify only campaign A in the approved synthetic alias inbox.
 
-**Not ready for private cloud deployment.** Local composition remains intentionally
-loopback-only. Exact frontend/backend/database targets, privacy/ingress, HTTPS origins,
-root callback allowlists, CORS/TLS adaptations and incremental **$0** costs need separate
-owner decisions and reviewed changes. No cloud target is guessed or provisioned.
-SMTP delivery/spam/sender limits, factor completeness and legitimate authenticated
-end-to-end acceptance remain open. No deployment approval follows from this campaign.
-
-## I. Smallest remaining owner actions
-
-1. Privately make the existing dev project's public URL/publishable key available in
-   local configuration and supply its path; do not send passwords, keys or links in chat.
-2. Designate a controlled test inbox, or explicitly select unique aliases of the
-   connected Gmail inbox. Inbox connection alone is not test-recipient designation.
-3. Confirm the current dashboard project/Free identity, Confirm Email enabled, native
-   signup template and exact `http://127.0.0.1:5173/` redirect already allowed. If absent,
-   redirect-dependent tests stay blocked; configuration changes need separate approval.
-4. After a real zero-factor observation, review any supported completeness/design
-   blocker before initial MFA/provisioning; approval to test is not a policy bypass.
-
-Bounded testing is already authorized and does not need another general approval.
-No known runtime code defect is asserted. Full NIST assessment, the original 16-stage
-audit, later Stages 24–26 and production cutover/legacy-data decisions remain separate.
+Separate approval is required for exact frontend/backend/database hosting targets,
+private ingress/isolation, HTTPS root callbacks/origins, CORS/TLS adaptation and
+verified incremental $0 cost. Existing local guards intentionally reject cloud
+hosts. Full NIST assessment, original professional audit and Stages24-26 remain
+separate. Production authentication is dormant. No deployment or merge occurred.

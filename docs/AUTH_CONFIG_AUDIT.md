@@ -8,8 +8,9 @@ Prompts 11-13 are merged; [native confirmation](SIGNUP_CONFIRMATION.md) and
 [central dependency](AUTH_ARCHITECTURE.md#prompt-14-central-principal-and-verification-order-dormant)
 to return a typed principal; it does not attach it to application routes.
 Bounded Stage 23 development-project testing is now owner-authorized; current
-[acceptance results](STAGING_SUPABASE_ACCEPTANCE.md) are blocked by missing configuration
-and inbox designation. Production activation and hosted configuration changes remain unapproved.
+[acceptance results](STAGING_SUPABASE_ACCEPTANCE.md) include real signup, confirmed sessions and
+fail-closed omitted-factor denial; authenticated application journeys remain blocked. Production activation
+and hosted configuration changes remain unapproved.
 
 ## Evidence boundaries
 

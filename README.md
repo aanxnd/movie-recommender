@@ -34,7 +34,7 @@ separate local native-auth application, synthetic-provider tests and unapproved
 hosted acceptance/deployment. Use [explicit staging commands](docs/STAGING_INTEGRATION.md),
 not the legacy development launcher. Prompt 24 has not begun.
 The [real Supabase acceptance report](docs/STAGING_SUPABASE_ACCEPTANCE.md) separates
-live public-key evidence from authenticated flows awaiting private configuration/inbox access.
+real session evidence from factor-inventory and authenticated-application blockers.
 
 Prompt 18 adds [dormant native password recovery and sensitive password changes](docs/PASSWORD_SECURITY.md).
 The screens remain outside production startup; hosted acceptance and MFA integration
