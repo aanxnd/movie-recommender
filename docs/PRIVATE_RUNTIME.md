@@ -2,6 +2,10 @@
 
 These modules are inert until a separately selected private entry composes them.
 Production `app.runtime`/`app.main` do not import or enable this gate.
+The explicit command is `python -m app.private_entry`, with one worker and no
+access logs/forwarded-header trust. It checks schema3 without migrating and reuses
+the tested native composition, public algorithms, quotas and keyless artwork.
+Every legacy private handler is excluded; API documentation is unmounted.
 
 `private_config` requires a reviewed, bounded JSON target file, explicit private
 mode, production TLS validation, the pinned development Supabase project, and

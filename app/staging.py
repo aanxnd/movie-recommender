@@ -25,9 +25,15 @@ def create_staging_app(*, prepared_dir, database_url, project_url, publishable_k
     if config.production():
         raise ValueError('Local staging cannot use production mode')
     url = local_staging_url(database_url)
+    return _create_native_app(prepared_dir=prepared_dir, database_url=url.render_as_string(hide_password=False),
+        project_url=project_url, publishable_key=publishable_key, audience=audience, origin=ORIGIN)
+
+
+def _create_native_app(*, prepared_dir, database_url, project_url, publishable_key, audience, origin):
+    """Trusted composition shared by explicit local/private entries, never production."""
     def keyless_artwork(app):
         app.state.artwork = artwork.ArtworkStore(app.state.catalog)
-    application = create_app(prepared_dir=prepared_dir, database_url=url.render_as_string(hide_password=False),
+    application = create_app(prepared_dir=prepared_dir, database_url=database_url,
                              schema_initializer=check_schema, artwork_initializer=keyless_artwork)
     # Reuse public algorithms/lifespan/middleware, retaining NO legacy private
     # handler. An allowlist means a new production route cannot leak into staging.
@@ -37,7 +43,7 @@ def create_staging_app(*, prepared_dir, database_url, project_url, publishable_k
     application.title = 'Movelle isolated local staging'
     for middleware in application.user_middleware:
         if middleware.cls is CORSMiddleware:
-            middleware.kwargs['allow_origins'] = [ORIGIN]
+            middleware.kwargs['allow_origins'] = [origin]
     inherited = application.router.lifespan_context
 
     @asynccontextmanager
@@ -58,12 +64,12 @@ def create_staging_app(*, prepared_dir, database_url, project_url, publishable_k
     application.include_router(profile_router(authenticate))
     application.include_router(recommendation_router(authenticate))
     application.include_router(make_provisioning_router(project_url=project_url, audience=audience,
-        publishable_key=publishable_key, session_factory=sessions, allowed_origins=[ORIGIN]))
+        publishable_key=publishable_key, session_factory=sessions, allowed_origins=[origin]))
 
     @application.middleware('http')
     async def boundary(request: Request, call_next):
         origins = request.headers.getlist('origin')
-        if origins and origins != [ORIGIN]:
+        if origins and origins != [origin]:
             from fastapi.responses import JSONResponse
             return JSONResponse({'detail': 'Origin not permitted'}, status_code=403, headers={'Cache-Control': 'no-store'})
         try:
