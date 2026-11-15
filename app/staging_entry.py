@@ -33,6 +33,6 @@ def initialize(command):
 if __name__ == '__main__':
     try:
         initialize(sys.argv[1] if len(sys.argv) == 2 else '')
-        print('Isolated staging schema 3 verified')
+        print('Isolated staging schema 4 verified')
     except Exception:
         raise SystemExit('Staging database operation failed; inspect private local configuration') from None

@@ -31,6 +31,6 @@ def initialize(command, env):
 if __name__ == '__main__':
     try:
         initialize(sys.argv[1] if len(sys.argv) == 2 else '', os.environ)
-        print('Private schema 3 verified')
+        print('Private schema 4 verified')
     except Exception:
         raise SystemExit('Private schema operation refused or unavailable') from None

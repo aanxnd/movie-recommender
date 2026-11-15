@@ -14,7 +14,7 @@ def test_explicit_local_init_and_check_never_create_profiles(pg_engine, monkeypa
     staging_entry.initialize('init')
     staging_entry.initialize('check')
     with Session(pg_engine) as session:
-        assert session.get(SchemaVersion, 1).version == 3
+        assert session.get(SchemaVersion, 1).version == 4
         assert list(session.scalars(select(User))) == []
 
 

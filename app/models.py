@@ -26,6 +26,7 @@ class UserIdentity(Base):
     __tablename__ = "user_identities"
     __table_args__ = (
         CheckConstraint("username IS NULL OR length(username) BETWEEN 3 AND 30", name="ck_identity_username_length"),
+        CheckConstraint("profile_revision > 0", name="ck_identity_profile_revision"),
         CheckConstraint("username IS NULL OR (instr(username, char(0)) = 0 AND username NOT GLOB '*[^A-Za-z0-9_]*')",
                         name="ck_identity_username_ascii").ddl_if(dialect="sqlite"),
         CheckConstraint("username IS NULL OR username ~ '^[A-Za-z0-9_]+$'",
@@ -37,6 +38,7 @@ class UserIdentity(Base):
 
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True)
     supabase_subject: Mapped[UUID | None] = mapped_column(Uuid, unique=True)
+    profile_revision: Mapped[int] = mapped_column(BigInteger, nullable=False, server_default="1")
     # C collation makes ASCII lower() deterministic even on non-English PostgreSQL locales.
     username: Mapped[str | None] = mapped_column(String(30).with_variant(String(30, collation="C"), "postgresql"))
 

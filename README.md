@@ -9,8 +9,9 @@ The planned Supabase authentication launch is governed by the
 The approved launch design uses optional standard TOTP with a second independent
 TOTP factor for backup recovery. Native MFA recovery codes are rejected for initial
 launch; Gmail SMTP production readiness remains open. Supabase auth is not active on production routes.
-Schema version 3 adds dormant UUID/username identity mappings without changing legacy
+Schema version 4 retains dormant UUID/username mappings and adds a durable profile revision without changing legacy
 credentials, numeric IDs or ratings; no production user linking or Supabase login runs yet.
+See the [additive revision and rollback contract](docs/PROFILE_REVISION.md); no hosted migration is authorized.
 The JWT verifier and identity resolver are dormant in production; identity alone grants no access;
 [JWT verification limits](docs/AUTH_ARCHITECTURE.md#prompt-3a-dormant-jwt-verifier) apply to later integration.
 Read the [identity-resolution trust boundary](docs/AUTH_ARCHITECTURE.md#prompt-3b-dormant-identity-resolution)
