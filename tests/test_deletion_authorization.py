@@ -158,5 +158,8 @@ def test_candidate_refuses_startup_without_reviewed_journal_schema(authorizer, i
     app = compose_deletion_candidate(signing_key=b'offline-test-key-only-'*2, reviewed=True,
         project_url=ORIGIN, publishable_key='sb_publishable_offline', audience='authenticated',
         origin='http://127.0.0.1:5173', prepared_dir=api_paths[0], database_url=identity_engine.url.render_as_string(hide_password=False))
-    with pytest.raises(RuntimeError, match='Lifecycle schema unavailable'):
+    with pytest.raises(RuntimeError, match='Native preflight failed'):
         with TestClient(app): pass
+    from sqlalchemy import inspect
+    assert not inspect(identity_engine).has_table('account_deletion_intents')
+    assert not app.state.initialized
