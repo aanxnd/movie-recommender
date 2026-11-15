@@ -1,5 +1,9 @@
 # Stage 23 private owner preview — execution NOT authorized
 
+November15 owner direction: this preserved runbook is no longer the final owner
+acceptance target. See [production readiness](PRODUCTION_LAUNCH_READINESS.md);
+private/local infrastructure remains engineering evidence, not release approval.
+
 Review is separate from resource, secret, migration and deployment approval. No
 cloud command here was executed. Never use the production release workflow/app/DB.
 Prompt24/final audit has not started. Dependency order: **91 → 92 → 93 → 94**.

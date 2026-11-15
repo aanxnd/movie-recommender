@@ -49,8 +49,9 @@ enumeration, races and Gmail delivery before activation. Preview/production root
 remain unapproved; development is `http://127.0.0.1:5173/`.
 
 Fresh password use protects this Movelle continuation, not all direct Supabase
-API calls. Provider-side enforcement/owner review and the Prompt 11 factor-shape
-blocker remain, as documented in [password security](PASSWORD_SECURITY.md).
+API calls. Provider-side enforcement/owner review and broader hosted acceptance
+remain; the native omission contract is now approved, as documented in
+[password security](PASSWORD_SECURITY.md) and [production gates](PRODUCTION_LAUNCH_READINESS.md).
 
 ## Profile read/username contract (dependent PR)
 

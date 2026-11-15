@@ -1,5 +1,9 @@
 # Private Stage 23 deployment proposal - NOT APPROVED FOR EXECUTION
 
+November15 owner direction supersedes private/local staging as the final acceptance
+target. This proposal is preserved historical engineering work; follow the
+[production release gates](PRODUCTION_LAUNCH_READINESS.md), not a new preview rollout.
+
 No resource was created, configured or deployed. Production authentication stays
 dormant. This prepares private owner testing, not public rollout or the final audit.
 The MFA implementation/acceptance and this plan require separate merge review.

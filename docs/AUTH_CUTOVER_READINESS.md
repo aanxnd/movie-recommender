@@ -1,5 +1,10 @@
 # Authentication cutover readiness — NOT AUTHORIZED
 
+The owner now targets a complete production release, not another final local/private
+preview. Follow [ranked production gates](PRODUCTION_LAUNCH_READINESS.md). Existing
+staging/private code remains preserved; this direction authorizes no deployment,
+new hosted-auth budget, spending, schema change or production activation.
+
 Prompts 22–23 prepare retirement/provisioning; neither activates Supabase or retires live access.
 This is a fail-closed **review checklist**, not a runtime switch, endpoint, client
 assertion or authorization grant. Passing tests or supplying environment variables
