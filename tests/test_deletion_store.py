@@ -11,7 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException
 
 from app import database, security
-from app.deletion_store import DeletionStore, DeletionUnavailable, events, intents, metadata
+from app.deletion_store import DeletionAuthorization, DeletionStore, DeletionUnavailable, events, intents, metadata
 from app.models import User, UserIdentity
 from app.provisioning import provision_profile
 from app.provisioning_principal import ProfileInput, ProvisioningPrincipal
@@ -28,6 +28,7 @@ def deletion(identity_engine):
     principal = ProvisioningPrincipal(uuid4(), uuid4(), int(time())+300, 'aal2')
     store = DeletionStore(lambda: Session(identity_engine), ISSUER, b'offline-test-key-only-'*2)
     profile = provision_profile(store.sessions, principal, ProfileInput(username='AccountOwner'))
+    principal = DeletionAuthorization(principal.subject, principal.session_id, principal.expires_at, principal.aal, ISSUER)
     with store.sessions() as session, session.begin():
         peer = database.create_user(session).id
         database.register_movies(session, [10])
@@ -111,6 +112,7 @@ def test_unexpected_dependency_rolls_back_every_local_delete(deletion):
 def test_invalid_confirmation_and_expired_owner_never_request_deletion(deletion):
     store, principal, *_ = deletion
     for p, confirm in [(principal, True), ({'subject': principal.subject}, 'PERMANENTLY DELETE MY ACCOUNT'),
+                       (replace(principal, issuer=ISSUER.replace('a', 'b')), 'PERMANENTLY DELETE MY ACCOUNT'),
                        (replace(principal, expires_at=0), 'PERMANENTLY DELETE MY ACCOUNT')]:
         with pytest.raises((DeletionUnavailable, HTTPException)):
             store.request(p, uuid4(), confirm)

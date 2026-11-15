@@ -34,6 +34,12 @@ class DeletionUnavailable(RuntimeError):
 
 
 @dataclass(frozen=True, slots=True, repr=False)
+class DeletionAuthorization(ProvisioningPrincipal):
+    """Server-only fresh-password authorizer output; never construct from HTTP claims."""
+    issuer: str
+
+
+@dataclass(frozen=True, slots=True, repr=False)
 class DeletionJob:
     request_id: UUID
     subject: UUID
@@ -65,7 +71,8 @@ class DeletionStore:
 
     def request(self, principal, request_id, confirmation):
         # Call only AFTER the server-side password authorizer, never from a request model.
-        if (type(principal) is not ProvisioningPrincipal or type(request_id) is not UUID or not request_id.int
+        if (type(principal) is not DeletionAuthorization or principal.issuer != self.issuer
+                or type(request_id) is not UUID or not request_id.int
                 or confirmation != 'PERMANENTLY DELETE MY ACCOUNT'):
             raise DeletionUnavailable()
         principal.require_fresh()
