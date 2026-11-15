@@ -81,6 +81,8 @@ jobs:
         run: npm run build:staging
       - name: Test frontend API routing
         run: npm test
+      - name: Verify isolated native release artifact offline
+        run: node scripts/check-native-build.mjs
 
   staging-browser:
     name: Staging browser integration

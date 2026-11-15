@@ -1,0 +1,5 @@
+.native-header { display: flex; flex-wrap: wrap; gap: 1rem; padding: 1rem clamp(1rem, 4vw, 4rem); border-bottom: 1px solid var(--border); }
+.native-header > a { color: var(--accent); font: 2rem var(--font-display); text-decoration: none; }
+.native-header nav { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+.native-header button { padding: .5rem .75rem; border-radius: .5rem; border: 1px solid var(--border); }
+.native-header :focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
