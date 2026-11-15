@@ -1,5 +1,9 @@
 # Controlled deployment and rollback
 
+The current owner goal and release blockers are in
+[production launch readiness](PRODUCTION_LAUNCH_READINESS.md). Local/private tests
+and cosmetic account-screen PRs authorize no live configuration change or rollout.
+
 Private Stage23 uses the separate [owner-only runbook](PRIVATE_STAGE23_RUNBOOK.md),
 native entry and isolated source bundle. Do not dispatch the production workflow
 or use the live targets below for it. Preparation/CI is not deployment approval.

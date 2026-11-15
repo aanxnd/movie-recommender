@@ -77,8 +77,9 @@ MFA-required recovery and native session/logout behavior. No such hosted tests r
 `createSensitiveReauthentication().changePassword(currentPassword, password)` uses
 one immediate, purpose-scoped native operation. It verifies the current token and
 reads the same subject's current email/factors with `getUser`. Email never comes
-from a form, metadata or a URL. Unknown/missing factors deny (the existing Prompt 11
-hosted completeness blocker remains). Verified TOTP returns `mfa-required` before
+from a form, metadata or a URL. Null/malformed factors deny; the owner-approved
+fresh same-subject omission/empty contract applies (see [current policy](AUTH_POLICY_EVIDENCE.md)).
+Silent provider incompleteness remains an accepted limitation. Verified TOTP returns `mfa-required` before
 sign-in; the code does not replace an enrolled AAL2 session with password-only AAL1.
 Supported MFA-sensitive changes remain unavailable until the later reviewed flows.
 
@@ -146,7 +147,8 @@ Site URL, query-log redaction, provider settings/password policy and $0 abuse/ma
 limits. Authorized hosted tests must validate recovery/signup separation, signed
 AMR/UUID response shapes, replay/expiry/cross-browser behavior, outage/rate handling,
 session rotation/password updates, concurrent account transitions and MFA restrictions.
-Gmail delivery/spam and missing-factor completeness remain blockers. No production
+Gmail production delivery/spam and broader hosted acceptance remain blockers. The
+native omission contract is approved, with documented provider-loss/non-atomic limits. No production
 readiness or formal NIST compliance is claimed; retain the full assessment/audit.
 
 ## Prompt 21 lost-device boundary
