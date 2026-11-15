@@ -27,7 +27,7 @@ class _PrivateRoute(APIRoute):
         return redacted
 
 
-def make_provisioning_router(*, project_url, audience, publishable_key, session_factory, allowed_origins):
+def make_provisioning_router(*, project_url, audience, publishable_key, session_factory, allowed_origins, policy=None):
     """Future approved staging composition only. Parent must install RequestLimits
     and exact-origin CORS (no cookies). No environment variable activates this.
     Factory configuration is trusted server code, never HTTP input.
@@ -39,7 +39,7 @@ def make_provisioning_router(*, project_url, audience, publishable_key, session_
                   origin == 'https://' + urlsplit(origin).netloc and '@' not in origin)) for origin in origins):
         raise ValueError('Exact approved origins required')
     authenticate = make_provisioning_dependency(project_url=project_url, audience=audience,
-                                                 publishable_key=publishable_key)
+                                                 publishable_key=publishable_key, policy=policy)
     router = APIRouter(route_class=_PrivateRoute)
 
     def admit(request, principal, creating):

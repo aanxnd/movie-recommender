@@ -18,7 +18,7 @@ PUBLIC = {'/health', '/ready', '/movies/search', '/movies/decades', '/movies/{mo
           '/recommendations/popular', '/recommendations/genre/{genre}', '/movies/artwork-image/{movie_id}/{role}',
           '/openapi.json', '/docs', '/docs/oauth2-redirect', '/redoc'}
 
-def compose_native_app(*, prepared_dir, database_url, project_url, publishable_key, audience, origin, title='Movelle native API', preflight_error='Native preflight failed'):
+def compose_native_app(*, prepared_dir, database_url, project_url, publishable_key, audience, origin, title='Movelle native API', preflight_error='Native preflight failed', policy=None):
     """Explicit trusted composition; release/local/private bootstraps retain separate guards."""
     def keyless_artwork(app):
         app.state.artwork = artwork.ArtworkStore(app.state.catalog)
@@ -50,11 +50,11 @@ def compose_native_app(*, prepared_dir, database_url, project_url, publishable_k
     def sessions():
         return Session(application.state.engine)
     authenticate = make_supabase_auth_dependency(project_url=project_url, audience=audience,
-        publishable_key=publishable_key, session_factory=sessions)
+        publishable_key=publishable_key, session_factory=sessions, policy=policy)
     application.include_router(profile_router(authenticate))
     application.include_router(recommendation_router(authenticate))
     application.include_router(make_provisioning_router(project_url=project_url, audience=audience,
-        publishable_key=publishable_key, session_factory=sessions, allowed_origins=[origin]))
+        publishable_key=publishable_key, session_factory=sessions, allowed_origins=[origin], policy=policy))
 
     @application.middleware('http')
     async def boundary(request: Request, call_next):

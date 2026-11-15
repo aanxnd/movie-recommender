@@ -97,8 +97,20 @@ class DeletionStore:
             session.execute(update(User).where(User.id == identity.user_id).values(id=User.id))
             previous = session.execute(select(intents).where(intents.c.subject == principal.subject)).mappings().one_or_none()
             if previous:
-                if previous['user_id'] != identity.user_id or previous['issuer'] != self.issuer:
+                if (previous['user_id'] != identity.user_id or previous['issuer'] != self.issuer
+                        or previous['provider_created_at'] != creation_stamp(principal.provider_created_at)
+                        or not hmac.compare_digest(previous['authorization_tag'], self._tag(previous))):
                     raise DeletionUnavailable()
+                now = database_now(session)
+                if previous['phase'] == 'pending' and previous['authorized_until'] <= now:
+                    renewed = {**previous, 'authorized_until': principal.expires_at}
+                    changed = session.execute(update(intents).where(intents.c.request_id == previous['request_id'],
+                        intents.c.worker.is_(None), intents.c.phase == 'pending',
+                        intents.c.authorization_tag == previous['authorization_tag']).values(
+                            authorized_until=principal.expires_at, authorization_tag=self._tag(renewed))
+                        .returning(intents.c.request_id)).scalar_one_or_none()
+                    if changed is None: raise DeletionUnavailable()
+                    self._event(session, previous['request_id'], 'reauthorized')
                 return previous['request_id']
             row = dict(request_id=request_id, subject=principal.subject, user_id=identity.user_id,
                 provider_created_at=creation_stamp(principal.provider_created_at),

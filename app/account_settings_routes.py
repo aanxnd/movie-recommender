@@ -8,9 +8,9 @@ from app.provisioning_principal import make_provisioning_dependency
 from app.provisioning_routes import _PrivateRoute
 
 
-def account_settings_router(*, project_url, audience, publishable_key, session_factory, origin):
+def account_settings_router(*, project_url, audience, publishable_key, session_factory, origin, policy=None):
     authenticate = make_provisioning_dependency(project_url=project_url, audience=audience,
-                                               publishable_key=publishable_key)
+                                               publishable_key=publishable_key, policy=policy)
     router = APIRouter(route_class=_PrivateRoute)
     Principal = Annotated[object, Depends(authenticate)]
 

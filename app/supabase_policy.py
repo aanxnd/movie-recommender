@@ -40,6 +40,11 @@ class SupabaseAccessPolicy:
 
     def check_with_email(self, token: str) -> tuple[VerifiedTokenClaims, ProviderEmailConfirmation]:
         """One signature verification and one fresh user read; no resource access grant."""
+        claims, email, _ = self._check(token)
+        return claims, email
+
+    def observe_account(self, token):
+        """Trusted server only: same checks plus the uncached raw provider user; never serialize/log."""
         return self._check(token)
 
     def check_for_provisioning(self, token: str) -> VerifiedTokenClaims:
@@ -78,7 +83,7 @@ class SupabaseAccessPolicy:
                 verified |= factor["status"] == "verified"
             if (verified != (claims.aal == "aal2")) or claims.expires_at <= now.timestamp():
                 raise AccessDenied
-            return claims, email
+            return claims, email, user
         except (AccessDenied, InvalidAccessToken, EmailConfirmationDenied):
             raise AccessDenied("Authentication evidence rejected") from None
         except HTTPError as error:
