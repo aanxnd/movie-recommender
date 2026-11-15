@@ -5,7 +5,7 @@ from sqlalchemy import inspect, select, text
 from app.models import Base, RateBucket, SchemaVersion, UserIdentity
 
 
-VERSION = 3
+VERSION = 4
 LOCK_ID = 698217431
 
 
@@ -23,7 +23,7 @@ def migrate(engine) -> None:
             current = connection.scalar(select(SchemaVersion.version).where(SchemaVersion.id == 1))
             if current is not None and current > VERSION:
                 raise ValueError("Database schema is newer than this application")
-            if current != VERSION and inspect(connection).has_table(UserIdentity.__tablename__):
+            if (current is None or current < 3) and inspect(connection).has_table(UserIdentity.__tablename__):
                 raise ValueError("Unversioned identity table: inspect before migrating")
             if current is None:
                 # Version 1 only adds tables. Original users/movies/ratings stay intact.
@@ -34,6 +34,10 @@ def migrate(engine) -> None:
                     RateBucket.__table__.create(connection, checkfirst=True)
                 if current < 3:
                     UserIdentity.__table__.create(connection)
+                elif current < 4:
+                    connection.execute(text(
+                        "ALTER TABLE user_identities ADD COLUMN profile_revision BIGINT NOT NULL DEFAULT 1 "
+                        "CONSTRAINT ck_identity_profile_revision CHECK (profile_revision > 0)"))
                 if current < VERSION:
                     connection.execute(SchemaVersion.__table__.update().where(SchemaVersion.id == 1).values(version=VERSION))
             connection.commit()

@@ -49,12 +49,12 @@ def _create_native_app(*, prepared_dir, database_url, project_url, publishable_k
     @asynccontextmanager
     async def lifespan(app):
         try:
-            # The shared lifecycle checks schema 3 directly, never its legacy
+            # The shared lifecycle checks the current schema directly, never its legacy
             # development migrator or ambient production artwork configuration.
             async with inherited(app):
                 yield
         except Exception:
-            raise RuntimeError('Staging preflight failed; privately verify the isolated schema-3 database') from None
+            raise RuntimeError('Staging preflight failed; privately verify the isolated database schema') from None
     application.router.lifespan_context = lifespan
 
     def sessions():

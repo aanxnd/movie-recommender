@@ -8,7 +8,7 @@ from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlalchemy.orm import Session
 
 from app import database, security
-from app.migrations import check_schema, migrate
+from app.migrations import VERSION, check_schema, migrate
 from app.models import GroupInvitation, RateBucket, SchemaVersion, User, UserIdentity
 from test_postgresql_concurrency import pg_engine
 
@@ -47,7 +47,7 @@ def test_upgrade_preserves_legacy_relationships_and_credentials(identity_engine,
     migrate(engine)
     check_schema(engine)
     with Session(engine) as session, session.begin():
-        assert session.get(SchemaVersion, 1).version == 3
+        assert session.get(SchemaVersion, 1).version == VERSION
         assert list(session.scalars(select(User.id).order_by(User.id))) == [42, 43]
         assert list(session.scalars(select(UserIdentity))) == []
         assert database.get_user_profile(session, 42) == {10: 3.25}
