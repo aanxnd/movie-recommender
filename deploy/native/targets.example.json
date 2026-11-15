@@ -1,6 +1,7 @@
 {
   "approved": false,
   "frontend_origin": null,
+  "api_origin": null,
   "supabase_url": null,
   "database_host": null,
   "database_name": null

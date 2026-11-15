@@ -40,3 +40,4 @@ frontend/dist/
 /frontend/dist-staging/
 deploy/private-stage23/targets.reviewed.json
 /frontend/dist-private/
+/frontend/dist-native/
