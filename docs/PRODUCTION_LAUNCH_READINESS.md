@@ -15,14 +15,14 @@ and sign back in. Cosmetic readiness is not authentication or release readiness.
 | Area | Implemented/offline evidence | Genuine provider evidence / remaining work |
 |---|---|---|
 | Signup/login/confirmation | Native SDK, PKCE/S256, once-only scrubbed root callback, safe errors and session fencing. | Real dev signup/confirmation/password sessions passed. SDK redirectType=null is not signup-purpose evidence; backend native current-email policy remains authoritative. Public origins/settings/abuse controls unapproved. |
-| Identity/profile | Atomic schema3 provisioning; unique case-insensitive ASCII usernames; UUID maps to server-allocated numeric ID. | Real Supabase plus **local** PostgreSQL profile creation passed. No production/Neon schema, account linking or migration has been verified/approved. |
+| Identity/profile | Atomic provisioning plus schema4 durable profile revisions; unique case-insensitive ASCII usernames; UUID maps to server-allocated numeric ID. | Real Supabase plus **local** PostgreSQL profile creation passed. No production/Neon schema, account linking or migration has been verified/approved. |
 | MFA | Optional first TOTP, AAL2 challenge, additional independent factor and backup continuation; enrolled AAL1 denial. | Real first-factor QR/verification, stale and fresh-password AAL1 denial and second challenge passed. Independent Google/Duo devices, replacement/races and broader failures need genuine acceptance. All factor removal remains disabled. |
-| Password/email | Native recovery, purpose-bound callbacks, same-account fences and safe unknown outcomes. | Real non-MFA recovery passed. Enrolled-account password/email actions remain intentionally restricted; genuine email-change ordering, A→B→A, replay/expiry and recovery-with-MFA are unproven. |
+| Password/email | Native recovery, purpose-bound callbacks, same-account fences and safe unknown outcomes. | Real non-MFA recovery passed. AAL2-preserving isolated password/email continuation now has offline tests; hosted nonce/settings enforcement remains unproven; genuine email-change ordering, A→B→A, replay/expiry and recovery-with-MFA are unproven. |
 | Ratings/recommendations | Native ownership, numeric IDs, fractional ratings, bounded CPU/DB work and unchanged mathematics. | Real dev Auth/local app saved5 ratings and recommendations API returned10; production dataset/capacity and actual deployed UI are not proven. |
 | Groups | Native invitation/expiry/consent checks; no peer raw-rating read/write; UI/offline multi-account coverage. | Genuine multi-account provider/deployed group journey still needed. Current groups are invitation-based computations, not persistent shared group records. |
-| Settings/lifecycle | Read-only owned username adapter; separate safe mutation contracts/screens. | Username mutation and account deletion are unavailable in the current native composition. Do not advertise those functions as complete. Implement/review them or explicitly approve disclosed launch exclusions. |
+| Settings/lifecycle | Owned GET/PATCH username API, case-insensitive constraints and durable CAS revisions; fenced release adapter. | Username updates are implemented in the separate release artifact; hosted concurrency acceptance remains. Account deletion is unavailable. Do not advertise those functions as complete. Implement/review them or explicitly approve disclosed launch exclusions. |
 | Session/logout | Native restoration/refresh/account-switch fencing, backend JWT/current-email/factor checks. | Provider logout204 and restoration evidence exist. Exact old logout text assertions failed on an informational suffix, not a demonstrated logout failure. Verify deployed UI completion and accepted bounded token validity; no immediate-revocation claim. |
-| Visual/theme | PR95→96 reuse existing presets/key/tokens with cinematic copy, copper default, keyboard and responsive checks. | Cosmetic/offline evidence only. Production main.jsx still selects the legacy application, not these native account screens. |
+| Visual/theme | PR95→96 reuse existing presets/key/tokens with cinematic copy, copper default, keyboard and responsive checks. | Cosmetic/offline evidence only. Default main.jsx still selects legacy; separate native-main.jsx now composes these screens without activation. |
 
 The [initial campaign](STAGING_SUPABASE_ACCEPTANCE.md) and
 [follow-up](NATIVE_MFA_FIX_ACCEPTANCE.md) used genuine Supabase **development Auth**
@@ -46,17 +46,17 @@ If no production architecture can establish the strict CA$0 boundary, release st
 blocked. Investigating a hard-free alternative needs a reviewed design; no resource
 may be created and the request for production is not permission to spend credits.
 
-**P0 — Coherent native production composition.** Production still uses legacy
-bearers. The local and private entries are separate tested foundations, not launch
-switches. Build a reviewed production backend/frontend composition using existing
-native dependencies, provisioning and resource routers. Keep anonymous browsing;
-personal actions require fresh backend policy and numeric ownership. Never expose
-legacy issuance/fallback beside new auth or turn a private preview public merely
-by removing its gate/mode/origin checks. Remove staging controls/test providers
-from the release UI and preserve root callback purpose/session fencing.
+**P0 - Review and accept the native release composition.** The separate
+[backend](NATIVE_RELEASE.md) and [frontend](NATIVE_FRONTEND.md) now compose the
+existing native dependencies, anonymous browsing, provisioning, movie/group routers
+and owned settings without legacy fallback. Default deployed entries remain legacy.
+Review PR98 -> PR99 -> PR100 -> PR101 -> PR102 in order, rebasing child diffs after
+squash merges. Each is independently dormant, not independently deployable. The
+release build excludes operator/test controls and database configuration. Exact
+public origins, target pins, schema4 execution and genuine acceptance remain gates.
 
-**P0 — MFA/account feature policy.** Resolve legitimate password/email changes for
-enrolled users without password-only downgrade. Review supported AAL2-authorized
+**P0 — MFA/account feature policy.** Review the [implemented AAL2-preserving continuation](MFA_SENSITIVE_OPERATIONS.md)
+and obtain hosted password/email acceptance without password-only downgrade. Review supported AAL2-authorized
 factor removal/opt-out and cross-device races; frontend refusal is not a global
 Supabase policy. Current unconditional provider DELETE is not proof of final-factor
 retention. Implement a reviewed supported approach or obtain explicit acceptance
@@ -74,7 +74,7 @@ remove factors, reset accounts or send extra messages to work around prerequisit
 **P1 — Data and legacy retirement.** No legacy migration/linking is approved. Keep
 numeric IDs, ratings, identities and invitation relationships intact. Owner must
 approve historical legacy users' access/retention/communication plan; matching an
-email/username/ID never claims data. Repository schema3 is not proof of live Neon
+email/username/ID never claims data. Repository schema4 is not proof of live Neon
 schema; older release records describe schema2. Separately approve read-only live
 inspection, additive migration rehearsal and schema-compatible rollback. Never
 drop/reset tables/sequences or roll back to a schema2/unauthorized legacy binary.
@@ -99,11 +99,12 @@ Complete the full NIST SP800-63B-4 controls/evidence/gaps assessment and origina
 
 ## Implementation and acceptance sequence
 
-1. Review cosmetic PR95→96 independently; no native auth activation is bundled.
-   Review this production plan separately. Rebase child diffs after squash merges;
+1. PR95-97 are merged historical foundations. Review the native completion stack
+   and its remaining restricted operations. Rebase child diffs after squash merges;
    each complete implementation PR must stay at or below500 added+deleted lines.
-2. Resolve the cost/target approval gate. In parallel, implement the missing native
-   account/MFA/settings and final product composition in small dormant PRs. Each
+2. Resolve the cost/target approval gate. In parallel, review the implemented native
+   composition/username/AAL2 continuation and finish factor/lifecycle operations in
+   small dormant PRs. Each
    needs adversarial ownership, subject/session/AAL, race/outage and no-fallback tests.
 3. Complete offline browser/mobile/keyboard regressions of the entire target journey,
    including unknown write outcomes, cross-account/group denial, callbacks/replay,

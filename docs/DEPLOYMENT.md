@@ -1,5 +1,11 @@
 # Controlled deployment and rollback
 
+The separately selectable native release now has [backend pins/entry and rollback](NATIVE_RELEASE.md)
+and a [native frontend artifact](NATIVE_FRONTEND.md). The workflow below still
+selects the legacy runtime. Do not execute it as native cutover or silently change
+its image command. Schema 4 is additive but requires separate rehearsal/approval;
+old schema-3 binaries refuse it. No release or hosted migration is authorized.
+
 The current owner goal and release blockers are in
 [production launch readiness](PRODUCTION_LAUNCH_READINESS.md). Local/private tests
 and cosmetic account-screen PRs authorize no live configuration change or rollout.

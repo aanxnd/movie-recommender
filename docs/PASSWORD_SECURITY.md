@@ -79,16 +79,19 @@ one immediate, purpose-scoped native operation. It verifies the current token an
 reads the same subject's current email/factors with `getUser`. Email never comes
 from a form, metadata or a URL. Null/malformed factors deny; the owner-approved
 fresh same-subject omission/empty contract applies (see [current policy](AUTH_POLICY_EVIDENCE.md)).
-Silent provider incompleteness remains an accepted limitation. Verified TOTP returns `mfa-required` before
-sign-in; the code does not replace an enrolled AAL2 session with password-only AAL1.
-Supported MFA-sensitive changes remain unavailable until the later reviewed flows.
+Silent provider incompleteness remains an accepted limitation. Enrolled AAL1 is
+denied before password sign-in. Enrolled AAL2 uses the reviewed
+[isolated password continuation](MFA_SENSITIVE_OPERATIONS.md), preserving the main
+AAL2 session; its temporary password session is never installed in that client.
+Hosted nonce/settings/acceptance remain gates, not assumed guarantees.
 
 For explicitly no verified factors, native `signInWithPassword` checks the current
 password. A pre-persistence subject guard prevents account substitution. The exact
 new response must yield signed password AMR, a different session UUID and the same
 subject. Only that immediate continuation calls `updateUser` with the new/current
-password. No reusable grant, timestamp rule, second SDK or parallel auth store is
-created. Refresh/restoration or historical password AMR cannot replace this step.
+password. No reusable grant, timestamp rule or parallel persistent auth store is
+created. The non-MFA path uses the shared SDK; MFA uses only a nonpersistent,
+operation-local password-proof client. Refresh/restoration or historical password AMR cannot replace this step.
 Progress states `pending`/`verified` are presentation only, scoped to password-change;
 errors include expired, cancelled and unavailable. Components never receive proof
 objects. Future sensitive operations need their own reviewed native continuation.

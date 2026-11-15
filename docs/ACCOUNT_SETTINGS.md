@@ -11,7 +11,8 @@ all factor-removal actions remain unavailable because of cross-device races.
 
 `createNativeEmailSettings` reuses the pinned SDK, session leases and Prompt 18's
 immediate password continuation, scoped to `email-change`. Unknown factor evidence
-denies and enrolled TOTP returns MFA-required; no AAL2 downgrade or refresh-as-reauth.
+denies; enrolled AAL1 requires MFA, while enrolled AAL2 uses the
+[isolated password proof](MFA_SENSITIVE_OPERATIONS.md). No AAL2 downgrade or refresh-as-reauth.
 Only native `updateUser({email}, {emailRedirectTo: approvedOrigin + '/'})` writes.
 Subject/session/credential/persistence fences prevent stale account substitution.
 Already committed provider changes cannot be undone by browser cancellation.
@@ -55,16 +56,16 @@ remain; the native omission contract is now approved, as documented in
 
 ## Profile read/username contract (dependent PR)
 
-There is no Supabase-aware settings or username-update endpoint. The legacy
-`/users/me` is not such an integration. `AccountSettingsService` therefore defaults
-to unavailable. No HTTP adapter, direct Neon call or identity writer is introduced.
-The future `inspect({signal})` must authorize the server-derived caller before
+The separate native release now supplies [owned GET/PATCH settings](NATIVE_ACCOUNT_SETTINGS.md)
+and its credential-fenced frontend adapter. Legacy `/users/me` is not a substitute.
+`AccountSettingsService` still defaults to unavailable outside explicit composition;
+the local/private staging composition remains read-only. `inspect({signal})` authorizes the server-derived caller before
 returning only `{status: ready, username, revision}`. SDK metadata/user IDs never
 substitute. Malformed/surplus fields, including emails/IDs, deny before rendering.
 The revision is a public optimistic-concurrency value, not identity or a credential.
 
 `changeUsername({username, revision}, {signal})` has no ID/UUID/email ownership input.
-Future server guarantees: native email/MFA policy plus current subject mapping and
+Server guarantees: native email/MFA policy plus current subject mapping and
 resource ownership; atomic compare-and-set revision and case-insensitive database
 uniqueness; exact Prompt 17 ASCII/length/reserved-name rules; no trimming/Unicode
 normalization; preserve spelling, numeric IDs, ratings and relationships. Do not
@@ -73,17 +74,19 @@ create, rebind or claim a profile. Missing identity uses the separate dormant
 Enforce reserved names on the server too; the existing DB does not reserve them.
 
 Successful replies must name the exact requested username and a current revision.
-Concurrent conflicting changes return conflict; another account's collision returns
-generic username-taken without identity details. Repeating an already achieved
-desired state should return its current authoritative snapshot without a second
-write. A stale revision must not overwrite an intervening different change. An
+Concurrent conflicting changes and another account's case-insensitive collision
+both return HTTP409 without identity details. The transport intentionally maps
+both to a generic recheck. Every accepted explicit update increments the durable
+revision, even for the same spelling; stale retries cannot masquerade as no-ops.
+A stale revision must not overwrite an intervening different change. An
 uncertain mutation requires reinspection, never automatic replay. No frontend-only
 busy flag can provide server idempotency or concurrency guarantees.
 
 The dormant screen resets/aborts on logout, account generation changes or unmount;
-Strict Mode inspection is read-only. Only future backend-authorized profile data
-is shown, separately from device sign-in. Mocked CAS/collision tests demonstrate UI
-protocol behavior, not an implemented transactional backend or provisioning path.
+Strict Mode inspection is read-only. Only backend-authorized profile data is
+shown, separately from device sign-in. UI protocol mocks are complemented by
+real isolated PostgreSQL/SQLite CAS/constraint/transaction tests; none establishes
+hosted acceptance. Provisioning remains a separate server boundary.
 
 ## Email views (dependent PR)
 

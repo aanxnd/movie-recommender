@@ -1,4 +1,4 @@
-"""Staging-only resource HTTP composition, using existing verified ownership helpers."""
+"""Shared native resource HTTP composition, using existing verified ownership helpers."""
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, Request

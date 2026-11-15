@@ -1,4 +1,4 @@
-// Trusted staging bridge for existing movie UI; never restores legacy identity.
+// Shared native bridge for existing movie UI; never restores legacy identity.
 import { ApiError } from './api.js'
 import { createAuthenticatedApi } from './auth-api.js'
 

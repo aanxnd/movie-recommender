@@ -42,8 +42,17 @@ The screens remain outside production startup; hosted acceptance and MFA integra
 are still required before activation.
 
 Prompt 19 adds [dormant account settings and native email changes](docs/ACCOUNT_SETTINGS.md).
-Username updates require a future authorized backend; disable/delete controls are
+The original default settings adapter remains unavailable; the separate native
+release now supplies owned username updates. Disable/delete controls remain
 review-only and cannot execute an operation. Production behavior is unchanged.
+
+The separate [native release entry points](docs/NATIVE_RELEASE.md) and
+[frontend artifact](docs/NATIVE_FRONTEND.md) now compose authentication and
+[owned username updates](docs/NATIVE_ACCOUNT_SETTINGS.md) with schema4 concurrency.
+The original Prompt19 default adapter remains unavailable outside explicit native
+release composition. [MFA-sensitive password/email changes](docs/MFA_SENSITIVE_OPERATIONS.md)
+have an isolated password continuation; factor removal and account deletion remain
+restricted. Default production commands are unchanged; no activation is approved.
 
 Prompts 20–21 add [dormant native TOTP](docs/TOTP_MFA.md) and
 [alternative-authenticator recovery](docs/MFA_RECOVERY.md). All-devices-lost recovery

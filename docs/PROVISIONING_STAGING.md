@@ -137,8 +137,9 @@ independent backup factor. Keep the maximum factor count consistent with the
 current limit of 10. Omitted/empty inventory uses the approved native contract;
 null/malformed evidence still denies. First enrollment requires AAL1. Final-factor
 deletion and all-devices-lost recovery remain blocked; no email-only bypass.
-MFA-sensitive password/email changes remain restricted by the existing native
-reauthentication limitations. This prompt does not change any of these decisions.
+MFA-sensitive password/email changes now have an
+[AAL2-preserving continuation](MFA_SENSITIVE_OPERATIONS.md); hosted settings and
+acceptance remain required. This historical provisioning prompt activates none.
 
 Email/signup and recovery both use the exact approved local root callback
 `http://127.0.0.1:5173/`, native PKCE/S256, one code, no arbitrary next/redirect
