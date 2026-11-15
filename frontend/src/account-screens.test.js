@@ -11,11 +11,20 @@ function fill(f, signup = false) {
   if (signup) f.input('confirmation', 'synthetic-private')
 }
 
+test('cinematic account copy is exact, obsolete slogans are absent and theme control is discoverable', async t => {
+  const f = await mount(t, 'LoginScreen', { actions: {} })
+  assert.equal(document.querySelector('.auth-quote').textContent, 'Cinema done your way.')
+  assert.equal(document.querySelector('.auth-description').textContent, 'Find your next favorite. Keep the ones that stay with you.')
+  assert.doesNotMatch(f.text(), /Good films\.|Great company\.|Your kind of cinema\.|01 \/ THE OPENING SCENE|Your next great film is waiting\./)
+  assert.equal(document.querySelector('.auth-card h1').textContent, 'Welcome back.')
+  assert.equal(document.querySelector('[aria-label="Change website theme"]').getAttribute('aria-haspopup'), 'dialog')
+})
+
 test('signup labels, password controls, matching validation and native email validity', async t => {
   let calls = 0
   const f = await mount(t, 'SignupScreen', { actions: { signUp: async () => { calls++; return { status: 'check-email' } } } })
-  assert.equal(document.querySelectorAll('label').length, 3)
-  for (const label of document.querySelectorAll('label')) assert.ok(document.getElementById(label.htmlFor))
+  assert.equal(document.querySelectorAll('.auth-card label').length, 3)
+  for (const label of document.querySelectorAll('.auth-card label')) assert.ok(document.getElementById(label.htmlFor))
   fill(f, true); f.input('confirmation', 'different'); await f.submit()
   assert.match(f.text(), /passwords do not match/); assert.equal(calls, 0)
   assert.equal(document.activeElement.getAttribute('role'), 'alert')

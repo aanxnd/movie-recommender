@@ -117,3 +117,6 @@ jobs:
       - name: Test real staging frontend, API and PostgreSQL with fictional Auth
         working-directory: frontend
         run: npx playwright test --config playwright.staging.config.js
+      - name: Test cinematic account screens and theme integration offline
+        working-directory: frontend
+        run: npx playwright test browser/auth-landing.spec.js browser/account-screens.spec.js browser/themes.spec.js

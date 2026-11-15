@@ -8,6 +8,8 @@ test('offline signup works by keyboard, has no overflow and sends no credential 
     await page.goto('/browser/account-demo.html')
     await expect(page.getByRole('heading', { name: 'Make yourself at home.' })).toBeVisible()
     await page.keyboard.press('Tab')
+    await expect(page.getByRole('button', { name: 'Change website theme' })).toBeFocused()
+    await page.keyboard.press('Tab')
     await expect(page.getByLabel('Email address')).toBeFocused()
     await page.keyboard.type('offline@example.invalid')
     await page.keyboard.press('Tab'); await page.keyboard.type('synthetic-private')

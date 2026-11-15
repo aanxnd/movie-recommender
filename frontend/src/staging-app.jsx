@@ -7,8 +7,10 @@ import { ForgotPasswordScreen, NewPasswordScreen, ChangePasswordScreen } from '.
 import { MfaScreen, MfaLoginScreen } from './mfa-screens.jsx'
 import { MfaRecoveryScreen } from './mfa-recovery-screen.jsx'
 import { StagingMovies } from './staging-movies.jsx'
+import { useTheme } from './use-theme.js'
 
 export function StagingApp({ runtime }) {
+  useTheme() // Restore the same preference before movies/account content paints.
   return <AuthProvider session={runtime.session}><Workspace runtime={runtime} /></AuthProvider>
 }
 
