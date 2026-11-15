@@ -1,18 +1,25 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { useAuth } from './auth-context.js'
 import { Brand } from './components/ui.jsx'
+import { Palette } from 'lucide-react'
+import ThemeDialog from './components/ThemeDialog.jsx'
+import { useTheme } from './use-theme.js'
 import './account-screens.css'
 
 export function AuthFrame({ title, description, children }) {
-  return <main className="auth-shell"><aside className="auth-editorial">
+  const { theme, saved, changeTheme } = useTheme(), [themeOpen, setThemeOpen] = useState(false)
+  return <div className="auth-page"><main className="auth-shell">
+    <div className="auth-tools"><button type="button" className="theme-trigger" aria-haspopup="dialog"
+      aria-label="Change website theme" onClick={() => setThemeOpen(true)}><Palette size={18} aria-hidden="true" /><span>Theme</span></button></div>
+    <aside className="auth-editorial">
     <Brand /><p className="eyebrow">A LITTLE MORE YOU</p>
-    <p className="auth-quote">Good films.<br />Great company.<br /><em>Your kind of cinema.</em></p>
-    <p>Find your next favourite. Keep the ones that stay with you.</p>
-    <span className="auth-reel" aria-hidden="true">01 / THE OPENING SCENE</span>
+    <p className="auth-quote">Cinema done <em>your way.</em></p>
+    <p className="auth-description">Find your next favorite. Keep the ones that stay with you.</p>
   </aside><section className="auth-card" aria-label={title}>
-    <p className="eyebrow">YOUR MOVELLE</p><h1>{title}</h1><p className="auth-intro">{description}</p>
+    <p className="eyebrow">YOUR MOVELLE</p><h1>{title}</h1>{description && <p className="auth-intro">{description}</p>}
     {children}<p className="auth-footnote">Just looking? Movie browsing stays open to everyone.</p>
-  </section></main>
+  </section></main><ThemeDialog open={themeOpen} onClose={() => setThemeOpen(false)}
+    theme={theme} onChange={changeTheme} saved={saved} /></div>
 }
 
 export function AuthNotice({ children, error = false, focus = true }) {
@@ -65,7 +72,7 @@ function CredentialScreen({ signup, actions, onSwitch }) {
     finally { if (ticket.current === current) { active.current = false; setBusy(false) } }
   }
   return <AuthFrame title={signup ? 'Make yourself at home.' : 'Welcome back.'}
-    description={signup ? 'A place for your ratings, discoveries and films worth sharing.' : 'Your next great film is waiting.'}>
+    description={signup ? 'A place for your ratings, discoveries and films worth sharing.' : undefined}>
     {auth.status === 'authenticated' || status === 'signed-in' ?
       <AuthNotice>Signed in on this device. Your profile and account access are checked separately.</AuthNotice> :
       status === 'check-email' ? <AuthNotice>Check your email. If signup can proceed, you will receive a confirmation link. Already have an account? Sign in instead.</AuthNotice> :

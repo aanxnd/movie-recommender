@@ -6,6 +6,17 @@ import { THEMES, THEME_KEY } from '../src/themes.js'
 const shots = resolve(process.env.MOVELLE_SCREENSHOT_DIR || '../docs/screenshots/movelle', 'themes')
 const picker = page => page.getByRole('button', { name: 'Change color theme' })
 const dialog = page => page.getByRole('dialog', { name: 'Website theme' })
+test.beforeEach(async ({ context }) => {
+  // Palette/navigation tests must not depend on live artwork keys or providers.
+  await context.route('**/api/movies/artwork', async route => {
+    const { movie_ids } = route.request().postDataJSON()
+    await route.fulfill({ json: { configured: true, provider: 'trakt+fanart.tv',
+      items: movie_ids.map(movie_id => ({ movie_id, poster_path: `/movies/artwork-image/${movie_id}/poster`,
+        backdrop_path: `/movies/artwork-image/${movie_id}/backdrop` })) } })
+  })
+  const image = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j3ioAAAAASUVORK5CYII=', 'base64')
+  await context.route('**/api/movies/artwork-image/**', route => route.fulfill({ contentType: 'image/png', body: image }))
+})
 async function capture(page, name) {
   await mkdir(shots, { recursive: true })
   await page.evaluate(() => document.fonts.ready)
