@@ -116,7 +116,8 @@ def test_expiry_tampering_after_claim_cannot_authorize_provider_delete(worker, m
     assert state['calls'] == ['GET']
 
 
-@pytest.mark.parametrize('raw', [b'private malformed', b'{"code":"user_not_found","code":"other"}', b' ' * 65537])
+@pytest.mark.parametrize('raw', [b'private malformed', b'{"code":"user_not_found","code":"other"}', b' ' * 65537],
+                         ids=['malformed', 'duplicate', 'oversized'])
 def test_malformed_or_oversized_provider_evidence_is_never_absence(monkeypatch, raw):
     class Opener:
         def open(self, request, timeout):
