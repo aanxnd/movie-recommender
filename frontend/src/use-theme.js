@@ -2,10 +2,16 @@ import { useEffect, useLayoutEffect, useState } from 'react'
 import { THEME_KEY, getTheme, readTheme, saveTheme, themeProperties } from './themes.js'
 
 const CHANGED = 'movelle:theme-change'
+const visits = new WeakMap()
+function currentPreference() {
+  if (typeof window === 'undefined') return { theme: 'cinema', saved: false }
+  if (!visits.has(window)) visits.set(window, { theme: readTheme(), saved: true })
+  return visits.get(window)
+}
 
 // Shared by product and account screens; theme state never owns auth/identity state.
 export function useTheme() {
-  const [theme, setTheme] = useState(readTheme), [saved, setSaved] = useState(true)
+  const [theme, setTheme] = useState(() => currentPreference().theme), [saved, setSaved] = useState(() => currentPreference().saved)
   useLayoutEffect(() => {
     const root = document.documentElement
     root.dataset.theme = theme
@@ -18,8 +24,9 @@ export function useTheme() {
   useEffect(() => {
     const changed = event => {
       if (event.type === CHANGED || event.key === THEME_KEY || event.key === null) {
-        setTheme(event.type === CHANGED ? getTheme(event.detail?.id).id : readTheme())
-        setSaved(event.type === CHANGED ? event.detail?.saved === true : true)
+        const next = { theme: event.type === CHANGED ? getTheme(event.detail?.id).id : readTheme(),
+          saved: event.type === CHANGED ? event.detail?.saved === true : true }
+        visits.set(window, next); setTheme(next.theme); setSaved(next.saved)
       }
     }
     window.addEventListener('storage', changed); window.addEventListener(CHANGED, changed)
@@ -27,6 +34,7 @@ export function useTheme() {
   }, [])
   function changeTheme(id) {
     const next = getTheme(id).id, persisted = saveTheme(next)
+    visits.set(window, { theme: next, saved: persisted })
     setTheme(next); setSaved(persisted)
     window.dispatchEvent(new window.CustomEvent(CHANGED, { detail: { id: next, saved: persisted } }))
   }

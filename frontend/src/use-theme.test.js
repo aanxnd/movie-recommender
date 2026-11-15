@@ -45,4 +45,6 @@ test('cross-tab updates/clear and blocked storage keep the existing safe fallbac
   t.mock.method(f.dom.window.Storage.prototype, 'setItem', () => { throw new Error('blocked') })
   await act(async () => f.values[0].changeTheme('pine-petrol'))
   assert.equal(f.values[0].saved, false); assert.equal(f.values[1].theme, 'pine-petrol')
+  await act(async () => f.root.render(null)); await f.mount()
+  assert.equal(f.values[0].theme, 'pine-petrol'); assert.equal(f.values[1].saved, false)
 })

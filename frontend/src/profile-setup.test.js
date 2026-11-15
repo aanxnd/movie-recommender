@@ -37,7 +37,7 @@ test('uncertain commit has a focused check-only recovery, never automatic POST r
   assert.match(f.text(), /setup may have completed/)
   assert.equal(document.activeElement.getAttribute('role'), 'status')
   assert.equal(document.querySelector('form'), null)
-  await f.click('button')
+  await f.click('.auth-card button')
   assert.equal(writes, 1)
 })
 
@@ -47,7 +47,7 @@ test('rate denial is sanitized and offers inspection without retrying a write', 
   f.input('username', 'Alice'); await f.submit()
   assert.match(f.text(), /Too many setup attempts/)
   assert.equal(document.querySelector('form'), null)
-  await f.click('button'); assert.equal(writes, 1)
+  await f.click('.auth-card button'); assert.equal(writes, 1)
 })
 
 test('SDK-only sign-in cannot bypass backend email eligibility', async t => {
@@ -93,8 +93,8 @@ test('concurrent/retried creation relies on an atomic idempotent server contract
     await tick()
   })
   assert.equal(calls, 2)
-  assert.equal(document.querySelectorAll('[role="status"]').length, 2)
-  for (const notice of document.querySelectorAll('[role="status"]')) assert.match(notice.textContent, /profile is ready: FirstName/)
+  assert.equal(document.querySelectorAll('.auth-card [role="status"]').length, 2)
+  for (const notice of document.querySelectorAll('.auth-card [role="status"]')) assert.match(notice.textContent, /profile is ready: FirstName/)
 })
 
 test('interrupted setup recovers existing profile without automatically provisioning again', async t => {
