@@ -59,6 +59,14 @@ to production routes; protected resources still need their own authorization.
 
 ## Integration and launch gates
 
+The explicit [native release composition](NATIVE_RELEASE.md) now assembles these
+policies independently of the legacy production entry. Owned username updates use
+schema4 revisions; enrolled sensitive password/email operations require AAL2 and an
+isolated fresh password proof without replacing the primary session. See
+[limitations and offline evidence](MFA_SENSITIVE_OPERATIONS.md). Factor deletion,
+opt-out and coordinated account deletion remain unavailable. These changes provide
+new controls/evidence for the NIST assessment, not formal compliance or audit completion.
+
 Anonymous movie browsing and public signup are the target. Ratings, personalized
 recommendations and personal features require authentication and independent
 backend ownership/group/privacy checks. Existing routes remain unchanged.

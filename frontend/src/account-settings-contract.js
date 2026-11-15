@@ -9,7 +9,7 @@ import { usernameError } from './profile-provisioning.js'
  * changeUsername(input:{username:string, revision:string}, options:{signal:AbortSignal}):Promise<UsernameUpdate>
  * }>} AccountSettingsService */
 
-// No endpoint exists. Bootstrap must supply a future authenticated, subject-bound server adapter.
+// Safe default. The explicit native release supplies the subject-bound settings adapter.
 /** @type {AccountSettingsService} */
 export const pendingAccountSettings = Object.freeze({
   inspect: async () => Object.freeze({ status: 'unavailable' }),

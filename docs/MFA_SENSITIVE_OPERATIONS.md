@@ -35,3 +35,6 @@ factors or deployed behavior. Provider nonce requirements remain authoritative a
 fail closed; no email nonce bypass is implemented. A fresh owner-approved test
 budget and safe authenticator handoff are required; existing 10/10 is exhausted.
 Factor removal/opt-out and coordinated account deletion remain separate blockers.
+If sign-in's response is lost, an unknown provider AAL1 session may exist; cleanup
+cannot be asserted without its credential. No sensitive update follows and no
+local token is retained. This is subject to the accepted bounded-session policy.

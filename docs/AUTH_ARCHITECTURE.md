@@ -1,5 +1,13 @@
 # Authentication architecture contract
 
+Current native completion stack: [release backend/configuration](NATIVE_RELEASE.md),
+[frontend artifact](NATIVE_FRONTEND.md), [schema4 profile revisions](PROFILE_REVISION.md),
+[owned settings API](NATIVE_ACCOUNT_SETTINGS.md) and
+[AAL2-preserving sensitive continuation](MFA_SENSITIVE_OPERATIONS.md). These remain
+dormant in production. Historical schema3/earlier component sections below describe
+their original deliveries; the additive schema4 migration supersedes startup's
+version requirement. No account linking, hosted migration or release is authorized.
+
 Status: **Prompts 1-23 merged; Stage 23 isolated integration under review. Prompt 24 on hold.**
 Native authentication remains dormant in production. The explicitly selected
 [local staging composition](STAGING_CHECKPOINT_REPORT.md) exercises these components

@@ -9,7 +9,7 @@ export function createPasswordRecovery(config = {}) {
   return recoveryConsumer(config, 'recovery')
 }
 
-// Trusted staging composition only. SDK response data never escapes the once-only consumer.
+// Trusted native composition only. SDK response data never escapes the once-only consumer.
 export function createStagingRecoveryConsumer(config, nonRecovery, prepare) {
   return recoveryConsumer(config, 'staging-account', nonRecovery, prepare)
 }
