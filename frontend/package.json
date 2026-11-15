@@ -11,6 +11,7 @@
     "dev:frontend": "vite",
     "dev:staging": "node scripts/staging.mjs",
     "build:staging": "vite build --config vite.staging.config.js",
+    "prepare:private": "node scripts/prepare-private.mjs",
     "build": "vite build",
     "preview": "vite preview"
   },

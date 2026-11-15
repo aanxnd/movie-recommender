@@ -16,6 +16,11 @@ export function createStagingRuntime(config) {
     browser.history.replaceState(null, '', '/')
     throw new Error('Approved local staging configuration required')
   }
+  return composeNativeRuntime(config)
+}
+
+// Trusted composition only: each explicit local/private bootstrap checks its pins.
+export function composeNativeRuntime(config) {
   // Valid callbacks scrub synchronously before SDK construction or provider I/O.
   const callback = createStagingCallback(config), callbackResult = callback.confirm()
   const client = getBrowserSupabaseClient(config), session = getSessionController(client)
