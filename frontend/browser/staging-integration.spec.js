@@ -138,15 +138,17 @@ test('supported native password recovery uses the one shared callback continuati
   expect((await state(request)).users).toBe(0)
 })
 
-test('enrolled-account sensitive changes, removal and all-device recovery remain unavailable', async ({ page, request }) => {
+test('enrolled AAL2 password changes preserve MFA; removal and all-device recovery remain unavailable', async ({ page, request }) => {
   await login(page); await mfa(page, request)
   await nav(page, 'Change password')
   await page.getByLabel('Current password', { exact: true }).fill('fixture-password')
   await page.getByLabel('New password', { exact: true }).fill('fixture-new-password')
   await page.getByLabel('Confirm new password', { exact: true }).fill('fixture-new-password')
   await page.getByRole('button', { name: 'Update password' }).click()
-  await expect(page.getByRole('alert')).toContainText('not available in this flow')
-  await nav(page, 'Authenticators'); await page.getByRole('button', { name: 'Review removal' }).first().click()
+  await expect(page.getByRole('status').filter({ hasText: 'Password updated' })).toBeVisible()
+  await nav(page, 'Authenticators')
+  await expect(page.getByRole('status').filter({ hasText: 'passed native MFA verification' })).toBeVisible()
+  await page.getByRole('button', { name: 'Review removal' }).first().click()
   await expect(page.getByRole('button', { name: 'Removal unavailable' })).toBeDisabled()
   await page.getByRole('button', { name: 'Cancel', exact: true }).click()
   await nav(page, 'Lost device'); await page.getByRole('button', { name: 'None of my authenticators is accessible' }).click()
