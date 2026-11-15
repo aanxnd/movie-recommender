@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { CheckCircle2, X } from 'lucide-react'
 import { request } from './api.js'
 import UserPanel from './components/UserPanel.jsx'
@@ -8,7 +8,7 @@ import AppHeader from './components/AppHeader.jsx'
 import ArtworkProvider from './components/ArtworkProvider.jsx'
 import ProfileDialog from './components/ProfileDialog.jsx'
 import ThemeDialog from './components/ThemeDialog.jsx'
-import { THEME_KEY, getTheme, readTheme, saveTheme, themeProperties } from './themes.js'
+import { useTheme } from './use-theme.js'
 import {
   IDENTITY_KEY,
   readIdentity,
@@ -21,35 +21,7 @@ export default function App() {
   const [page, setPage] = useState('discover')
   const [profileOpen, setProfileOpen] = useState(false)
   const [themeOpen, setThemeOpen] = useState(false)
-  const [theme, setTheme] = useState(readTheme)
-  const [themeSaved, setThemeSaved] = useState(true)
-  useLayoutEffect(() => {
-    const root = document.documentElement
-    root.dataset.theme = theme
-    const properties = Array.from({ length: root.style.length }, (_, index) => root.style.item(index))
-    for (const name of properties.filter(name => name.startsWith('--theme-'))) {
-      root.style.removeProperty(name)
-    }
-    for (const [name, value] of Object.entries(themeProperties(theme))) {
-      root.style.setProperty(name, value)
-    }
-    document.querySelector('meta[name="theme-color"]')
-      ?.setAttribute('content', getTheme(theme).colors[0])
-  }, [theme])
-  useEffect(() => {
-    const changed = event => {
-      if (event.key === THEME_KEY || event.key === null) {
-        setTheme(readTheme())
-        setThemeSaved(true)
-      }
-    }
-    window.addEventListener('storage', changed)
-    return () => window.removeEventListener('storage', changed)
-  }, [])
-  function changeTheme(id) {
-    setTheme(id)
-    setThemeSaved(saveTheme(id))
-  }
+  const { theme, saved: themeSaved, changeTheme } = useTheme()
 
   const [libraryView, setLibraryView] = useState('search')
   const [recommendationView, setRecommendationView] = useState(null)
