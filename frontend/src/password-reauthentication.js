@@ -1,6 +1,7 @@
 import { getBrowserSupabaseClient, runCredentialRequest } from './supabase-client.js'
 import { getSessionController } from './auth-session.js'
 import { passwordEvidence, updateNativePassword, passwordResult, passwordFailure, denyPassword, nativeUuid } from './password-evidence.js'
+import { checkIsolatedPassword } from './isolated-password-proof.js'
 
 /** @typedef {'pending'|'verified'|'expired'|'cancelled'|'unavailable'} ReauthenticationState */
 /** @typedef {{signal?: AbortSignal, onProgress?: (state: Readonly<{status: ReauthenticationState, operation: 'password-change'|'email-change'}>) => void}} ReauthenticationOptions */
@@ -21,14 +22,20 @@ export async function withFreshPassword(client, config, session, currentPassword
     if (!Array.isArray(factors) || factors.length > 10 || factors.some(f => !f || !nativeUuid(f.id) ||
           f.factor_type !== 'totp' || !['verified', 'unverified'].includes(f.status)) ||
         new Set(factors.map(f => f.id)).size !== factors.length) denyPassword('unavailable')
-    // Password sign-in creates AAL1. Do not downgrade an enrolled MFA account or bypass its factor.
-    if (factors.some(f => f.status === 'verified')) denyPassword('mfa-required')
+    // Keep the primary AAL2 credential; the operation-local password session is never installed there.
+    if (factors.some(f => f.status === 'verified')) {
+      await checkIsolatedPassword(client, config, lease, before, currentPassword, { ...options, email: user.email })
+      before.assertCurrent()
+      options.onProgress?.(Object.freeze({ status: 'verified', operation }))
+      return { completed: true, result: await complete(before) }
+    }
     const result = await runCredentialRequest(client, () => client.auth.signInWithPassword({ email: user.email,
       password: currentPassword }), { signal: options.signal, subject: before.subject, assertCurrent: before.assertCurrent })
     if (result.error || !result.data?.session) denyPassword(result.error?.status === 429 ? 'rate-limited' :
       result.error?.status === 400 ? 'invalid' : 'unavailable')
     return { token: result.data.session.access_token, subject: before.subject, previousSession: before.sessionId }
   })
+  if (authenticated.completed) return authenticated.result
   return session.withAccess(async lease => {
     const proof = await passwordEvidence(client, config, lease, 'password', authenticated.token)
     if (proof.subject !== authenticated.subject || proof.sessionId === authenticated.previousSession) denyPassword('unproven')
