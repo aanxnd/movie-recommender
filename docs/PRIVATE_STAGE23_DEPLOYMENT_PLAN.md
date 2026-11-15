@@ -4,6 +4,20 @@ No resource was created, configured or deployed. Production authentication stays
 dormant. This prepares private owner testing, not public rollout or the final audit.
 The MFA implementation/acceptance and this plan require separate merge review.
 
+## Current handoff (November14,2026)
+
+PRs87–90 are merged. Private backend/gateway/package preparation is in dependent
+feature PRs91–94; no cloud change/deployment is authorized. Use the
+[execution runbook](PRIVATE_STAGE23_RUNBOOK.md) for exact configuration, guarded
+schema commands, packaging and acceptance/approval gates. Below is the original
+proposal where superseded by this current handoff.
+
+Owner now verified credits138.35/amount due0 and November charges **CA$1.50**;
+live API min0/max3/current0. Neon Free uses2/10 branches (`production`,
+`pre-redesign-backup`), about37MB production storage. Vercel Hobby has Require Log
+In/Standard Protection enabled. Remaining metered allowances and exact private
+isolation/$0 cost remain unproven. No private resources/origins were created.
+
 ## Exact existing resources and evidence
 
 | Resource | Existing identity | Evidence / boundary |

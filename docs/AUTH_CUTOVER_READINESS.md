@@ -18,7 +18,7 @@ cannot change these decisions. No code reads this file to select an auth provide
 | MFA-sensitive password/email updates | **Restricted**. AAL2 is not fresh password proof. | Reviewed native same-subject/session/operation reauthentication that preserves assurance and provider requirements. |
 | Redirects / email | Development root `http://127.0.0.1:5173/`; preview/production origins unapproved. Gmail production suitability open. | Exact owner-approved origins/redirects plus delivery, spam placement, sender limits and $0 abuse acceptance. |
 | Data/schema / rollback | Repository schema 3; no hosted version inspected. Earlier deployment evidence describes schema 2. | Verify current production privately, rehearse additive migration and secure schema-compatible rollback. No drops/backfill/reset. |
-| Pre-Prompt-24 staging | **Local and bounded real-provider acceptance recorded; no private cloud deployment. Prompt 24 not started.** | Approve exact private targets, cost/isolation and additional hosted tests separately. |
+| Pre-Prompt-24 staging | **Local and bounded real-provider acceptance recorded; no private cloud deployment. Prompt24 not started.** | Review private PRs91–94 and [execution gates](PRIVATE_STAGE23_RUNBOOK.md); separately approve cost/targets/hosted tests. |
 | Full assessment/audit | Full NIST SP 800-63B-4 assessment and original 16-stage professional audit remain required. | Document controls, evidence and gaps; no compliance claim from SDK AAL/offline tests. |
 | Prompt 26 activation | **Not authorized**. | Explicit owner release/configuration/activation approval after all prior gates; no automatic merge/deploy. |
 

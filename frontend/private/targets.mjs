@@ -15,7 +15,7 @@ export function readTargets(path) {
         t.backend_origin === 'https://movie-recommender-api.nicetree-0929c2a3.canadacentral.azurecontainerapps.io' ||
         !/^ep-[a-z0-9-]+(?:\.[a-z0-9-]+)+\.neon\.tech$/.test(t.database_host) ||
         !Array.isArray(t.protected_database_hosts) || !t.protected_database_hosts.length ||
-        !t.protected_database_hosts.every(h => typeof h === 'string' && h) || t.protected_database_hosts.includes(t.database_host)) throw new Error()
+        !t.protected_database_hosts.every(h => typeof h === 'string' && h) || t.protected_database_hosts.some(h => h.toLowerCase() === t.database_host)) throw new Error()
     return t
   } catch { throw new Error('Approved private targets required') }
 }

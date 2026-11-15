@@ -37,7 +37,8 @@ test('explicit private bundle builds separately, packages only selected source a
   const main = await readFile(new URL('./main.jsx', import.meta.url), 'utf8')
   assert.doesNotMatch(main, /private|staging|Supabase/)
   for (const change of [{ approved: false }, { branch_id: 'br-tiny-bonus-b4ec6f9z' },
-    { frontend_origin: 'https://custom.invalid' }, { database_host: 'ep-protected.neon.tech' }, { password: 'never-store-this' }]) {
+    { frontend_origin: 'https://custom.invalid' }, { database_host: 'ep-protected.neon.tech' },
+    { protected_database_hosts: [targets.database_host.toUpperCase()] }, { password: 'never-store-this' }]) {
     await writeFile(file, JSON.stringify({ ...targets, ...change }))
     assert.throws(() => readTargets(file), /Approved private targets required/)
   }

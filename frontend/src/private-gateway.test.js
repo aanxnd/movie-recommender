@@ -16,6 +16,7 @@ async function call({ method = 'GET', path = '/users/me', query = {}, headers = 
   await createGateway({ ...env, ...config }, { ...targets, ...pins }, fetcher)(req, response)
   assert.equal(response.headers['cache-control'], 'no-store')
   assert.ok(!response.body.includes(gate))
+  assert.ok(!JSON.stringify(response.headers).includes(gate))
   return response
 }
 const noFetch = () => assert.fail('Unauthorized upstream I/O')
@@ -102,6 +103,8 @@ test('bounded JSON writes preserve raw request and backend authorization/rate er
 })
 
 test('network/provider errors, redirects, excessive response and capability echoes fail without leaks', async () => {
+  const safe = await call({ fetcher: async () => new Response('{}', { headers: { 'content-type': 'application/json; private=' + gate } }) })
+  assert.equal(safe.statusCode, 200); assert.equal(safe.headers['content-type'], 'application/json')
   for (const fetcher of [async () => { throw new Error('private URL and token') },
     async () => Response.redirect('https://evil.invalid'), async () => Response.json({ private: 'provider' }, { status: 503 }),
     async () => Response.json({ echo: gate }), async () => Response.json({ data: 'x'.repeat(2097153) })]) {

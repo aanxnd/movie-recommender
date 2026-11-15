@@ -57,7 +57,7 @@ def settings(env, targets):
         forbidden = targets['protected_database_hosts']
         host = targets['database_host']
         if (not isinstance(forbidden, list) or not forbidden or not all(isinstance(h, str) and h for h in forbidden)
-                or host in forbidden or not re.fullmatch(r'ep-[a-z0-9-]+(?:\.[a-z0-9-]+)+\.neon\.tech', host)):
+                or host in {h.lower() for h in forbidden} or not re.fullmatch(r'ep-[a-z0-9-]+(?:\.[a-z0-9-]+)+\.neon\.tech', host)):
             raise ValueError
         url = make_url(env['MOVELLE_PRIVATE_DATABASE_URL'])
         if (url.drivername not in {'postgresql', 'postgresql+psycopg'} or url.host != host

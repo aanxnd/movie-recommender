@@ -9,8 +9,10 @@ Prompts 11-13 are merged; [native confirmation](SIGNUP_CONFIRMATION.md) and
 to return a typed principal; it does not attach it to application routes.
 Bounded Stage 23 development-project testing is now owner-authorized; current
 [acceptance results](STAGING_SUPABASE_ACCEPTANCE.md) include real signup, confirmed sessions and
-fail-closed omitted-factor denial; authenticated application journeys remain blocked. Production activation
-and hosted configuration changes remain unapproved.
+historical omitted-factor denial. PRs87–90 are merged; the approved correction and
+[bounded native MFA/application journey](NATIVE_MFA_FIX_ACCEPTANCE.md) passed.
+Private preparation follows the [review-only runbook](PRIVATE_STAGE23_RUNBOOK.md).
+Production activation and hosted configuration changes remain unapproved.
 
 ## Evidence boundaries
 
