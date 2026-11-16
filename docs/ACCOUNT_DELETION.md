@@ -1,5 +1,11 @@
 # Coordinated account deletion — EXECUTION DISABLED
 
+The [authorization](DELETION_AUTHORIZATION.md), [worker](DELETION_WORKER.md) and
+[transactional privacy fence](DELETION_RESOURCE_FENCING.md) are now concrete
+dependent candidates. Queue commit revokes invitations/credentials before eventual
+erasure; other account data remains until provider absence is authoritative. Every
+current entry still leaves execution disabled. See [current readiness](ACCOUNT_OPERATIONS_READINESS.md).
+
 This is preparation for reviewed lifecycle execution, not an enabled endpoint or
 migration. `deletion_store.metadata` is separate from application Base/migrations;
 only isolated SQLite/PostgreSQL fixtures install it. Live schema remains 4.
@@ -25,7 +31,8 @@ movies and other users remain untouched. Hashed rate counters retain existing TT
 There is no distributed transaction. A deleted provider identity plus failed Neon
 cleanup remains **blocked/retryable**, never silently restored or relinked. Provider
 timeouts/unknown outcomes must be reconciled from fresh exact-subject evidence.
-Append-only event values contain no raw diagnostics. No hard-delete rollback or
+The code only appends fixed-value events without raw diagnostics; effective grants
+must still enforce no audit UPDATE/DELETE before execution. No hard-delete rollback or
 automatic identity recreation is promised. Sessions already admitted before a
 deletion intent may finish; this is not an immediate global revocation guarantee.
 

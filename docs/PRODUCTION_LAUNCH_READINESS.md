@@ -16,11 +16,11 @@ and sign back in. Cosmetic readiness is not authentication or release readiness.
 |---|---|---|
 | Signup/login/confirmation | Native SDK, PKCE/S256, once-only scrubbed root callback, safe errors and session fencing. | Real dev signup/confirmation/password sessions passed. SDK redirectType=null is not signup-purpose evidence; backend native current-email policy remains authoritative. Public origins/settings/abuse controls unapproved. |
 | Identity/profile | Atomic provisioning plus schema4 durable profile revisions; unique case-insensitive ASCII usernames; UUID maps to server-allocated numeric ID. | Real Supabase plus **local** PostgreSQL profile creation passed. No production/Neon schema, account linking or migration has been verified/approved. |
-| MFA | Optional first TOTP, AAL2 challenge, additional independent factor and backup continuation; enrolled AAL1 denial. | Real first-factor QR/verification, stale and fresh-password AAL1 denial and second challenge passed. Independent Google/Duo devices, replacement/races and broader failures need genuine acceptance. All factor removal remains disabled. |
+| MFA | Existing list/enroll/challenge/replacement flows plus a fresh-challenge opt-out candidate. | First-factor hosted evidence remains; all removal execution is disabled. Atomic retain-one deletion remains unsupported; multi-device/last-factor/revocation acceptance and explicit opt-out review are required. |
 | Password/email | Native recovery, purpose-bound callbacks, same-account fences and safe unknown outcomes. | Real non-MFA recovery passed. AAL2-preserving isolated password/email continuation now has offline tests; hosted nonce/settings enforcement remains unproven; genuine email-change ordering, A→B→A, replay/expiry and recovery-with-MFA are unproven. |
 | Ratings/recommendations | Native ownership, numeric IDs, fractional ratings, bounded CPU/DB work and unchanged mathematics. | Real dev Auth/local app saved5 ratings and recommendations API returned10; production dataset/capacity and actual deployed UI are not proven. |
 | Groups | Native invitation/expiry/consent checks; no peer raw-rating read/write; UI/offline multi-account coverage. | Genuine multi-account provider/deployed group journey still needed. Current groups are invitation-based computations, not persistent shared group records. |
-| Settings/lifecycle | Owned GET/PATCH username API, case-insensitive constraints and durable CAS revisions; fenced release adapter. | Username updates are implemented in the separate release artifact; hosted concurrency acceptance remains. Account deletion is unavailable. Do not advertise those functions as complete. Implement/review them or explicitly approve disclosed launch exclusions. |
+| Settings/lifecycle | Owned username CAS plus server-authorized deletion candidate, signed journal, provider worker, privacy fencing and gated UI. | Current bootstraps do not enable erasure. DDL, broad admin capability isolation, key custody, retention/storage, fleet fencing and genuine hosted acceptance remain required. |
 | Session/logout | Native restoration/refresh/account-switch fencing, backend JWT/current-email/factor checks. | Provider logout204 and restoration evidence exist. Exact old logout text assertions failed on an informational suffix, not a demonstrated logout failure. Verify deployed UI completion and accepted bounded token validity; no immediate-revocation claim. |
 | Visual/theme | PR95→96 reuse existing presets/key/tokens with cinematic copy, copper default, keyboard and responsive checks. | Cosmetic/offline evidence only. Default main.jsx still selects legacy; separate native-main.jsx now composes these screens without activation. |
 
@@ -58,9 +58,10 @@ public origins, target pins, schema4 execution and genuine acceptance remain gat
 **P0 — MFA/account feature policy.** Review the [implemented AAL2-preserving continuation](MFA_SENSITIVE_OPERATIONS.md)
 and obtain hosted password/email acceptance without password-only downgrade. Review supported AAL2-authorized
 factor removal/opt-out and cross-device races; frontend refusal is not a global
-Supabase policy. Current unconditional provider DELETE is not proof of final-factor
-retention. Implement a reviewed supported approach or obtain explicit acceptance
-of disclosed unavailable functionality before advertising a complete account system.
+Supabase policy. The [concrete account-removal candidates](ACCOUNT_OPERATIONS_READINESS.md) are
+prepared but unselected. Unconditional native DELETE is not atomic final-factor
+retention. Review opt-out policy and deletion execution gates before advertising
+a complete account system.
 All-factors-lost lockout remains disclosed; no email-only bypass, custom Auth DB
 reader, independent mailbox ledger or paid recovery feature. Native recovery codes
 remain rejected for initial launch, not an unresolved implementation requirement.
@@ -103,8 +104,8 @@ Complete the full NIST SP800-63B-4 controls/evidence/gaps assessment and origina
    and its remaining restricted operations. Rebase child diffs after squash merges;
    each complete implementation PR must stay at or below500 added+deleted lines.
 2. Resolve the cost/target approval gate. In parallel, review the implemented native
-   composition/username/AAL2 continuation and finish factor/lifecycle operations in
-   small dormant PRs. Each
+   composition/username/AAL2 continuation and review the prepared factor/lifecycle candidates and their execution
+   gates in small dormant PRs. Each
    needs adversarial ownership, subject/session/AAL, race/outage and no-fallback tests.
 3. Complete offline browser/mobile/keyboard regressions of the entire target journey,
    including unknown write outcomes, cross-account/group denial, callbacks/replay,

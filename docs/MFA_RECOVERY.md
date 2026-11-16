@@ -29,6 +29,13 @@ is unchanged. Unknown, expired, conflicting or unavailable evidence cannot autho
 
 ## Removal safety correction
 
+Current update: a [concrete opt-out candidate](FACTOR_REMOVAL.md) now exists with
+fresh native verification and explicit possible-zero-factor consent, but every
+current bootstrap keeps it disabled. The retain-one limitation below still applies
+to replacement cleanup. No recovery flow automatically deletes the lost factor or
+turns all-device loss into email/password recovery. Review hosted/multi-device and
+policy gates in [account operations readiness](ACCOUNT_OPERATIONS_READINESS.md).
+
 The pinned **supabase-js/auth-js 2.119.0** `_unenroll` sends an unconditional DELETE
 using the current user's token. It accepts no expected factor count/version. The
 [reference](https://supabase.com/docs/reference/javascript/auth-mfa-unenroll) requires

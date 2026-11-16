@@ -1,5 +1,12 @@
 # Controlled deployment and rollback
 
+Account-removal execution has additional [unresolved gates](ACCOUNT_OPERATIONS_READINESS.md):
+review-only journal DDL, all-serving-revision lifecycle fencing, worker/key/grant
+isolation, retention/storage, total deadlines and genuine-provider acceptance. No
+current command activates these candidates. Do not deploy a deletion-aware submitter
+beside an old unaware private/legacy path against the same owners. No journal is
+auto-created, and pending intents must never be discarded to roll back a release.
+
 The separately selectable native release now has [backend pins/entry and rollback](NATIVE_RELEASE.md)
 and a [native frontend artifact](NATIVE_FRONTEND.md). The workflow below still
 selects the legacy runtime. Do not execute it as native cutover or silently change

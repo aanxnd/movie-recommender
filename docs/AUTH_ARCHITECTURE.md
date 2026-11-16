@@ -1,5 +1,11 @@
 # Authentication architecture contract
 
+The [account-removal candidates and gates](ACCOUNT_OPERATIONS_READINESS.md) now
+prepare native factor opt-out and coordinated owned erasure. They are execution
+disabled and preserve all existing entry points. Ordinary operations/migrations
+preserve numeric relationships; only a separately authorized irreversible deletion
+intent may erase that owner's data. No automatic account linking or legacy fallback.
+
 Current native completion stack: [release backend/configuration](NATIVE_RELEASE.md),
 [frontend artifact](NATIVE_FRONTEND.md), [schema4 profile revisions](PROFILE_REVISION.md),
 [owned settings API](NATIVE_ACCOUNT_SETTINGS.md) and
