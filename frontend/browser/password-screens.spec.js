@@ -6,6 +6,8 @@ test('offline password journeys work by keyboard on desktop and mobile without p
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 900 })
     await page.goto('/browser/account-demo.html?screen=forgot')
+    await page.keyboard.press('Tab')
+    await expect(page.getByRole('button', { name: 'Change website theme' })).toBeFocused()
     await page.keyboard.press('Tab'); await expect(page.getByLabel('Email address')).toBeFocused()
     await page.keyboard.type('offline@example.invalid'); await page.keyboard.press('Enter')
     await expect(page.getByRole('status')).toContainText('Delivery cannot be confirmed')
