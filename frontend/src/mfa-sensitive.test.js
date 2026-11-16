@@ -16,7 +16,7 @@ async function setup(t, failure, pending) {
   if (failure === 'wrong-issuer') changes.iss = 'https://evil.invalid/auth/v1'
   if (failure === 'password-aal2') changes.aal = 'aal2'
   const fresh = await keys.sign(changes, failure === 'wrong-method' ? 'oauth' : 'password')
-  const dom = new JSDOM('', { url: origin }), calls = [], writes = [], logs = []
+  const dom = new JSDOM('', { url: origin }), calls = [], writes = [], logs = [], cleanupStarted = deferred()
   t.mock.method(console, 'error', e => logs.push(String(e)))
   const user = { ...old.user, is_anonymous: false, email_confirmed_at: '2026-01-01T00:00:00Z',
     factors: [{ id: crypto.randomUUID(), factor_type: 'totp', status: 'verified' }] }
@@ -34,6 +34,7 @@ async function setup(t, failure, pending) {
         return json(fresh)
       }
       if (path.endsWith('/logout')) {
+        cleanupStarted.resolve()
         assert.equal(new URL(url).search, '?scope=local')
         assert.equal(init.headers.Authorization, 'Bearer ' + fresh.access_token)
         if (pending) await pending.promise
@@ -50,7 +51,7 @@ async function setup(t, failure, pending) {
   t.after(async () => { stop(); await client.auth.stopAutoRefresh(); dom.window.close() })
   for (let i = 0; i < 30 && session.getSnapshot().status === 'restoring'; i++) await tick()
   await client.auth.setSession(old)
-  return { config, client, session, old, fresh, user, calls, writes, logs, keys, dom,
+  return { config, client, session, old, fresh, user, calls, writes, logs, keys, dom, cleanupStarted,
     passwords: createSensitiveReauthentication(config), email: createNativeEmailSettings(config) }
 }
 
@@ -86,15 +87,20 @@ for (const failure of ['aal1', 'foreign', 'wrong-issuer', 'password-aal2', 'wron
   })
 }
 
-test('account switch during isolated cleanup cancels the old continuation; duplicate operation is refused', async t => {
+test('account switch during isolated cleanup cancels the old continuation; duplicate operation is refused', { timeout: 10000 }, async t => {
   const pending = deferred(), f = await setup(t, undefined, pending)
   const work = f.passwords.changePassword('synthetic-current', 'synthetic-new')
-  for (let i = 0; i < 30 && !f.calls.includes('/auth/v1/logout:POST'); i++) await tick()
+  await f.cleanupStarted.promise
   assert.equal((await f.passwords.changePassword('synthetic-current', 'synthetic-new')).status, 'busy')
   f.user.id = otherSubject
-  await f.client.auth.setSession(await f.keys.sign({ sub: otherSubject }))
+  const incoming = { ...await f.keys.sign({ sub: otherSubject }), expires_at: Math.floor(Date.now()/1000)+3600 }
+  // Mirror another tab's storage write plus the pinned SDK's incoming broadcast path.
+  // Private notification hook is fixture-only, as in the existing cross-tab SDK regression.
+  f.dom.window.localStorage.setItem('movelle.signup-confirmation', JSON.stringify(incoming))
+  await f.client.auth._notifyAllSubscribers('SIGNED_IN', incoming, false)
   pending.resolve()
   assert.equal((await work).status, 'cancelled'); assert.equal(f.writes.length, 0)
+  assert.equal(f.session.getSnapshot().userId, otherSubject)
 })
 
 test('cancellation bounds a stalled isolated sign-in without restoring or downgrading the primary session', async t => {
