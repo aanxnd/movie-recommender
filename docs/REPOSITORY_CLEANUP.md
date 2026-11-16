@@ -22,7 +22,7 @@ No ignored secrets, local staging data, legal attribution or hosted records are 
 | `frontend/src/private-package.test.js` | One case concerns deleted packaging and private-Azure-only constraints. | `native-package.test.js` protects exclusive paths, no server markers and exact CSP/static bundle; native-release/renderer tests retain exact-target refusal. Private branch exclusions are obsolete for production preparation. |
 | `frontend/src/private-runtime.test.js` | Two cases cover deleted wrapper, not independent policy. | `native-runtime.test.js`, `staging-runtime.test.js`, callback/session/isolation suites retain malformed config, URL scrubbing, no provider I/O and legacy-storage/account fences. |
 | `frontend/private/gateway.mjs` | Only its test consumed it after bundle retirement; never a live Vercel API path. | Native API authorization and actual Oracle Host/SNI proxy checks; no server capability advertised. |
-| `frontend/src/private-gateway.test.js` | Six cases concern deleted gateway-only capability/route semantics. | Native auth/resource/group/body/rate tests and Oracle TLS/Host/SNI/body/redirect/log tests retain relevant protections. |
+| `frontend/src/private-gateway.test.js` | Thirty cases (six direct plus24 parameterized) concern deleted gateway-only capability/route semantics. | Native auth/resource/group/body/rate tests and Oracle TLS/Host/SNI/body/redirect/log tests retain relevant protections. |
 | `app/private_manage.py` | Only private CLI/walkthrough and tests; no current Azure startup/workflow reference. | `deploy/oracle/manage.py` retains separate-role/exact-target/generic-error checks; active `app.manage` preserved. |
 | `tests/test_private_manage.py` | Seven cases target deleted private CLI. | Eleven native operator cases retain idempotence/target/role/TLS/command guards plus malformed-file checks. |
 | `deploy/private-stage23/Dockerfile` | Undeployed alternative; only old image CI/walkthrough referenced it. | New native image/read-only no-network startup-refusal CI; root Azure Dockerfile remains. |
@@ -69,3 +69,19 @@ checks. Historical walkthroughs must not be executed; actual provider evidence r
 
 Validation is recorded per PR and in the final readiness handoff. Removed private
 tests are supported-interface retirement, never a means to make CI pass.
+
+## Audit outcome
+
+Twenty-eight tracked files are deleted across the stack; source-baseline deletion
+line totals and final tests are in the PR/handoff ledger (renames are not hidden).
+No dependencies are eliminated: runtime/dev locks are unchanged, metadata confirms
+the apparently unused opentelemetry-api is required by pinned FastAPI, and ARM
+binary installation passes. No algorithm, Python version, schema or lockfile changes.
+Three truly unused imports were removed; no other unreferenced application module
+was confirmed safe to delete after CLI/dynamic/fixture/operator review.
+
+[Documentation map](README.md) defines the eight current guidance categories.
+Obsolete private plans/status were consolidated into `evidence/`; genuine provider,
+security/audit/migration and recommendation evidence keeps stable referenced paths,
+explicit historical scope and original results. Feature guides remain useful code
+appendices. No old private deployment commands remain an executable current procedure.

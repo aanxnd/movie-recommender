@@ -2,6 +2,10 @@
 
 **PARTIAL HOSTED ACCEPTANCE — SECURITY GATES REMAIN**
 
+Historical campaign before the approved factor correction. The [follow-up](NATIVE_MFA_FIX_ACCEPTANCE.md)
+records successful first TOTP/profile/ratings/recommendations; preserve original
+observations below. Current remaining gates are in [production readiness](PRODUCTION_LAUNCH_READINESS.md).
+
 Real signup, confirmed password login, JWT verification, restoration, refresh,
 native recovery/password reset and logout passed. The fresh provider response **omitted `factors`**; Movelle correctly
 denied provisioning and initial enrollment. Authenticated application acceptance is

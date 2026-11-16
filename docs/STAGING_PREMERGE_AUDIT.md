@@ -1,5 +1,8 @@
 # Stage 23 nine-PR pre-merge audit — 2026-11-13
 
+Historical scoped review of the named nine PRs only. It is not current-stack merge
+permission or the final professional audit; see [current readiness](PRODUCTION_LAUNCH_READINESS.md).
+
 ## A. Executive summary
 
 The corrected stack is suitable for an ordered merge without native production activation.

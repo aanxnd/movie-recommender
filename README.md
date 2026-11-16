@@ -1,73 +1,35 @@
 # Movelle
 
-Native account-removal work now has [execution-disabled candidates and release gates](docs/ACCOUNT_OPERATIONS_READINESS.md):
-fresh-challenge factor opt-out, server-authorized deletion, signed coordination,
-worker reconciliation and transactional privacy fencing. No current entry enables
-them; no hosted journal, key, account mutation or production activation occurred.
+A portfolio movie recommender using React/Vite/Tailwind, FastAPI, Neon PostgreSQL
+and read-only prepared MovieLens 32M arrays. Recommendation mathematics is unchanged.
 
-A portfolio movie recommender: React/Vite/Tailwind on Vercel, FastAPI on Azure Container Apps, Neon PostgreSQL for application profiles, and read-only prepared MovieLens 32M reference arrays. Local development uses SQLite. GHCR and GitHub Actions provide manually controlled releases with Azure OIDC.
+**Existing deployment:** Vercel and the Azure legacy API remain unchanged until
+approved cutover. Keep their credential, migration, rotation and rollback safeguards.
+**Selected preparation:** retain Vercel Hobby; move only the native backend to a
+non-paid Oracle A1 VM using Docker Compose, Neon Free and Supabase Free Auth.
+No VM, hosted configuration, migration or production authentication is activated.
 
-The scoring mathematics remains unchanged. Production boundaries now require anonymous profile credentials, explicit group invitations, bounded workloads, and versioned migrations. See [deployment and rollback](docs/DEPLOYMENT.md), [audit resolution](docs/AUDIT_RESOLUTION.md), and [recommendation evidence](docs/RECOMMENDATIONS.md).
+The separate native build/entry implement Supabase email/password/confirmation,
+SDK sessions, optional TOTP with an independent backup, clean numeric-profile
+provisioning, owned ratings/recommendations/groups/settings and strict server
+policy. Native credentials never fall back to legacy identity or client IDs.
+Factor removal/opt-out and coordinated deletion have execution-disabled candidates;
+[operational/provider gates](docs/ACCOUNT_OPERATIONS_READINESS.md) remain required.
 
-The planned Supabase authentication launch is governed by the
-[architecture contract and open validation gates](docs/AUTH_ARCHITECTURE.md).
-The approved launch design uses optional standard TOTP with a second independent
-TOTP factor for backup recovery. Native MFA recovery codes are rejected for initial
-launch; Gmail SMTP production readiness remains open. Supabase auth is not active on production routes.
-Schema version 4 retains dormant UUID/username mappings and adds a durable profile revision without changing legacy
-credentials, numeric IDs or ratings; no production user linking or Supabase login runs yet.
-See the [additive revision and rollback contract](docs/PROFILE_REVISION.md); no hosted migration is authorized.
-The JWT verifier and identity resolver are dormant in production; identity alone grants no access;
-[JWT verification limits](docs/AUTH_ARCHITECTURE.md#prompt-3a-dormant-jwt-verifier) apply to later integration.
-Read the [identity-resolution trust boundary](docs/AUTH_ARCHITECTURE.md#prompt-3b-dormant-identity-resolution)
-before future route integration; UUID type checking is not proof of authentication.
-The [dormant FastAPI dependency](docs/AUTH_ARCHITECTURE.md#prompt-3c-dormant-fastapi-dependency-activation-blocked)
-composes these foundations in isolated staging/tests; production activation remains blocked.
-See the [standard Supabase policy](docs/AUTH_POLICY_EVIDENCE.md): native email
-confirmation, bounded JWT validity after logout, and optional TOTP. Public signup
-and anonymous browsing are planned; personal features require backend ownership
-checks. No independent mailbox ledger, custom Auth database reader, immediate
-revocation guarantee or legacy-account migration is required. Production remains
-unchanged; [Prompt 12 native signup confirmation](docs/SIGNUP_CONFIRMATION.md)
-is implemented as a dormant helper. The full NIST assessment and original 16-stage
-audit remain required before launch.
+Start with the [documentation map](docs/README.md),
+[current authentication contract](docs/AUTH_ARCHITECTURE.md),
+[database/migrations](docs/DATABASE.md), [Oracle preparation](docs/ORACLE_RUNBOOK.md)
+and [Vercel native packaging](docs/VERCEL_NATIVE_RELEASE.md).
+[Existing Azure deployment/rollback](docs/DEPLOYMENT.md) is retained, not an Oracle
+shortcut. [Production readiness](docs/PRODUCTION_LAUNCH_READINESS.md) is NOT READY:
+exact targets, strict CA$0, mail/provider acceptance, data/rollback and the full
+NIST assessment/original 16-stage audit remain open. No compliance claim.
 
-Prompt 17 adds [isolated account screens and profile-setup contracts](docs/AUTH_SCREENS.md),
-with an offline-only preview. They are not imported by production startup.
-Prompt 23 adds [dormant authoritative provisioning and the staging checkpoint](docs/PROVISIONING_STAGING.md).
-The [Stage 23 integration report](docs/STAGING_CHECKPOINT_REPORT.md) describes the
-separate local native-auth application, synthetic-provider tests and unapproved
-hosted acceptance/deployment. Use [explicit staging commands](docs/STAGING_INTEGRATION.md),
-not the legacy development launcher. Prompt 24 has not begun.
-The [real Supabase acceptance report](docs/STAGING_SUPABASE_ACCEPTANCE.md) separates
-real session evidence from factor-inventory and authenticated-application blockers.
-
-Prompt 18 adds [dormant native password recovery and sensitive password changes](docs/PASSWORD_SECURITY.md).
-The screens remain outside production startup; hosted acceptance and MFA integration
-are still required before activation.
-
-Prompt 19 adds [dormant account settings and native email changes](docs/ACCOUNT_SETTINGS.md).
-The original default settings adapter remains unavailable; the separate native
-release now supplies owned username updates. Disable/delete controls remain
-review-only and cannot execute an operation. Production behavior is unchanged.
-
-The separate [native release entry points](docs/NATIVE_RELEASE.md) and
-[frontend artifact](docs/NATIVE_FRONTEND.md) now compose authentication and
-[owned username updates](docs/NATIVE_ACCOUNT_SETTINGS.md) with schema4 concurrency.
-The original Prompt19 default adapter remains unavailable outside explicit native
-release composition. [MFA-sensitive password/email changes](docs/MFA_SENSITIVE_OPERATIONS.md)
-have an isolated password continuation; factor removal and account deletion remain
-restricted. Default production commands are unchanged; no activation is approved.
-
-Prompts 20–21 add [dormant native TOTP](docs/TOTP_MFA.md) and
-[alternative-authenticator recovery](docs/MFA_RECOVERY.md). All-devices-lost recovery
-and factor removal are unavailable; initial-enrollment completeness and hosted
-acceptance remain blockers. No production authentication is activated.
-
-Prompt 22 adds a [legacy dependency inventory](docs/LEGACY_AUTH_RETIREMENT.md),
-preservation/separation tests and a [fail-closed cutover checklist](docs/AUTH_CUTOVER_READINESS.md).
-Active profile registration/restoration and credentials remain unchanged; no safe
-runtime deletion was established. Provisioning and production cutover remain separate.
+Local SQLite/fictional-provider staging and regression fixtures remain supported
+engineering tools, not the final owner acceptance environment. Actual development
+Auth evidence is retained in the [initial campaign](docs/STAGING_SUPABASE_ACCEPTANCE.md)
+and [follow-up](docs/NATIVE_MFA_FIX_ACCEPTANCE.md); its 10/10 mutation budget is
+exhausted. Do not run extra hosted emails/factors/deletions or the final audit.
 
 ## Local development
 
