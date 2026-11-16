@@ -75,3 +75,13 @@ atomically after explicit approval. Roll back to a reviewed native/schema4-compa
 digest; never reset Neon, recover users through legacy credentials or split traffic.
 Factor removal/deletion remain disabled under ACCOUNT_OPERATIONS_READINESS.md.
 No new email/factor/account mutation budget exists (10/10 used).
+
+## Separate operator schema tool (NOT APPROVED FOR EXECUTION)
+
+`python deploy/oracle/manage.py check` or `migrate` is an explicit operator action,
+using the reviewed native manifest and `/run/secrets` runtime inputs plus a separate
+`native_migration_url` file. It requires `movelle_native_migrator` and exactly the
+same host/database/TLS options as runtime; no reset, legacy recovery or claiming.
+The tool is not copied into the runtime image or mounted/executed by Compose.
+Use only a locked operator Python environment after backup/target/grant/migration
+approval. No hosted DDL or migration credential was created; tests inject SQLite.
