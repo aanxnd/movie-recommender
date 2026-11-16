@@ -1,5 +1,9 @@
 # Production launch readiness — NOT READY / execution not authorized
 
+Current hosting research and measured sizing are in [the zero-cost evaluation](ZERO_COST_HOSTING_EVALUATION.md)
+and [proposed blueprint](PRODUCTION_HOSTING_BLUEPRINT.md). PR91–110 are merged;
+their dormant code does not satisfy deployment, account-operation or financial gates.
+
 Owner direction, November 15, 2026: deliver the complete production Movelle
 experience; local staging is an engineering fixture, not the final owner acceptance
 environment. This plan does not authorize deployment, public signup/configuration,
