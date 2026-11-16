@@ -7,10 +7,10 @@ Provider terms are evidence at this date, not a perpetual price/availability pro
 
 ## Recommendation and financial verdict
 
-Prefer **A: Cloudflare Pages static frontend + a non-paid Oracle Always Free A1 VM
-+ Neon Free application PostgreSQL + Supabase Free Auth**. Use Docker Compose,
-one native API worker and a TLS reverse proxy. Retain Vercel Hobby as a migration-
-minimizing static alternative for an eligible noncommercial portfolio. All targets
+**Owner-selected preparation target: Vercel Hobby frontend + non-paid Oracle Always Free A1 backend
++ Neon Free PostgreSQL + Supabase Free Auth.** Use Docker Compose, one native API worker
+and a TLS reverse proxy. Vercel noncommercial eligibility and capped-usage behavior
+must be confirmed; Cloudflare Pages remains the free static fallback. All targets
 remain TBD/unapproved. [Implementation blueprint](PRODUCTION_HOSTING_BLUEPRINT.md).
 
 **Strict CA$0 is conditionally possible under published Free-account terms, but
@@ -101,8 +101,8 @@ requirement; neither do alerts, service quotas or delayed billing shutdown scrip
 
 | Service | Limits / controls / suitability |
 |---|---|
-| [Cloudflare Pages][cf] | Free static requests are unlimited; no Functions needed. [Free limits][cfl]:500 builds/month,1 concurrent,20min timeout,20,000 files,25MiB/file. Use free pages.dev hostname/TLS, no purchased domain. Do not enable paid Workers, R2 or add-ons. Preferred static target; terms/abuse enforcement and build limits still apply. |
-| [Vercel Hobby][v] | Existing integration reusable:100GB Fast Data Transfer,10GB origin transfer,1M CDN requests; excess generally pauses access. Personal/noncommercial only. No paid plan/functions/gateway needed for direct native API. Existing protection/automatic promotion must be reviewed before public access, not silently removed. |
+| [Cloudflare Pages][cf] | Free static requests are unlimited; no Functions needed. [Free limits][cfl]:500 builds/month,1 concurrent,20min timeout,20,000 files,25MiB/file. Use free pages.dev hostname/TLS, no purchased domain. Do not enable paid Workers, R2 or add-ons. Free static fallback; terms/abuse enforcement and build limits still apply. |
+| [Vercel Hobby][v] | Existing integration reusable:100GB Fast Data Transfer,10GB origin transfer,1M CDN requests; excess generally pauses access. Personal/noncommercial only. No paid plan/functions/gateway needed for direct native API. **Selected frontend**, contingent on Hobby/noncommercial eligibility and capped usage; existing protection/automatic promotion must be reviewed before public access, not silently removed. |
 | [Netlify Free][n] |300 monthly credits with hard limit; sites pause at exhaustion, no Free overage charge. Deploys/traffic share that budget. Viable static alternative with netlify.app/TLS, less traffic/deploy headroom. Avoid paid/auto-recharge plans; verify account is current credit-based Free. |
 | [Neon Free][ne] | Current live pricing/docs agree:1GB/project (20GB total),100CU-h/project/month,5GB transfer/project/month,10 branches, max2CU;5min idle scale-to-zero. Compute/egress exhaustion suspends compute; storage-growing operations fail at limit. Card not required. Six-hour/1GB-change restore history and one snapshot are not an offsite backup plan. |
 | [Supabase Free PostgreSQL/Auth][s] |500MB DB/shared500MB RAM,50k MAU,5GB egress +5GB cached, two active projects; pauses after one inactive week. [Free excess restricts service, not billing][sc]. Auth and its database are the same project availability boundary. Moving Neon data here adds migration/coupling and requires changing the Neon-pinned release contract; no automatic consolidation. |
@@ -137,7 +137,7 @@ logging, registries, snapshots outside allowances and paid rescue capacity.
 
 | Option | Cost and exposure | Fit, responsiveness, persistence, operations and growth |
 |---|---|---|
-| A: Pages + A1 + Neon |CA$0 only on unupgraded Free accounts/eligible resources; capacity/quotas may deny service. | One native API with2 GiB target; no normal host sleep, but idle reclaim possible; Neon wake adds latency. Persist reference volume/ACME; managed DB + encrypted offline dumps/rehearsal. Moderate Linux patching/security burden. Small intermittent population plausible; benchmark before promises. Later paid VM/DB migration requires a new budget. |
+| A: Vercel Hobby + A1 + Neon |CA$0 only on unupgraded Free accounts/eligible resources; capacity/quotas may deny service. | One native API with2 GiB target; no normal host sleep, but idle reclaim possible; Neon wake adds latency. Persist reference volume/ACME; managed DB + encrypted offline dumps/rehearsal. Moderate Linux patching/security burden. Small intermittent population plausible; benchmark before promises. Later paid VM/DB migration requires a new budget. |
 | B: Pages/Vercel + Render or Koyeb + Neon |CA$0 conditional Free selection/cardless Render; Koyeb signup/payment exposure. |512 MB is below measured working set;15min/1h sleeps and cold reference loads. Ephemeral reference rebuilt each time, no local user persistence. Managed TLS simplifies operations; no free worker for deletion. Not suitable for unchanged32M production; paid RAM or explicit product/data redesign needed. |
 | C: Pages + Cloud Run + Neon |May total0 at low usage, but bills are possible; credits/caps do not guarantee it. |2 GiB allocation technically plausible, cold data loading penalizes first request, concurrency must match CPU gate. Managed TLS/operations, DB external, images/reference immutable; separate backup. Scales later, but quota-safe growth is not cost-safe growth. Financially disqualified. |
 | D: A1 Compose frontend + API + PostgreSQL (or Neon) |CA$0 conditional non-paid A1; no managed LB/NAT/paid DNS. | Avoid static-host dependency; same-origin proxy would require frontend pin-contract change. Local Postgres reduces external CU limits but puts all data on reclaimable single host. Volume + encrypted off-host dumps essential. Most operator/security/restore burden; weakest failure isolation. Move DB out before adding replicas. |
@@ -148,7 +148,7 @@ do not let an aggregate score hide a financial disqualification.
 
 | Option | Cost safety | Security | Reliability | Ease | Performance | Scale | Decision |
 |---|---:|---:|---:|---:|---:|---:|---|
-| A |5*|4|2|3|4*|2|Preferred conditional investigation |
+| A |5*|4|2|3|4*|2|Owner-selected conditional preparation |
 | B |3|3|1|4|1|1|Reject unchanged32M production |
 | C |1|4|3|4|3|4|Reject strict financial requirement |
 | D |5*|3|1|2|4*|2|Fallback only with operational review |
