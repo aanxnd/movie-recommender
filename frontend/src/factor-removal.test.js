@@ -7,11 +7,12 @@ import { deferred, tick } from './auth-test-support.js'
 
 const input = () => ({ factorId, authenticatingFactorId: factorId, code: '123456', confirmation: 'REMOVE EVEN IF MFA IS DISABLED' })
 async function setup(t, failure) {
-  const f = await mfaFixture(t, { aal: 'aal2' }), pending = deferred()
+  const f = await mfaFixture(t, { aal: 'aal2' }), pending = deferred(), started = deferred()
   f.state.handler = async (url, init) => {
     if (url.pathname.endsWith('/verify') && failure === 'wrong-code') return json({ code: 'mfa_verification_failed' }, 422)
     if (url.pathname.endsWith('/verify') && failure === 'inventory-race') f.state.factors.push(totp('verified', secondId))
     if (init.method === 'DELETE') {
+      started.resolve()
       assert.equal(url.pathname, '/auth/v1/factors/' + factorId)
       if (failure === 'pending') await pending.promise
       if (failure === 'provider') return json({ code: 'insufficient_aal' }, 422)
@@ -20,7 +21,7 @@ async function setup(t, failure) {
       return json({ id: failure === 'wrong-id' ? secondId : factorId })
     }
   }
-  return { ...f, pending, removal: createFactorRemoval(f.config, { reviewed: true }) }
+  return { ...f, pending, started, removal: createFactorRemoval(f.config, { reviewed: true }) }
 }
 
 test('factor removal remains unavailable without deployment review; booleans cannot replace factor proof', async () => {
@@ -62,9 +63,9 @@ test('explicit opt-out warning and owned factor selection cannot be omitted', as
   assert.equal(f.state.actions.length, 0)
 })
 
-test('account switching and duplicate dispatch cannot delete or sign out the new account', async t => {
+test('account switching and duplicate dispatch cannot delete or sign out the new account', { timeout: 10000 }, async t => {
   const f = await setup(t, 'pending'), work = f.removal.remove(input())
-  for (let i = 0; i < 50 && !f.state.actions.some(a => a.method === 'DELETE'); i++) await tick()
+  await f.started.promise
   assert.equal((await f.removal.remove(input())).status, 'busy')
   await f.client.auth.setSession(await f.sign({ sub: otherSubject }, 'password'))
   f.pending.resolve()
