@@ -3,11 +3,7 @@ import argparse
 import gzip
 from hashlib import sha256
 from pathlib import Path
-import sys
 import tarfile
-
-root = Path(__file__).resolve().parent
-sys.path.insert(0, str(root if (root / 'app').is_dir() else root.parents[1]))
 from app.bootstrap import FILES, verify_local
 
 MANIFEST = '2afcd65695fb1dfa16aeb604caa212bdedfb352027e145ac1ec810e5c13199ef'

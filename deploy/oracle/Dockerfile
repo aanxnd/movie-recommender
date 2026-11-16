@@ -7,7 +7,7 @@ RUN python -m pip install --no-cache-dir --require-hashes --only-binary=:all: -r
     && useradd --uid 10001 --create-home appuser
 COPY app/ ./app/
 COPY deploy/oracle/entry.py /backend/oracle-entry.py
-COPY deploy/oracle/reference.py /backend/oracle-reference.py
+COPY app/reference.py /backend/oracle-reference.py
 USER 10001:10001
 EXPOSE 8000
 ENTRYPOINT ["python", "/backend/oracle-entry.py"]

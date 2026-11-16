@@ -46,9 +46,13 @@ def settings(env, targets):
 def load_settings(env):
     try:
         from app.supabase_jwt import _unique_object
-        with open(env['MOVELLE_NATIVE_TARGETS_FILE'], encoding='utf-8') as stream:
-            raw = stream.read(8193)
-        if len(raw) > 8192:
+        raw, file = env.get('MOVELLE_NATIVE_TARGETS_JSON'), env.get('MOVELLE_NATIVE_TARGETS_FILE')
+        if bool(raw) == bool(file):
+            raise ValueError
+        if file:
+            with open(file, encoding='utf-8') as stream:
+                raw = stream.read(8193)
+        if not isinstance(raw, str) or len(raw) > 8192:
             raise ValueError
         return settings(env, json.loads(raw, object_pairs_hook=_unique_object))
     except Exception:

@@ -81,6 +81,19 @@ jobs:
           assert result.stderr.strip() == 'Oracle native startup refused'
           print('Native Oracle image refused unapproved startup without network')
           PY
+      - name: Validate native Azure AMD64 runtime without publishing
+        run: |
+          docker build --platform linux/amd64 --target runtime -f deploy/azure/Dockerfile -t movelle-azure:ci .
+          python - <<'PY'
+          import json, subprocess
+          meta = json.loads(subprocess.check_output(['docker', 'image', 'inspect', 'movelle-azure:ci']))[0]
+          assert meta['Architecture'] == 'amd64' and meta['Config']['User'] == '10001:10001'
+          result = subprocess.run(['docker', 'run', '--rm', '--network', 'none', '--read-only',
+              '--cap-drop=ALL', '--security-opt=no-new-privileges', 'movelle-azure:ci'],
+              capture_output=True, text=True, timeout=30)
+          assert result.returncode != 0 and result.stderr.strip() == 'Azure native startup refused'
+          print('AMD64 runtime refused unapproved configuration; no reference or cloud calls')
+          PY
 
   frontend:
     name: Frontend build

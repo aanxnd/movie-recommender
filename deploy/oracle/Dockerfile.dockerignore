@@ -5,6 +5,5 @@
 !deploy/
 !deploy/oracle/
 !deploy/oracle/entry.py
-!deploy/oracle/reference.py
 **/__pycache__/
 **/*.pyc
