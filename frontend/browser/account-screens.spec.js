@@ -37,3 +37,26 @@ test('profile preview has no premature provisioning controls', async ({ page }) 
   await expect(page.getByRole('status')).toContainText('Profile setup is not available yet')
   await expect(page.getByRole('button', { name: 'Create my profile' })).toHaveCount(0)
 })
+
+test('irreversible deletion preview requires explicit typed intent, masks secrets and never calls hosted services', async ({ page }) => {
+  const requests = []
+  page.on('request', r => { if (/supabase|\/auth\/|\/users/.test(r.url())) requests.push(r.url()) })
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 1000 })
+    await page.goto('/browser/account-demo.html?screen=deletion-review')
+    await expect(page.getByRole('heading', { name: 'Delete your account.' })).toBeVisible()
+    await expect(page.getByLabel('Accessible authenticator')).toBeVisible()
+    await page.getByLabel('Current password', { exact: true }).fill('synthetic-private')
+    await page.getByLabel('Fresh six-digit code').fill('123456')
+    await page.getByLabel('Type PERMANENTLY DELETE MY ACCOUNT').fill('DELETE')
+    await page.getByRole('button', { name: 'Request permanent deletion' }).click()
+    await expect(page.getByRole('button', { name: 'Request permanent deletion' })).toBeVisible()
+    await page.getByLabel('Type PERMANENTLY DELETE MY ACCOUNT').fill('PERMANENTLY DELETE MY ACCOUNT')
+    await page.getByRole('button', { name: 'Request permanent deletion' }).click()
+    await expect(page.getByRole('status').filter({ hasText: 'does not confirm erasure' })).toBeVisible()
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await expect(page.locator('body')).not.toContainText('synthetic-private')
+    await expect(page.locator('body')).not.toContainText('123456')
+  }
+  expect(requests).toEqual([])
+})

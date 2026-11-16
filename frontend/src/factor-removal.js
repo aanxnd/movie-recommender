@@ -4,16 +4,18 @@ import { getSessionController } from './auth-session.js'
 import { createNativeMfa } from './mfa-service.js'
 import { observeMfa, mfaFailure } from './mfa-evidence.js'
 import { nativeUuid } from './password-evidence.js'
+import { pendingFactorRemoval } from './removal-contract.js'
+export { pendingFactorRemoval }
 
 const result = status => Object.freeze({ status })
 const fingerprint = e => JSON.stringify(e.factors.map(f => [f.id, f.status]).sort())
-export const pendingFactorRemoval = Object.freeze({ remove: async () => result('removal-unavailable') })
 
 export function createFactorRemoval(config, { reviewed = false } = {}) {
   if (reviewed !== true) return pendingFactorRemoval
   const client = getBrowserSupabaseClient(config), session = getSessionController(client), native = createNativeMfa(config)
   let busy = false
   return Object.freeze({
+    available: true, inspect: () => native.inspect(),
     async remove({ factorId, authenticatingFactorId, code, confirmation } = {}, { signal } = {}) {
       // Every DELETE can remove the last factor, regardless of an earlier count.
       if (confirmation !== 'REMOVE EVEN IF MFA IS DISABLED' || !nativeUuid(factorId) ||

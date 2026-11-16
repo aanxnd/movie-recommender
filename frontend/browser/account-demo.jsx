@@ -10,20 +10,24 @@ import { MfaScreen, MfaLoginScreen } from '../src/mfa-screens.jsx'
 import { createMfaPreview } from './mfa-demo.js'
 import { MfaRecoveryScreen } from '../src/mfa-recovery-screen.jsx'
 import { createRecoveryPreview } from './mfa-recovery-demo.js'
+import { AccountRemovalScreen, FactorRemovalScreen } from '../src/removal-screens.jsx'
 import { ForgotPasswordScreen, RecoveryCallbackScreen, NewPasswordScreen, ChangePasswordScreen, SensitiveReauthenticationScreen } from '../src/password-screens.jsx'
 import '../src/styles.css'
 
 const screen = new URLSearchParams(location.search).get('screen')
-const state = Object.freeze({ status: screen?.startsWith('mfa') || ['profile', 'new-password', 'change-password', 'reauth', 'settings', 'settings-pending', 'email-callback'].includes(screen) ? 'authenticated' : 'unauthenticated', userId: null, generation: 0 })
+const state = Object.freeze({ status: screen?.startsWith('mfa') || screen?.endsWith('-review') || ['profile', 'new-password', 'change-password', 'reauth', 'settings', 'settings-pending', 'email-callback'].includes(screen) ? 'authenticated' : 'unauthenticated', userId: null, generation: 0 })
 const session = { getSnapshot: () => state, subscribe: () => () => {}, logout: async () => {}, refresh: async () => {} }
 const actions = Object.freeze({ signUp: async () => ({ status: 'check-email' }),
   signIn: async () => ({ status: 'invalid' }), confirm: async () => ({ status: 'unproven' }) })
-const previews = { profile: ProfileSetupScreen, login: LoginScreen, verification: VerificationScreen,
+const previews = { 'deletion-review': AccountRemovalScreen, 'factor-review': FactorRemovalScreen, profile: ProfileSetupScreen, login: LoginScreen, verification: VerificationScreen,
   forgot: ForgotPasswordScreen, recovery: RecoveryCallbackScreen, 'new-password': NewPasswordScreen,
   'change-password': ChangePasswordScreen, reauth: SensitiveReauthenticationScreen, settings: AccountSettingsScreen,
   'settings-pending': AccountSettingsScreen, 'email-callback': EmailChangeCallbackScreen,
   mfa: MfaScreen, 'mfa-login': MfaLoginScreen, 'mfa-unknown': MfaScreen, 'mfa-error': MfaLoginScreen }
 const Screen = screen?.startsWith('mfa-recovery') ? MfaRecoveryScreen : previews[screen] || SignupScreen
+const removalPreview = { available: true, inspect: async () => ({ status: 'verified', factors: [
+  { id: 'aaaaaaaa-1234-4234-9234-123456789abc', status: 'verified', label: 'Offline phone' }] }),
+  deleteAccount: async () => ({ status: 'pending' }), remove: async () => ({ status: 'mutation-uncertain' }) }
 const recovery = { state: () => ({ status: screen === 'new-password' ? 'verified' : 'unproven' }),
   confirm: async () => ({ status: 'unproven' }), setPassword: async () => ({ status: 'changed' }) }
 const sensitive = { changePassword: async () => ({ status: 'changed' }) } // UI simulation, never provider evidence.
@@ -36,7 +40,7 @@ const emailSettings = { inspect: async () => ({ status: screen === 'settings-pen
 createRoot(document.getElementById('root')).render(<React.StrictMode><AuthProvider session={session}>
   <p className="auth-hint" style={{ padding: '12px 24px' }}>Offline preview · No account requests are sent.</p>
   <Screen actions={actions} recovery={recovery} sensitive={sensitive} account={account} emailSettings={emailSettings}
-    service={screen?.startsWith('mfa-recovery') ? createRecoveryPreview(screen) : screen?.startsWith('mfa') ? createMfaPreview(screen) : emailSettings}
+    service={screen?.endsWith('-review') ? removalPreview : screen?.startsWith('mfa-recovery') ? createRecoveryPreview(screen) : screen?.startsWith('mfa') ? createMfaPreview(screen) : emailSettings}
     onManageAuthenticators={() => location.assign('/browser/account-demo.html?screen=mfa')}
     requestReset={async () => ({ status: 'check-email' })} />
 </AuthProvider></React.StrictMode>)
