@@ -1,5 +1,8 @@
 # Stage 23 full-system integration checkpoint
 
+Historical integration evidence; current preparation/status is in [the documentation map](README.md).
+Do not treat the old PR review state or local commands as current deployment authority.
+
 This is not Prompt 24, a production cutover, hosted acceptance or the final audit.
 Baseline `main`: `4fa3d446a4c9d99d28eb959b3ee1a613cd19f03f`; merged PRs
 69, 71 and 72–77 were verified. All new PRs remain subject to owner review/merge.

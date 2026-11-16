@@ -2,6 +2,10 @@
 
 **OWNER-APPROVED CONTRACT - IMPLEMENTATION UNDER REVIEW**
 
+Historical design review; [post-approval acceptance](NATIVE_MFA_FIX_ACCEPTANCE.md)
+records the corrected primary journey. Multi-device and remaining production
+requirements stay in [current readiness](PRODUCTION_LAUNCH_READINESS.md).
+
 The owner approved the response contract and non-atomic freshness limitations
 below. This implementation allows native no-factor AAL1 provisioning/first setup;
 null/malformed/unsupported evidence and verified-factor AAL2 requirements remain.

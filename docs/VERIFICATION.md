@@ -1,4 +1,8 @@
-# Verification record
+# Historical implementation verification record
+
+This dated baseline is retained evidence, not current test totals or the final
+professional audit. Use [current validation](ORACLE_CLEANUP_VALIDATION.md) and
+[production readiness](PRODUCTION_LAUNCH_READINESS.md) for present release gates.
 
 Implementation review completed locally on 2026-10-29 (America/Toronto). Dependency advisory snapshot and initial final checks were taken on 2026-10-28. Branch: `production-readiness`; baseline: `6166c8d`. No push, cloud deployment, cloud configuration change, or production database access occurred.
 

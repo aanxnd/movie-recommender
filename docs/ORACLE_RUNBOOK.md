@@ -59,6 +59,15 @@ Docker socket inside proxy/API. Retain the previous pair until validation passes
 Timer, hook, actual issuance, renewal/reboot and expiry alert acceptance remain
 explicit operational gates; their existence is not claimed by this Compose file.
 
+Endpoint ownership is also a release gate: do not use an ephemeral/reassignable IP
+as a bearer-token destination. For an IP origin, verify owner-held reserved-address
+eligibility/cost/retention and protect it from deletion. [Oracle's public-IP contract](https://docs.oracle.com/en-us/iaas/Content/Network/Tasks/managingpublicIPs.htm)
+distinguishes persistent reserved addresses from instance-bound ephemeral ones.
+Account/address loss can still put old clients at risk; a hostname/certificate or
+compiled origin alone does not prove continuing ownership. Reclamation downtime
+acceptance does not authorize JWT exposure to a future address holder. No address
+is selected/reserved here; ownership monitoring/recovery must precede activation.
+
 ## Release, probes and rollback
 
 Routine `/health` does not touch DB; `/ready` only for explicit deployment/incident

@@ -4,6 +4,13 @@ Current hosting research and measured sizing are in [the zero-cost evaluation](Z
 and [proposed blueprint](PRODUCTION_HOSTING_BLUEPRINT.md). PR91–110 are merged;
 their dormant code does not satisfy deployment, account-operation or financial gates.
 
+Owner-selected preparation now retains Vercel Hobby with Oracle non-paid A1,
+Neon Free, Supabase Free and Compose; downtime/reclamation accepted. Review the
+[Oracle runbook](ORACLE_RUNBOOK.md), [Vercel bundle](VERCEL_NATIVE_RELEASE.md),
+[cleanup inventory](REPOSITORY_CLEANUP.md) and [validation](ORACLE_CLEANUP_VALIDATION.md).
+Local emulation and native public ARM CI do not establish A1 capacity or hosted
+TLS/DB/mail/provider acceptance. Existing Azure release/rollback remains until cutover.
+
 Owner direction, November 15, 2026: deliver the complete production Movelle
 experience; local staging is an engineering fixture, not the final owner acceptance
 environment. This plan does not authorize deployment, public signup/configuration,

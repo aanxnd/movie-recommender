@@ -5,20 +5,22 @@ The current contract is [standard Supabase policy](AUTH_POLICY_EVIDENCE.md).
 All new authentication remains dormant; no environment or hosted setting is changed.
 Prompts 11-13 are merged; [native confirmation](SIGNUP_CONFIRMATION.md) and
 [current email validation](EMAIL_CHANGE.md) remain dormant. Prompt 14 extends the
-[central dependency](AUTH_ARCHITECTURE.md#prompt-14-central-principal-and-verification-order-dormant)
+[central dependency](AUTH_ARCHITECTURE.md#server-policy-and-resource-authorization)
 to return a typed principal; it does not attach it to application routes.
 Bounded Stage 23 development-project testing is now owner-authorized; current
 [acceptance results](STAGING_SUPABASE_ACCEPTANCE.md) include real signup, confirmed sessions and
 historical omitted-factor denial. PRs87–90 are merged; the approved correction and
 [bounded native MFA/application journey](NATIVE_MFA_FIX_ACCEPTANCE.md) passed.
 Current preparation follows the [Oracle runbook](ORACLE_RUNBOOK.md) and [Vercel native guide](VERCEL_NATIVE_RELEASE.md).
-Production activation and hosted configuration changes remain unapproved.
+Production activation and hosted configuration changes remain unapproved. Current
+runtime names/targets are in [native release](NATIVE_RELEASE.md) and [Oracle](ORACLE_RUNBOOK.md);
+the inspection/earlier configuration tables below remain evidence, not new settings.
 
 ## Evidence boundaries
 
-- Repository: ES256 verification, typed claims, native confirmation/OTP, standard
-  policy and UUID-to-numeric-ID resolution are offline tested; no protected route
-  consumes them. Neon schema 3 and legacy authentication remain unchanged.
+- Repository: ES256/typed claims, native email/MFA policy and UUID-to-numeric-ID
+  resolution are used in explicitly selected native routes. Source schema4 is not
+  evidence of hosted migration; deployed legacy selectors remain unchanged.
 - Previously observed public JWKS: the development project's pinned endpoint
   supplied EC/P-256/ES256 verification keys. This establishes no account settings.
 - Owner-reported: Free `movelle-auth-dev`, TOTP enabled with ten factors, disposable
