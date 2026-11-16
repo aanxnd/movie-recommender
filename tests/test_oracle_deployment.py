@@ -48,6 +48,18 @@ def test_manifest_duplicate_keys_or_oversize_fail_before_output(tmp_path):
         assert not output.exists()
 
 
+def test_ip_literal_tls_requires_no_sni_and_still_binds_the_exact_http_host():
+    # Public-address shape only; no connection or owner endpoint selection.
+    proxy = render.render({**targets(), 'api_origin': 'https://8.8.8.8'})
+    assert 'listen 8443 ssl default_server;' in proxy
+    assert 'ssl_reject_handshake' not in proxy and '@@' not in proxy
+    assert "if ($ssl_server_name != '') { return 444; }" in proxy
+    assert "if ($http_host != '8.8.8.8') { return 444; }" in proxy
+    dns = render.render(targets())
+    assert 'ssl_reject_handshake on;' in dns
+    assert '$ssl_server_name' not in dns
+
+
 def test_compose_has_no_public_api_or_privileged_runtime_and_health_never_wakes_db():
     raw = Path('deploy/oracle/compose.yaml').read_text()
     api, proxy = raw.split('  proxy:', 1)

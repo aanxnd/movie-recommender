@@ -59,6 +59,14 @@ Docker socket inside proxy/API. Retain the previous pair until validation passes
 Timer, hook, actual issuance, renewal/reboot and expiry alert acceptance remain
 explicit operational gates; their existence is not claimed by this Compose file.
 
+The renderer distinguishes DNS from IP-literal TLS. [RFC6066 section3](https://www.rfc-editor.org/rfc/rfc6066#section-3)
+excludes literal addresses from SNI; [Nginx selects the default TLS server](https://nginx.org/en/docs/http/configuring_https_servers.html)
+before HTTP Host is available. DNS mode rejects unknown SNI at handshake. IP mode
+serves only the approved IP certificate on its default socket, then rejects any
+nonempty SNI or incorrect HTTP Host before proxying. This does not authorize a
+catch-all API. Loopback fixtures verify IP-SAN hostname validation without SNI,
+wrong Host/SNI refusal, body caps and redirects; no public IP is contacted or chosen.
+
 Endpoint ownership is also a release gate: do not use an ephemeral/reassignable IP
 as a bearer-token destination. For an IP origin, verify owner-held reserved-address
 eligibility/cost/retention and protect it from deletion. [Oracle's public-IP contract](https://docs.oracle.com/en-us/iaas/Content/Network/Tasks/managingpublicIPs.htm)

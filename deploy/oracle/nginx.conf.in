@@ -26,13 +26,14 @@ http {
     }
     location / { return 308 https://@@API_HOST@@/; }
   }
-  server { listen 8443 ssl default_server; server_name _; ssl_reject_handshake on; return 444; }
+  @@TLS_DEFAULT@@
   server {
-    listen 8443 ssl;
+    listen @@TLS_LISTEN@@;
     server_name @@API_HOST@@;
     ssl_certificate /tls/current/fullchain.pem;
     ssl_certificate_key /tls/current/privkey.pem;
     ssl_protocols TLSv1.2 TLSv1.3;
+    @@SNI_GUARD@@
     if ($http_host != '@@API_HOST@@') { return 444; }
     add_header X-Content-Type-Options nosniff always;
     add_header Referrer-Policy no-referrer always;

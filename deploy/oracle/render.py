@@ -30,7 +30,20 @@ def render(targets):
         raise ValueError
     host(targets['frontend_origin'])
     api = host(targets['api_origin'])
-    return Path(__file__).with_name('nginx.conf.in').read_text().replace('@@API_HOST@@', api)
+    try: ipaddress.ip_address(api); literal = True
+    except ValueError: literal = False
+    # RFC6066 excludes IP literals from SNI. Only the approved IP certificate is
+    # served by the default socket; nonempty SNI and wrong HTTP Host never proxy.
+    substitutions = {
+        'API_HOST': api,
+        'TLS_DEFAULT': '' if literal else
+            'server { listen 8443 ssl default_server; server_name _; ssl_reject_handshake on; return 444; }',
+        'TLS_LISTEN': '8443 ssl default_server' if literal else '8443 ssl',
+        'SNI_GUARD': "if ($ssl_server_name != '') { return 444; }" if literal else '',
+    }
+    template = Path(__file__).with_name('nginx.conf.in').read_text()
+    for key, value in substitutions.items(): template = template.replace('@@' + key + '@@', value)
+    return template
 
 
 def prepare(manifest, output):
