@@ -1,0 +1,65 @@
+name: movelle-oracle
+services:
+  api:
+    image: ${MOVELLE_ORACLE_IMAGE:?Reviewed local sha256 image required}
+    pull_policy: never
+    platform: linux/arm64
+    user: '10001:10001'
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 128
+    mem_limit: 2g
+    memswap_limit: 2g
+    cpus: 1.0
+    restart: 'on-failure:3'
+    stop_grace_period: 40s
+    tmpfs: ['/tmp:rw,noexec,nosuid,size=64m,uid=10001,gid=10001,mode=0700']
+    environment:
+      APP_ENV: production
+      MOVELLE_NATIVE_MODE: native-release
+      MOVELLE_NATIVE_PREPARED_DIR: /reference
+      MOVELLE_NATIVE_TARGETS_FILE: /config/targets.json
+      CORS_ALLOWED_ORIGINS: ${MOVELLE_ORACLE_FRONTEND_ORIGIN:?Exact reviewed origin required}
+    secrets: [native_database_url, native_publishable_key]
+    volumes:
+      - {type: bind, source: '${MOVELLE_ORACLE_REFERENCE:?}', target: /reference, read_only: true, bind: {create_host_path: false}}
+      - {type: bind, source: '${MOVELLE_ORACLE_CONFIG:?}/targets.json', target: /config/targets.json, read_only: true, bind: {create_host_path: false}}
+    healthcheck:
+      test: ['CMD', python, '-c', "from urllib.request import urlopen; assert urlopen('http://127.0.0.1:8000/health', timeout=2).status == 200"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    logging: {driver: local, options: {max-size: 1m, max-file: '3'}}
+    networks: [backend]
+  proxy:
+    image: nginx:stable-alpine@sha256:901e593c95dc85f5a729f5765516321366ef4ac401821431d408897e95287d0a
+    pull_policy: never
+    platform: linux/arm64
+    user: '101:101'
+    entrypoint: [nginx, '-g', 'daemon off;']
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 64
+    mem_limit: 128m
+    memswap_limit: 128m
+    cpus: 0.25
+    restart: 'on-failure:3'
+    stop_grace_period: 40s
+    tmpfs: ['/tmp:rw,noexec,nosuid,size=16m,uid=101,gid=101,mode=0700']
+    ports: ['443:8443', '80:8080']
+    volumes:
+      - {type: bind, source: '${MOVELLE_ORACLE_CONFIG:?}/nginx.conf', target: /etc/nginx/nginx.conf, read_only: true, bind: {create_host_path: false}}
+      - {type: bind, source: '${MOVELLE_ORACLE_TLS:?}', target: /tls, read_only: true, bind: {create_host_path: false}}
+      - {type: bind, source: '${MOVELLE_ORACLE_ACME:?}', target: /var/www/acme, read_only: true, bind: {create_host_path: false}}
+    depends_on: {api: {condition: service_healthy}}
+    healthcheck: {test: [CMD, nginx, '-t', '-q'], interval: 60s, timeout: 5s, retries: 3}
+    logging: {driver: local, options: {max-size: 1m, max-file: '3'}}
+    networks: [backend]
+networks:
+  backend: {driver: bridge}
+secrets:
+  native_database_url: {file: '${MOVELLE_ORACLE_SECRETS:?}/native_database_url'}
+  native_publishable_key: {file: '${MOVELLE_ORACLE_SECRETS:?}/native_publishable_key'}
