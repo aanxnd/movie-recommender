@@ -28,7 +28,7 @@ def deletion(identity_engine):
     principal = ProvisioningPrincipal(uuid4(), uuid4(), int(time())+300, 'aal2')
     store = DeletionStore(lambda: Session(identity_engine), ISSUER, b'offline-test-key-only-'*2)
     profile = provision_profile(store.sessions, principal, ProfileInput(username='AccountOwner'))
-    principal = DeletionAuthorization(principal.subject, principal.session_id, principal.expires_at, principal.aal, ISSUER)
+    principal = DeletionAuthorization(principal.subject, principal.session_id, principal.expires_at, principal.aal, ISSUER, '2026-01-01T00:00:00+00:00')
     with store.sessions() as session, session.begin():
         peer = database.create_user(session).id
         database.register_movies(session, [10])

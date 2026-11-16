@@ -5,6 +5,7 @@ CREATE TABLE account_deletion_intents (
     subject UUID NOT NULL UNIQUE,
     user_id BIGINT NOT NULL UNIQUE,
     issuer VARCHAR(255) NOT NULL,
+    provider_created_at VARCHAR(64) NOT NULL,
     created_at BIGINT NOT NULL,
     authorized_until BIGINT NOT NULL,
     authorization_tag VARCHAR(64) NOT NULL,

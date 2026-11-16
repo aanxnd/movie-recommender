@@ -1,5 +1,6 @@
 """Dormant deletion journal. Separate metadata: no startup migration or production import."""
 from dataclasses import dataclass
+from datetime import datetime, timezone
 import hashlib
 import hmac
 import json
@@ -18,6 +19,7 @@ metadata = MetaData()
 intents = Table('account_deletion_intents', metadata,
     Column('request_id', Uuid, primary_key=True), Column('subject', Uuid, unique=True, nullable=False),
     Column('user_id', BigInteger, unique=True, nullable=False), Column('issuer', String(255), nullable=False),
+    Column('provider_created_at', String(64), nullable=False),
     Column('created_at', BigInteger, nullable=False), Column('authorized_until', BigInteger, nullable=False),
     Column('authorization_tag', String(64), nullable=False), Column('phase', String(24), nullable=False),
     Column('worker', Uuid), Column('lease_until', BigInteger, nullable=False, server_default='0'),
@@ -37,6 +39,19 @@ class DeletionUnavailable(RuntimeError):
 class DeletionAuthorization(ProvisioningPrincipal):
     """Server-only fresh-password authorizer output; never construct from HTTP claims."""
     issuer: str
+    provider_created_at: str
+
+
+def creation_stamp(value):
+    try:
+        if type(value) is not str or len(value) > 64:
+            raise ValueError
+        parsed = datetime.fromisoformat(value.replace('Z', '+00:00'))
+        if parsed.tzinfo is None or parsed > datetime.now(timezone.utc):
+            raise ValueError
+        return parsed.astimezone(timezone.utc).isoformat()
+    except Exception:
+        raise DeletionUnavailable() from None
 
 
 @dataclass(frozen=True, slots=True, repr=False)
@@ -47,6 +62,7 @@ class DeletionJob:
     worker: UUID
     phase: str
     authorized_until: int
+    provider_created_at: str
 
 
 class DeletionStore:
@@ -58,7 +74,7 @@ class DeletionStore:
         self.sessions, self.issuer, self._key = sessions, issuer, signing_key
 
     def _tag(self, row):
-        fields = {k: str(row[k]) for k in ('request_id', 'subject', 'user_id', 'issuer', 'created_at', 'authorized_until', 'phase')}
+        fields = {k: str(row[k]) for k in ('request_id', 'subject', 'user_id', 'issuer', 'provider_created_at', 'created_at', 'authorized_until', 'phase')}
         return hmac.new(self._key, json.dumps(fields, sort_keys=True, separators=(',', ':')).encode(), hashlib.sha256).hexdigest()
 
     @staticmethod
@@ -85,6 +101,7 @@ class DeletionStore:
                     raise DeletionUnavailable()
                 return previous['request_id']
             row = dict(request_id=request_id, subject=principal.subject, user_id=identity.user_id,
+                provider_created_at=creation_stamp(principal.provider_created_at),
                 issuer=self.issuer, created_at=database_now(session), authorized_until=principal.expires_at, phase='pending')
             row['authorization_tag'] = self._tag(row)
             principal.require_fresh()
@@ -104,7 +121,16 @@ class DeletionStore:
             if row['issuer'] != self.issuer or not hmac.compare_digest(row['authorization_tag'], self._tag(row)):
                 raise DeletionUnavailable()
             self._event(session, request_id, 'claimed')
-            return DeletionJob(row['request_id'], row['subject'], row['user_id'], worker, row['phase'], row['authorized_until'])
+            return DeletionJob(row['request_id'], row['subject'], row['user_id'], worker, row['phase'], row['authorized_until'], row['provider_created_at'])
+
+    def authorized(self, job):
+        with self.sessions() as session, session.begin():
+            now = database_now(session)
+            row = session.execute(select(intents).where(intents.c.request_id == job.request_id,
+                intents.c.subject == job.subject, intents.c.user_id == job.user_id, intents.c.worker == job.worker,
+                intents.c.phase == 'pending', intents.c.lease_until >= now)).mappings().one_or_none()
+            return (row is not None and job.authorized_until > now and row['authorized_until'] == job.authorized_until
+                    and hmac.compare_digest(row['authorization_tag'], self._tag(row)))
 
     def _advance(self, session, job, before, after):
         changed = session.execute(update(intents).where(intents.c.request_id == job.request_id,
