@@ -38,7 +38,7 @@ RECOMMENDATION_GATE = BoundedSemaphore(1)
 
 def get_session(request: Request) -> Iterator[Session]:
     """Commit before sending success; roll back failures and always close."""
-    with Session(request.app.state.engine) as session, session.begin():
+    with Session(request.app.state.engine, info={'lifecycle_enabled': getattr(request.app.state, 'lifecycle_enabled', False)}) as session, session.begin():
         yield session
 
 

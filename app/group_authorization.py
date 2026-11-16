@@ -12,7 +12,7 @@ from app.supabase_auth import SupabaseAuthContext
 def issue_invitation(session, principal: SupabaseAuthContext, user_id: int) -> tuple[str, int]:
     """Replace only the caller's capability, using the existing random-token format."""
     scope = _scope(principal, User.id, user_id)
-    with _storage(session):
+    with _storage(session, principal):
         token = secrets.token_urlsafe(32)
         digest = security.token_hash(token)
         expires = limits.database_now(session) + security.INVITATION_LIFETIME
@@ -28,7 +28,7 @@ def issue_invitation(session, principal: SupabaseAuthContext, user_id: int) -> t
 
 
 def revoke_invitation(session, principal: SupabaseAuthContext, user_id: int) -> None:
-    with _storage(session):
+    with _storage(session, principal):
         found = session.scalar(delete(GroupInvitation).where(
             _scope(principal, GroupInvitation.user_id, user_id)).returning(GroupInvitation.user_id))
         if found is None:
@@ -58,10 +58,13 @@ def combined_group_profile(session, principal: SupabaseAuthContext, user_ids: li
         if not isinstance(token, str) or not security.TOKEN_PATTERN.fullmatch(token):
             raise _denied()
         expected[identifier] = security.token_hash(token)
-    with _storage(session):
+    with _storage(session, principal):
         now = limits.database_now(session)
         permitted = or_(User.id == principal.user_id, and_(GroupInvitation.user_id == User.id,
             GroupInvitation.expires_at > now, GroupInvitation.token_hash == case(expected, value=User.id)))
+        if session.info.get('lifecycle_enabled'):
+            from app.deletion_store import intents
+            permitted = and_(permitted, ~select(intents.c.user_id).where(intents.c.user_id == User.id).exists())
         rows = session.execute(select(User.id, UserRating.movie_id, UserRating.rating, GroupInvitation.expires_at)
             .outerjoin(GroupInvitation, GroupInvitation.user_id == User.id)
             .outerjoin(UserRating, UserRating.user_id == User.id)

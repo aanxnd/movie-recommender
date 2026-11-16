@@ -32,6 +32,9 @@ def profile_settings(session_factory, principal, body=None):
         with session_factory() as session, session.begin():
             limits.consume(session, str(principal.subject), 'profile-settings', 30, 60)
         with session_factory() as session, session.begin():
+            if session.info.get('lifecycle_enabled'):
+                from app.deletion_guard import guard_subject
+                guard_subject(session, principal.subject)
             identity = resolve_verified_subject(session, principal.subject)
             row = session.execute(select(UserIdentity.username, UserIdentity.profile_revision).where(
                 UserIdentity.user_id == identity.user_id, UserIdentity.supabase_subject == principal.subject)).one()
