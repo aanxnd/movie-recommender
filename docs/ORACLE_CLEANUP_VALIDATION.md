@@ -37,7 +37,7 @@ No merge/deployment or production activation follows from these checks.
 
 Thirty-three Node cases are removed only with deleted private interfaces (one package,
 two wrappers,30 gateway including24 generated parameter cases). Forty-two backend cases are removed only with deleted
-private entry/config/gate/CLI (32+3+7). Replacements add20 image/reference,19 renderer/
+private entry/config/gate/CLI (32+3+7). Replacements add20 image/reference,20 renderer/
 Compose and11 native operator cases plus one native package case. Existing JWT/MFA/
 session/ownership/race/DB/recommendation tests remain. See [file-level evidence](REPOSITORY_CLEANUP.md).
 These counts are not an effort to preserve a headline total; each behavior has an
