@@ -35,6 +35,8 @@ only in disposable schemas. No production data or existing hosted account change
 3. Approve journal DDL, backup/rehearsal and tombstone/audit retention. Verify actual
    DB target/schema and every serving revision. Retain pending intents on failure;
    do not roll back to an unaware/legacy binary against that database.
+   Audit/tombstone UUIDs are personal data, not proof of full erasure; approve their
+   retention and enforce insert-only audit permissions before any execution.
 4. Establish Storage ownership/cleanup and provider backup retention. Storage-owner
    refusal blocks deletion with Neon intact. Prohibit concurrent administrative UUID
    reuse: creation-time binding detects many cases but GET/DELETE cannot make that

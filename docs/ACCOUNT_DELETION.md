@@ -31,7 +31,8 @@ movies and other users remain untouched. Hashed rate counters retain existing TT
 There is no distributed transaction. A deleted provider identity plus failed Neon
 cleanup remains **blocked/retryable**, never silently restored or relinked. Provider
 timeouts/unknown outcomes must be reconciled from fresh exact-subject evidence.
-Append-only event values contain no raw diagnostics. No hard-delete rollback or
+The code only appends fixed-value events without raw diagnostics; effective grants
+must still enforce no audit UPDATE/DELETE before execution. No hard-delete rollback or
 automatic identity recreation is promised. Sessions already admitted before a
 deletion intent may finish; this is not an immediate global revocation guarantee.
 
