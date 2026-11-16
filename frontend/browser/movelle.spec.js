@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test'
 import { mkdir } from 'node:fs/promises'
 import { resolve } from 'node:path'
+import { artworkCandidates } from './artwork-fixture.js'
 
 const shots = resolve(process.env.MOVELLE_SCREENSHOT_DIR || '../docs/screenshots/movelle')
 const nav = (page, name) =>
@@ -488,10 +489,10 @@ test('network failure has a useful retry, honest loading state, empty search and
     .toBe('1')
 })
 
-test('real posters and film details keep canonical IDs; image failure uses an honest fallback', async ({
+test('fixture posters and film details keep canonical IDs; image failure uses an honest fallback', async ({
   page,
 }) => {
-  await page.goto('/')
+  await artworkCandidates(page, 'available')
   await expect(page.locator('.feature-backdrop')).toBeVisible()
   await expect
     .poll(() =>

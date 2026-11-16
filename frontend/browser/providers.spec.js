@@ -1,9 +1,10 @@
 import { test, expect } from '@playwright/test'
+import { artworkCandidates } from './artwork-fixture.js'
 
-test('provider credits and rendered images use Fanart and retain real artwork credits', async ({ page }) => {
+test('provider fixtures render Fanart images and preserve provider credits', async ({ page }) => {
   const hosts = new Set()
   page.on('request', request => hosts.add(new URL(request.url()).hostname))
-  await page.goto('/')
+  await artworkCandidates(page, 'available')
   const first = page.locator('.shelf-list .movie-card').first()
   await expect(first.locator('img')).toBeVisible()
   await expect.poll(() => first.locator('img').evaluate(img => img.naturalWidth)).toBeGreaterThan(0)

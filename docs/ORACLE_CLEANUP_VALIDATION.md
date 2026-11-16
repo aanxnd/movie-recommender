@@ -48,3 +48,15 @@ historical verification counts are not aggregated. Actual A1 resources/TLS renew
 Neon production schema/grants/restore, public Vercel protection/promotion, mail,
 MFA/removal/deletion races and the full NIST/16-stage audit remain incomplete.
 Existing10/10 hosted budget stays exhausted; no real mutation is part of validation.
+
+## Full browser-suite fixture correction
+
+The broader offline run exposed two artwork tests that implicitly needed live
+credentials and a password test that assumed email was the first tab stop. The
+existing AuthFrame theme button precedes email; the test now checks both stops.
+The artwork cases reuse the existing synthetic candidate/image fixture, retaining
+canonical IDs, credits, ordered fallbacks and honest missing-image assertions.
+No application authentication or artwork behavior changed, and no cases were
+removed/skipped. The existing opt-in live artwork case still needs separate
+credentials/authorization. CI now runs the complete default suite and isolated
+provisioning configuration alongside the existing staging integration suite.
