@@ -51,9 +51,9 @@ class ProvisioningPrincipal:
             raise _invalid_credentials()
 
 
-def make_provisioning_dependency(*, project_url: str, audience: str, publishable_key: str):
+def make_provisioning_dependency(*, project_url: str, audience: str, publishable_key: str, policy=None):
     """Explicit dormant composition; no DB resolution, network on construction or legacy fallback."""
-    policy = SupabaseAccessPolicy(project_url=project_url, audience=audience, publishable_key=publishable_key)
+    policy = policy if policy is not None else SupabaseAccessPolicy(project_url=project_url, audience=audience, publishable_key=publishable_key)
 
     def authenticate(request: Request, response: Response) -> ProvisioningPrincipal:
         token = _bearer_token(request, response)

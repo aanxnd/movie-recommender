@@ -42,13 +42,13 @@ def _bearer_token(request: Request, response: Response) -> str:
 
 
 def make_supabase_auth_dependency(*, project_url: str, audience: str, publishable_key: str,
-                                  session_factory: Callable[[], Session]) -> Callable[..., SupabaseAuthContext]:
+                                  session_factory: Callable[[], Session], policy=None) -> Callable[..., SupabaseAuthContext]:
     """Explicit server-only construction, once per process; no network or DB work here.
 
     session_factory must create a fresh Session, not return a shared/request session.
     Use the returned function through Depends; never call it on an async event loop.
     """
-    policy = SupabaseAccessPolicy(project_url=project_url, audience=audience, publishable_key=publishable_key)
+    policy = policy if policy is not None else SupabaseAccessPolicy(project_url=project_url, audience=audience, publishable_key=publishable_key)
 
     def authenticate(request: Request, response: Response) -> SupabaseAuthContext:
         token = _bearer_token(request, response)

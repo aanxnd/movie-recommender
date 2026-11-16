@@ -20,6 +20,7 @@ class AuthJsonTransport:
 
     def request(self, method, path, *, body=None, token=None):
         if not ((method in {'GET', 'DELETE'} and re.fullmatch(r'admin/users/[0-9a-f-]{36}', path)) or
+                (method == 'POST' and re.fullmatch(r'factors/[0-9a-f-]{36}/(?:challenge|verify)', path)) or
                 (method == 'POST' and path in {'token?grant_type=password', 'logout?scope=local'})):
             raise DeletionUnavailable()
         try:
