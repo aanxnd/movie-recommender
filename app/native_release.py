@@ -1,4 +1,4 @@
-"""Separate native release entry. Existing production/private commands are unchanged."""
+"""Separate native release entry. Existing Azure production command is unchanged."""
 import json
 import os
 import re
