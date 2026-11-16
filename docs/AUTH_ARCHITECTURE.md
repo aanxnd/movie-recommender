@@ -1,377 +1,83 @@
-# Authentication architecture contract
+# Authentication architecture contract — current native design
 
-The [account-removal candidates and gates](ACCOUNT_OPERATIONS_READINESS.md) now
-prepare native factor opt-out and coordinated owned erasure. They are execution
-disabled and preserve all existing entry points. Ordinary operations/migrations
-preserve numeric relationships; only a separately authorized irreversible deletion
-intent may erase that owner's data. No automatic account linking or legacy fallback.
+Selected preparation: Vercel Hobby + non-paid Oracle A1 + Neon Free + Supabase
+Free + Docker Compose, strictly CA$0 incremental spending, no credits/paid fallback.
+PR91–110 are merged; merged code is not deployment or hosted-feature approval.
+Current deployed/default entries remain legacy Azure/Vercel until approved cutover.
+Explicit native entry/build are `app.native_release` and `build:native`; future
+Oracle/Vercel packaging is in [Oracle runbook](ORACLE_RUNBOOK.md) and
+[Vercel guide](VERCEL_NATIVE_RELEASE.md). Local fixtures remain for engineering.
+Prompts 1–23 are historical foundations; Prompt24/final audit/public activation
+remain on hold. The owner maintains the fixed roadmap/original16-stage audit separately.
 
-Current native completion stack: [release backend/configuration](NATIVE_RELEASE.md),
-[frontend artifact](NATIVE_FRONTEND.md), [schema4 profile revisions](PROFILE_REVISION.md),
-[owned settings API](NATIVE_ACCOUNT_SETTINGS.md) and
-[AAL2-preserving sensitive continuation](MFA_SENSITIVE_OPERATIONS.md). These remain
-dormant in production. Historical schema3/earlier component sections below describe
-their original deliveries; the additive schema4 migration supersedes startup's
-version requirement. No account linking, hosted migration or release is authorized.
+## Owner decisions and data boundaries
 
-Status: **Prompts 1-23 merged; Stage 23 isolated integration under review. Prompt 24 on hold.**
-Native authentication remains dormant in production. The explicitly selected
-[local staging composition](STAGING_CHECKPOINT_REPORT.md) exercises these components
-without production cutover. See [native callback integration](SIGNUP_CONFIRMATION.md)
-and [account settings](ACCOUNT_SETTINGS.md), plus [native TOTP limits](TOTP_MFA.md).
-The owner approved native omission/empty semantics for zero-factor AAL1 first
-enrollment/provisioning; implementation stays dormant and awaits hosted acceptance.
-All removal is unavailable pending authoritative concurrency protection; see
-[recovery and lockout](MFA_RECOVERY.md). Password/email recovery never substitutes for TOTP.
-The owner/ChatGPT maintains the
-implementation roadmap and original 16-stage audit separately. No production
-activation or hosted configuration change is authorized.
-
-## Decisions and boundaries
-
-| Area | Contract |
+| Area | Current contract |
 |---|---|
-| Budget | Strictly $0 additional spending: no paid plans, purchases, upgrades, trial credits or automatic paid overages. No owned domain or domain purchase. |
-| Login | Supabase Auth Free email/password; verify email ownership before protected access. Usernames are unique case-insensitively for profile identity, never login identifiers. |
-| Sessions | React SPA uses the Supabase SDK. Persistent browser tokens are JavaScript-accessible: XSS or a compromised dependency can steal them. CSP, safe rendering and dependency review reduce risk, not eliminate it. No claim of HttpOnly protection. |
-| MFA | Optional standard TOTP, compatible with Google Authenticator, Duo Mobile and other standard authenticator apps. No paid MFA features or additional spending. |
-| Email | Gmail's own authenticated SMTP is a conditional domain-free candidate, not validated production infrastructure. Keep email verification enabled. |
-| Recovery | Users can enroll a second, independently accessible TOTP factor for backup recovery. Explain and encourage setup during enrollment; disclose possible lockout if every factor is lost. No email-only MFA bypass. |
-| Data | Neon remains the application database. Preserve numeric user IDs, ratings and related group/invitation behavior; Supabase owns authentication, not application data. Local SQLite remains for development. |
-| Assurance | Assess NIST SP 800-63B-4 through applicable controls, evidence and explicit gaps. Supabase's `aal2` claim alone is not proof of NIST AAL2 compliance. |
-| Access policy | Public signup and anonymous movie browsing are the target. Ratings, personalized recommendations and personal features require native confirmed email, a valid Supabase token and backend authorization. Verified MFA enrollment requires signed AAL2. Standard bounded JWT validity after logout is accepted; no custom mailbox ledger, live Auth DB reader or recent-MFA challenge requirement. See [policy](AUTH_POLICY_EVIDENCE.md). |
+| Access | Public signup/anonymous movie browsing are the target; ratings, personalized recommendations and personal/group features require server authorization. |
+| Login | Supabase Free email/password; unique case-insensitive usernames are profile identity, never login or proof of ownership. |
+| Sessions | Standard Supabase SDK sessions in React SPA; browser tokens are JavaScript-accessible, not HttpOnly. CSP/dependency review reduce XSS risk, not eliminate it. Already-issued JWTs have bounded post-logout validity. |
+| Data | Neon owns numeric users/ratings/invitations; Supabase owns passwords/confirmation/sessions/factors. No copied passwords, refresh tokens or TOTP seeds in application records. |
+| Identity | Schema3 `user_identities`: FK/primary-key user_id, nullable unique UUID subject, nullable case-preserving ASCII username 3–30 `[A-Za-z0-9_]`, DB unique lower(username)/PostgreSQL C collation. Null legacy identities remain; never fabricate subjects, rename or claim records. |
+| Provisioning | Atomic clean new-account provisioning resolves only verified subject and allocates a fresh numeric user. Schema4 adds durable username revisions/CAS. Existing IDs/relationships preserved; no legacy migration, email/name/ID matching, automatic linking or credential fallback. |
+| MFA | Optional standard TOTP (Google Authenticator/Duo Mobile), strongly encouraged second independent enrolled/verified factor; two apps sharing one lost device are not independent recovery. Disclose all-factors-lost lockout. No email/password-only bypass, custom recovery codes or paid MFA. |
+| Native removal/deletion | Concrete candidates remain unselected/disabled. Unconditional provider factor DELETE cannot guarantee retain-one across devices. Deliberate opt-out requires policy/provider review. Deletion needs isolated broad admin worker, signed intents, DDL/grants/retention and hosted acceptance. See [account gates](ACCOUNT_OPERATIONS_READINESS.md). |
+| Mail | Existing Gmail authenticated SMTP is conditional; development delivery/Outlook junk is not production acceptance. Keep confirmation enabled; sender limits, recovery/email-change delivery, abuse controls and credential rotation remain gates. Password changes can revoke Gmail app passwords. |
+| Assurance | Full NIST SP800-63B-4 controls/evidence/gaps assessment and original16-stage professional audit retained; SDK `aal2` alone is not formal NIST compliance. |
 
-FastAPI will verify Supabase JWT signatures, approved algorithms, issuer,
-audience, expiry and subject using maintained libraries and bounded signing-key
-refresh. Server-side authorization must enforce verified email and the required
-MFA assurance, not trust browser state or numeric IDs. Neon will map a unique
-Supabase subject to its assigned numeric user ID and enforce normalized username
-uniqueness transactionally under the identity schema contract below.
+## Verified token boundary
 
-No legacy-account migration or account claiming is planned. Preserve existing
-records and relationships without linking them by email, username or bearer code.
-Prompt 22 inventories and protects still-active legacy paths; no runtime removal
-was proven safe. See [retirement inventory](LEGACY_AUTH_RETIREMENT.md) and the
-[NOT AUTHORIZED cutover checklist](AUTH_CUTOVER_READINESS.md). Dormant Prompt 23 provides
-clean new accounts; current existing-user access must remain until a separately
-approved cutover/data-access decision. Rehearse schema-compatible rollback; never
-restore a legacy authentication fallback after Supabase cutover.
+`SupabaseTokenVerifier` pins exact project root issuer +`/auth/v1`, audience
+`authenticated`, ES256/P-256 JWKS/signature/role and canonical UUID subject.
+Required exp/iat and optional nbf use strict integer timestamps, no clock leeway;
+malformed/expired/future tokens, duplicate JSON keys and untrusted key URLs deny.
+Token≤8KiB, JWKS≤64KiB/16keys, cache5min, serialized refresh/cooldown30s;
+three-second socket-operation timeout is not a whole-request deadline. Unknown
+keys/outages fail closed, never publishable-key HMAC or stale/unverified fallback.
+`verify(token)->UUID` remains compatible; `verify_claims` additionally returns
+immutable hidden-repr subject/session UUIDs, exp/iat, exact aal1/aal2 and optional
+AMR tuple of exact method/timestamp entries. Zero/malformed session, unknown AMR
+methods, duplicate methods or timestamps after iat deny. Obtain evidence only from
+cryptographic verification; Python types/caller dictionaries are not provenance.
+Signed AAL/AMR/session/expiry do not prove recent MFA, live session-row existence,
+mailbox challenge provenance, current revocation or application/resource ownership.
+[Provider claims](https://supabase.com/docs/guides/auth/jwt-fields),
+[JWT verification](https://supabase.com/docs/guides/auth/jwts); strict local tests
+remain `test_supabase_jwt.py`/`test_supabase_claims.py`.
 
-## Identity foundation: schema version 3
+## Server policy and resource authorization
 
-Schema 3 already adds `user_identities` alongside numeric `users.id`. Its
-constraints remain unchanged; do not backfill legacy identities or relationships:
+The synchronous FastAPI dependency validates one unambiguous Bearer header, then
+cryptographic claims and a fresh exact-subject provider user read; anonymous users,
+reported bans/deletion, malformed/unconfirmed current email or unknown factors deny.
+Owner-approved GoTrue omission/empty factor semantics allow zero-factor AAL1;
+null/malformed/ineligible factors deny. Verified TOTP requires signed AAL2.
+SDK-normalized arrays/client assertions are not independent authority. Native
+confirmation markers are accepted under standard provider semantics, not independent
+mailbox provenance or real-time session proof. No Auth DB observer/ledger is required.
+Provider/JWKS/DB failures map to generic503; invalid credentials/unknown links to
+indistinguishable401/Bearer challenge. Preserve no-store/redacted diagnostics.
+Only then resolve UUID through UserIdentity joined to an existing User, using a
+short owned transaction; immutable principal is not an authorization decision.
+Every personal/group operation still applies server numeric ownership, invitation/
+expiry/consent, quotas and transactional privacy rules. Never trust client target IDs,
+email, username or metadata as caller identity. No mixed-auth fallback.
+See [policy evidence](AUTH_POLICY_EVIDENCE.md), [configuration/hosted facts](AUTH_CONFIG_AUDIT.md),
+[resource/group contract](RESOURCE_AUTHORIZATION.md) and [native current email](EMAIL_PROVENANCE.md).
+Native callback/session/password/email/TOTP modules keep SDK fencing, URL scrubbing,
+fixed redirects and provider-supported challenge/recovery; no stale assurance bypass.
+Backend policy remains authoritative after frontend callback or SDK success.
 
-| Column/constraint | Contract |
-|---|---|
-| `user_id` | Primary key and foreign key to `users.id`; at most one identity row per existing numeric user. |
-| `supabase_subject` | Nullable unique UUID (`sub`); native PostgreSQL UUID, canonical 32-character lowercase hex storage on SQLite. No fabricated legacy subjects. |
-| `username` | Nullable, case-preserving ASCII `[A-Za-z0-9_]`, 3–30 characters; database checks reject other values rather than trimming or renaming. |
-| `uq_identity_username_ci` | Unique index on `lower(username)`; PostgreSQL `C` collation makes ASCII folding independent of server locale. `Alice` and `aLiCe` conflict, including concurrent writes. |
+## Release gates and required evidence
 
-Legacy users need no identity row; multiple null subjects/usernames are permitted.
-There are no existing database usernames to normalize or collide. Any externally
-supplied names need a later ownership/collision review; never silently import or
-rename them. Numeric IDs, sequences, ratings, recommendation inputs, credentials
-and group invitations remain untouched. Referential integrity rejects orphan links.
-
-Prompt 23 adds an [atomic provisioning service/API](PROVISIONING_STAGING.md),
-mounted only in the explicit local staging composition, never production.
-New-account provisioning creates a fresh local user and unique subject/username
-mapping; never transfer existing users or their data. An identity row alone grants no access. Legacy
-authentication remains unchanged. Migrations from versions 1/2 are additive,
-transactional and serialized; an unexpected pre-existing identity table stops
-migration for inspection. See [release and rollback restrictions](DEPLOYMENT.md).
-
-## Configuration contract (names only; not implemented or configured)
-
-| Location | Intended configuration and boundary |
-|---|---|
-| React/Vercel | Public `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`; retain `VITE_API_BASE_URL`. The public key is not an administrative credential. No SMTP, database or service-role secrets in `VITE_*`. |
-| FastAPI/Azure | Server-configured `SUPABASE_URL`, `SUPABASE_AUDIENCE=authenticated` and public `SUPABASE_PUBLISHABLE_KEY`; derive the approved issuer/JWKS location, validate audience `authenticated`, and reject mismatched projects. Keep existing TLS `DATABASE_URL` pointing to Neon. No new environment values in this PR. |
-| Supabase dashboard | Owner reports Free project `movelle-auth-dev` with TOTP enabled, a 10-factor limit and Gmail SMTP configured. Exact site/redirect allowlists, secure email change, notifications and abuse settings still need validation. No project settings or public signup activation change in this PR. |
-| Gmail SMTP | Candidate `smtp.gmail.com:587` with STARTTLS, actual authenticated Gmail From address, full Gmail username and dedicated app password; enter secrets privately in Supabase, never source control or browser configuration. |
-| Administrative access | No service-role key in the browser. Any future backend admin capability needs explicit scope review; ordinary JWT verification does not require it. |
-
-Future JWT validation must pin issuer `SUPABASE_URL + /auth/v1` and its
-`/.well-known/jwks.json` endpoint for the approved project, audience `authenticated`,
-approved signing algorithms, UUID `sub`, expiry and any `nbf`. Bound key caching
-and rotation refresh; reject unknown keys and token-supplied key URLs. Confirm the
-project uses supported asymmetric signing keys before relying on JWKS; do not
-infer verified-email status from an email string or a browser claim. Define a
-supported server-side verification check and session/revocation policy before access.
-Supabase owns passwords, email verification, sessions and factors; Neon stores
-application identity mappings/data, never copies passwords, refresh tokens or TOTP secrets.
-
-For later owner-approved redirect configuration, use exact callback URLs for
-localhost development, each approved preview, and HTTPS production; avoid wildcard
-allowlists and user-controlled redirects. Set Site URL to the approved application
-origin before launch. The owner-reported `http://localhost:3000` default is not a
-production configuration. No callback route, environment value or hosted setting
-is created here. References: [JWT validation](https://supabase.com/docs/guides/auth/jwts),
-[redirect allowlists](https://supabase.com/docs/guides/auth/redirect-urls).
-
-## Prompt 3A: dormant JWT verifier
-
-`app/supabase_jwt.py` is not imported by application startup, routes or legacy
-security. Construct one shared `SupabaseTokenVerifier(SUPABASE_URL)` explicitly in
-a later integration; use the project origin, not `/rest/v1/`. No hosted settings
-or environment values are activated here. Owner reports current ECC/P-256 signing;
-credential-free JWKS inspection on 2026-11-09 UTC confirmed `EC`, `P-256`, `ES256`,
-`sig`, `verify` at [the project-pinned endpoint](https://jsbulnrcxtvslvvxjizq.supabase.co/auth/v1/.well-known/jwks.json).
-
-Only ES256/P-256 public signing keys are accepted. Exact issuer and a single
-expected audience (default `authenticated`) are checked, with required `iss`,
-`aud`, integer `exp`/`iat`, canonical RFC UUID `sub` and `role=authenticated`.
-Optional integer `nbf` is enforced; no clock leeway is granted. Token size is 8 KiB;
-JWKS is limited to 64 KiB/16 keys, with TLS validation, no redirects, and three-second
-socket-operation timeouts (not a whole-request deadline). Cache lifetime is five
-minutes; refresh attempts are serialized and limited to once per 30 seconds,
-including unknown `kid` and failures. New keys may wait for that cooldown. Expired
-cache fails closed; refresh replaces the full set. Provider-side JWKS caching adds
-revocation latency: [Supabase verification guidance](https://supabase.com/docs/guides/auth/jwts).
-
-`verify()` returns only a UUID, never verified-email status or Movelle authorization.
-Fixed exceptions contain no tokens/claims; later synchronous FastAPI dependencies
-must map invalid tokens to 401 and key unavailability to 503 without diagnostics.
-The dormant dependency now adds the standard provider policy and identity
-resolution; production-route integration remains future work. Legacy bearer handling,
-owner checks, group invitations and schema version 3 are unchanged by Prompt 3A.
-
-## Prompt 3D.3: dormant typed verified token evidence
-
-`SupabaseTokenVerifier.verify_claims(token)` uses the same pinned ES256/JWKS and
-issuer/audience/signature/time/role/subject checks as `verify(token) -> UUID`.
-It adds frozen, slotted `VerifiedTokenClaims` with hidden repr fields:
-
-| Field | Validation / meaning |
-|---|---|
-| `subject`, `session_id` | Canonical lowercase, hyphenated RFC UUIDs; zero UUIDs rejected. The session ID is signed evidence, not proof that its row exists or belongs to a currently active session. |
-| `expires_at`, `issued_at` | Exact nonnegative signed-64-bit integer Unix seconds from `exp`/`iat`; no bool/string/fraction coercion. Expiry must follow issuance; expired/future-issued tokens and future optional `nbf` fail without clock leeway. Present `nbf` also obeys integer bounds. |
-| `aal` | Exactly `aal1` or `aal2`; required. AAL2 is historical assurance, not recent MFA or authorization. |
-| `amr` | Optional: absent becomes `None`, empty array becomes `()`. Present entries must contain exactly `method` and `timestamp`, becoming frozen `AuthenticationMethodReference` objects in a tuple. |
-
-Reviewed [Supabase JWT claim formats](https://supabase.com/docs/guides/auth/jwt-fields)
-document optional AMR method/timestamp pairs, session UUIDs and the two AAL values.
-Movelle deliberately accepts only that page's twelve reviewed method names;
-unknown names/extensions, duplicate methods, malformed arrays/entries or duplicate
-JSON payload keys (including nested keys) fail closed. AMR timestamps must be
-nonnegative integer Unix seconds below `2**63` and no later than `iat`. These are
-strict parser limits, not new provider guarantees. Additional fields/methods need
-review; a `recovery` method name does not approve native MFA recovery codes.
-
-No public method accepts claim dictionaries, decoded browser data or assurance
-booleans. Signature verification precedes typed parsing, with one verification per
-call; the existing key-cache/rotation/timeouts apply. UUID-only `verify()` preserves
-its existing claim requirements and does not acquire session/AAL/AMR requirements.
-UUID-only consumers remain compatible; the new access policy uses `verify_claims`.
-Fixed errors/log-free operation and hidden result/nested reprs protect diagnostics;
-never log JWTs, evidence fields or exception locals. Python types/immutability do
-not prove provenance: trusted callers must obtain results from `verify_claims`.
-
-This result alone does not establish native email confirmation, live/revoked session
-state, current MFA enrollment, recent step-up, local account ownership/suspension,
-group permissions or an access decision. A signed arbitrary session UUID and old
-AMR can pass offline verification. No live user/session/factor or database lookup
-occurs, no routes consume this result, and no generic access/active/recent flag is
-provided. [Policy and launch gates](AUTH_CONFIG_AUDIT.md) remain mandatory.
-`test_supabase_claims.py` covers local signatures, strict parsing, tampering,
-immutability, stale evidence, key rotation/outages and sanitized diagnostics.
-
-## Standard policy replacement (Prompt 11)
-
-`app/supabase_policy.py` replaces the superseded custom evidence composition.
-See [native confirmation, optional MFA and standard-session rules](AUTH_POLICY_EVIDENCE.md).
-`MailboxSource`, `LiveStateSource` and their mock-only contracts/tests are removed.
-The supported native OTP helper remains dormant; no Auth database adapter is needed.
-
-## Prompt 3B: dormant identity resolution
-
-`app/supabase_identity.py` exposes `resolve_verified_subject(session, subject)`.
-Only trusted server code may supply the UUID returned by the configured project's
-`SupabaseTokenVerifier.verify()`. UUID objects carry no proof of provenance: never
-construct the input from request JSON, a path, email, username or numeric user ID.
-The resolver rejects strings and other types rather than parsing/coercing them.
-It does not repeat signature verification or make hosted authentication requests.
-
-A single joined SELECT matches `UserIdentity.supabase_subject` and confirms its
-`User` exists, returning a frozen `AuthenticatedIdentity(subject, user_id)` with
-no identifiers in its repr. No client-selected target ID is accepted. Unknown,
-unlinked, orphaned, ambiguous or invalid local identities fail closed. Existing
-schema-3 uniqueness/FK guarantees remain unchanged; there are no schema changes.
-
-The caller supplies a short-lived session/transaction. Resolution suppresses
-autoflush, uses database columns instead of stale ORM objects, and never creates,
-links, flushes, commits, rolls back or closes anything. It sees the statement's
-database snapshot, not future revocation/deletion; do not cache results across
-requests. Later resource checks/writes need coordinated transaction semantics.
-
-Future dependencies must map every `UnresolvedIdentity` to the same generic 401
-response, without exposing link/account existence. `IdentityResolutionUnavailable`
-maps to a generic 503; the caller's transaction manager must roll back failures.
-Neither exception contains database diagnostics or subjects; do not log tokens,
-identifiers or internal exception contexts. This is not a constant-time guarantee.
-
-| Later integration gate | What the dormant foundations establish / remaining requirement |
-|---|---|
-| Verified token | PR 3A verifies signatures and token claims; callers must use its configured project. |
-| Linked local identity | PR 3B reads established links; dormant Prompt 23 creates new accounts atomically, never claims legacy profiles. Hosted integration remains blocked. |
-| Verified email and MFA | Neither UUID nor resolved identity proves email verification, current account/session state or required MFA assurance. Obtain supported server evidence and apply policy separately. |
-| Resource authorization | A resolved ID grants no endpoint access. Check ownership and group/invitation permissions independently; request IDs never select the caller's identity. |
-
-No route/startup imports or dependencies activate these components. Legacy bearer,
-owner, group, invitation and operator flows remain unchanged. A later cutover must
-choose its authentication policy explicitly; never retry legacy authentication as
-a fallback after Supabase verification/resolution fails. No claiming or linking
-API, backfill, hosted mapping, email/MFA flow or deployment is authorized here.
-
-## Open launch gates
-
-The [standard policy](AUTH_POLICY_EVIDENCE.md) replaces mandatory independent
-mailbox provenance, live-session DB access and custom MFA recency checks.
-Native confirmation/recovery, supported TOTP and bounded token expiry are the
-approved design. Full integration and security/operational acceptance remain open.
-See [configuration gates](AUTH_CONFIG_AUDIT.md) and [native OTP](EMAIL_PROVENANCE.md).
-
-### Prompt 3C: dormant FastAPI dependency (activation BLOCKED)
-
-`app/supabase_auth.py` exports `make_supabase_auth_dependency(project_url=...,
-audience=..., publishable_key=..., session_factory=...)`; all arguments are trusted server configuration.
-Construct it once per process, never per request. Construction/import makes no
-network/database calls and reads no environment variables. It creates the existing
-standard policy with the explicit project/audience/public key; no alternate JWKS URL.
-Nothing imports or attaches this factory in production route/startup registration.
-
-The returned synchronous function is for FastAPI `Depends`, which runs blocking
-dependencies in a worker: [FastAPI concurrency contract](https://fastapi.tiangolo.com/async/#dependencies).
-Do not call it directly from an async handler. It requires exactly one raw
-Authorization field, case-insensitive Bearer scheme, one ASCII space and one
-unpadded three-segment JWT (maximum 8 KiB). Duplicates, coalesced/multiple credentials,
-whitespace ambiguity and legacy 43-character credentials fail before verification.
-It never reads identity from query/path/body/cookies or retries legacy auth.
-
-JWT and native email/MFA policy checks run before any database session. Only
-the verified subject UUID reaches
-the existing resolver. `session_factory` must create a fresh owned Session; its
-read transaction commits on success, rolls back on failure and closes in the same
-worker before returning frozen `SupabaseAuthContext(user_id, subject, email, aal)`
-(extended in Prompt 14). No ORM objects, tokens or sessions escape. Its repr hides
-all fields; never serialize/log the principal or include exception locals.
-This independent auth snapshot is not a transaction covering later resource writes.
-
-### Prompt 14: central principal and verification order (dormant)
-
-Prompt 15 adds [dormant owner-scoped resource operations](RESOURCE_AUTHORIZATION.md)
-which consume this principal in test-only routes. Authentication is still not
-attached to production routes; resource grants are separate from the principal.
-
-Use this existing factory as the single future FastAPI authentication dependency,
-through `Depends(authenticate)`. Do not call the standalone email reader alongside
-it or verify the token again. The exact order for an admitted request is:
-
-1. Reject missing, duplicate, oversized or malformed raw Bearer headers.
-2. `SupabaseAccessPolicy.check_with_email(token)` runs the existing ES256 typed
-   verifier once (pinned issuer/audience/JWKS, UUIDs, time and AAL/AMR validation).
-3. Make exactly one fresh pinned `/auth/v1/user` GET with the public key and bearer
-   token; reject duplicate JSON keys. Invalid JWTs never reach this endpoint.
-4. Require exact subject, authenticated role/audience and explicit
-   `is_anonymous: false`. Reject reported deletion, current bans and malformed
-   account evidence. Apply Prompt 13's shared current-email validation; pending
-   addresses and stale JWT emails cannot replace the confirmed current address.
-5. Require an explicit factor list; verified TOTP needs signed AAL2. Unknown
-   enrollment never permits AAL1 or AAL2. No provider response is cached.
-6. Resolve only that verified subject through the existing joined Neon lookup,
-   confirming the local user exists. Never create/link/claim accounts or accept a
-   target identity from client fields. Close the owned read transaction/session.
-7. Check expiry again after database work; only then return the principal.
-
-`check_with_email` returns the existing `VerifiedTokenClaims` and
-`ProviderEmailConfirmation` as a typed pair. `check(token) -> VerifiedTokenClaims`
-remains compatible by delegating to it. Both paths use the same implementation,
-one JWT verification and one provider read, not parallel policies. JWKS refreshes
-are separate bounded/cached key reads. The principal contains only the resolved
-numeric ID, verified UUID subject, provider-confirmed current email and signed
-`aal1`/`aal2`. These are authentication evidence, not resource permissions or proof
-of recent MFA/session-row existence. The principal's Python type does not prove
-provenance; downstream code must obtain it from this dependency.
-
-Supabase documents [getUser](https://supabase.com/docs/reference/javascript/auth-getuser)
-as a server read. Its upstream [user model](https://github.com/supabase/auth/blob/master/internal/models/user.go)
-defines `is_anonymous` as a required boolean and optional `banned_until`/`deleted_at`;
-there is no generic public `disabled` assertion to invent. Provider rejections and
-reported ineligibility deny, but this is not a guarantee of instantaneous deletion,
-ban or logout revocation. Upstream source does not establish hosted version or
-settings. Standard bounded token validity and Prompt 13 native email semantics
-(including retained confirmation timestamps) still apply.
-
-Invalid headers/tokens, policy denials and unresolved identities receive the
-same generic 401 and Bearer challenge. Key/provider/database failures receive
-generic 503 with a fixed
-Retry-After; no fallback or stale-key weakening. Errors carry `Cache-Control: no-store`;
-the injected success response is marked likewise. Later handlers/middleware must
-preserve that policy, including when returning custom Response objects. Known exception diagnostics are suppressed;
-the component logs nothing. Platform/APM logging must not capture headers, tokens,
-query credentials or exception locals. Existing middleware/rate limits are unchanged.
-
-**Do not activate this dependency on protected routes yet.** It checks the native
-confirmation/MFA policy and existing identity mapping, not resource ownership,
-group authorization or immediate session revocation. Later route integration must
-preserve privacy, transaction boundaries and generic failures. No hosted setting
-or data mutation is authorized by this contract update.
-
-Gmail deliverability, backup-TOTP/provider recovery acceptance, full NIST assessment,
-the original 16-stage audit, integration and release/rollback tests remain open.
-Use approved disposable users only for later authorized hosted tests. Record dates,
-provider versions, settings and sanitized results; offline passes are not hosted evidence.
-
-### Gmail SMTP: OPEN
-
-Development signup, email verification, password login and Gmail SMTP connectivity
-passed in the disposable-account validation reported below. An Outlook invitation
-landed in junk. Production suitability, spam placement, sender limits and
-deliverability remain unresolved; development delivery does not close this gate.
-
-- Confirm ongoing no-cost account eligibility, app-password availability with
-  2-Step Verification, and acceptable provider-policy use. Google password changes
-  revoke app passwords; document credential rotation and sender failure recovery.
-- Prove hosted Supabase SMTP connectivity and delivery to controlled Gmail,
-  Outlook and Yahoo addresses for signup, reset, secure email change and each
-  enabled security notification. Inspect latency, spam placement and SPF/DKIM/DMARC.
-- Validate CAPTCHA, resend throttling, quota/failure handling and monitoring.
-  Research limits: Gmail up to 500 messages/rolling 24 hours shared across clients;
-  Supabase custom SMTP initially 30/hour. These are ceilings, not delivery guarantees.
-  Multiple email-change messages and notifications consume the allowance too.
-- Preserve verification during outages. No trials, temporary sender rewrites,
-  paid fallback or assumed DNS control over a free hosting subdomain.
-
-### Backup TOTP: approved design; implementation acceptance remains OPEN
-
-1. After verifying the primary TOTP factor and obtaining `aal2`, offer and clearly
-   encourage a separate `mfa.enroll({ factorType: 'totp' })` enrollment for backup.
-   Verify it with `mfa.challengeAndVerify({ factorId, code })` before treating it
-   as usable. Each enrollment has its own factor ID and secret.
-2. Explain independent access: use a separate device or an independently accessible
-   authenticator store whose access does not depend on the primary device/factor.
-   Two apps on one lost phone do not provide independent recovery. Scanning the
-   same QR twice does not enroll a separate backup factor. Do not store QR images,
-   TOTP secrets or codes in logs, reports or application profile records.
-3. After losing the primary authenticator, sign in with email/password at `aal1`,
-   select the verified backup factor, and challenge/verify its TOTP to regain
-   Supabase-issued `aal2`. Password/email recovery alone must not bypass MFA.
-4. After the alternative-factor challenge establishes `aal2`, enroll and separately
-   verify the replacement. Review lost-factor removal, but **do not execute it**:
-   native unenrollment has no established atomic final-factor guard across devices.
-   Prompt 21 disables all Movelle removal, including pending cleanup. No hidden bypass.
-5. Disclose possible account lockout if every enrolled factor is lost, including
-   when the user declines backup setup. No email-only or administrative automatic
-   recovery fallback is approved. Support cannot promise restoration from an ID.
-
-Later implementation must test independent primary/backup enrollment, fresh login
-and backup-only recovery, replacement/removal, wrong-factor/account rejection,
-throttling, session expiry/revocation, password-reset MFA enforcement and secret
-redaction. Validate Google Authenticator and Duo Mobile interoperability. These
-flows now have dormant Prompt 20/21 implementations and offline tests, with removal
-disabled. Hosted acceptance remains open; offline passes do not prove provider behavior.
+Exact origins/project/key/Neon pins, schema4/grants/backup/restore, native-only
+cutover/rollback, ARM capacity/CA$0, SMTP/abuse, session/MFA/password/email races,
+provider outages, removal/deletion and licensing remain [production gates](PRODUCTION_LAUNCH_READINESS.md).
+The existing10/10 hosted mutation budget is exhausted; offline fictional tests do
+not authorize sending emails, enrolling/removing factors or deleting accounts.
+Preserve active Azure rotation/rollback until cutover; never return native users
+to legacy credentials. The records below preserve original validation/assessment
+history; current native code/tests and readiness supersede old delivery status.
 
 ## Decision and validation history
 
@@ -421,11 +127,11 @@ those gaps rather than changing the standard or inventing compliance claims.
 
 | Control/reference | Current evidence | Responsibility and remaining gap ($0 constraint) |
 |---|---|---|
-| Identity binding / application authorization | Schema 3 constraints plus `test_user_identities.py` and `test_supabase_identity.py` cover uniqueness and dormant existing-link resolution. | Movelle: implement atomic clean new-account provisioning and route authorization; resolution alone grants no access. |
-| Email-confirmation evidence | `test_supabase_email.py` covers fresh provider markers and fail-closed rejection; see [policy review](AUTH_POLICY_EVIDENCE.md). | Validate native confirmation/recovery, redirects and secure email change before launch; no independent provenance ledger is required. No protected route activation. |
+| Identity binding / application authorization | Schema4/identity constraints, atomic clean provisioning and native ownership/composition tests. | Movelle: hosted schema/grants/cutover remain gates; resolution alone never grants resource access. |
+| Email-confirmation evidence | `test_supabase_email.py` covers fresh provider markers and fail-closed rejection; see [policy review](AUTH_POLICY_EVIDENCE.md). | Native routes exist only in explicit compositions; confirmation/recovery, public redirects and secure email change need hosted acceptance. No independent provenance ledger. |
 | Passwords (§3.1.1), throttling | Prompt 18 offline native-SDK/signed-AMR tests cover recovery, fresh password reauthentication, cancellation and generic failures; [hosted acceptance](PASSWORD_SECURITY.md) remains open. | Supabase + Movelle: validate configured length, Unicode, screening, enumeration and abuse controls; Free lacks built-in leaked-password protection. No compliance claim. |
 | OTP (§3.1.4/3.1.5), authenticator management (§4) | Backup TOTP design approved; hosted recovery-code probe rejected. | Supabase + Movelle: test independent factors, replacement, reset enforcement and lockout disclosure; TOTP is not phishing-resistant. |
-| Session management (§5) | Dormant JWT and `test_supabase_auth.py` adversarial/lifecycle tests; SPA exposure documented; existing routes remain legacy-only. | Movelle: test standard JWT/refresh/logout behavior and resource authorization before activation; document bounded post-logout validity and Free timeout gaps. |
+| Session management (§5) | JWT/dependency/SDK adversarial lifecycle tests and separate native routes; deployed selectors remain legacy. | Movelle: genuine public-origin session/resource acceptance and bounded post-logout validity/SPA/Free timeout gaps remain release requirements. |
 
 Official references, reviewed 2026-11-08 (not live validation):
 
