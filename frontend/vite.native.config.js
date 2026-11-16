@@ -12,7 +12,8 @@ export default defineConfig(() => {
     if (t.approved !== true || !exactHttpsOrigin(t.frontend_origin) || !exactHttpsOrigin(t.api_origin) ||
         t.frontend_origin === t.api_origin || !/^https:\/\/[a-z0-9]{20}\.supabase\.co$/.test(t.supabase_url) ||
         !/^sb_publishable_[A-Za-z0-9_-]{1,256}$/.test(key)) throw new Error()
-    return { plugins: [{ name: 'movelle-native-entry', transformIndexHtml: { order: 'pre',
+    return { envPrefix: [], // Native bundles accept only the explicit public definitions below.
+      plugins: [{ name: 'movelle-native-entry', transformIndexHtml: { order: 'pre',
       handler: () => readFileSync(new URL('./native/index.html', import.meta.url), 'utf8') } }, react(), tailwindcss()],
       define: { __MOVELLE_NATIVE_PUBLIC__: JSON.stringify({ approved: true, mode: 'native-release',
         frontend_origin: t.frontend_origin, api_origin: t.api_origin, supabase_url: t.supabase_url }),
