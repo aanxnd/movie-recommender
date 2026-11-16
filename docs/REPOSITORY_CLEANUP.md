@@ -42,6 +42,7 @@ No ignored secrets, local staging data, legal attribution or hosted records are 
 | `docs/PRIVATE_STAGE23_DEPLOYMENT_PLAN.md` | Superseded unexecuted private Azure plan; stale resource/create instructions. | Unique owner resource/cost/no-execution evidence consolidated in `evidence/RETIRED_PRIVATE_PREVIEW.md`; current Oracle/Vercel preparation replaces instructions. |
 | `docs/PRIVATE_STAGE23_RUNBOOK.md` | Commands target removed private tooling and uncreated resources. | Same retained history; guarded native schema/Oracle/Vercel runbooks replace actual procedures. |
 | `docs/NATIVE_COMPLETION_REVIEW.md` | Repeats merged PR98–103 status/readiness with old test totals; no unique hosted result. | Native status/baseline counts retained in consolidated history; current release/account readiness remains authoritative. |
+| `docs/AUTH_ARCHITECTURE.md` | Repeated prompt-by-prompt delivery narrative contains obsolete variables/schema3/route-status instructions. | One current native contract retains security parameters/identity rules and original recovery-code validation/NIST matrix/release controls; source tests/feature evidence remain. |
 
 No authentication, JWT, provider policy, MFA, ownership, migration, numeric data,
 recommendation mathematics or active production code is deleted by these retirements.
