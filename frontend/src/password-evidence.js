@@ -1,7 +1,8 @@
 // Internal native evidence; not a React/session store or backend authorization decision.
 import { captureCredentialFence, runCredentialRequest } from './supabase-client.js'
 
-export const nativeUuid = value => typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value) && !/^0{8}-0{4}-0{4}-0{4}-0{12}$/.test(value)
+import { nativeUuid } from './auth-identifiers.js'
+export { nativeUuid }
 export const passwordResult = status => Object.freeze({ status })
 export function passwordFailure(error) {
   const denial = ['cancelled', 'expired', 'unproven', 'invalid', 'unavailable', 'mfa-required', 'rate-limited', 'invalid-password', 'busy']
