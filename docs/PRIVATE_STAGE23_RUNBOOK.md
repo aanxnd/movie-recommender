@@ -1,4 +1,8 @@
-# Stage 23 private owner preview — execution NOT authorized
+# Retired private-preview walkthrough — DO NOT EXECUTE
+
+The unselected private bundle is removed under [the cleanup inventory](REPOSITORY_CLEANUP.md).
+Use [Oracle preparation](ORACLE_RUNBOOK.md) and [Vercel native preparation](VERCEL_NATIVE_RELEASE.md).
+The remaining text is historical review evidence, not current deployment instructions.
 
 November15 owner direction: this preserved runbook is no longer the final owner
 acceptance target. See [production readiness](PRODUCTION_LAUNCH_READINESS.md);
