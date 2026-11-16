@@ -33,11 +33,17 @@ No ignored secrets, local staging data, legal attribution or hosted records are 
 | `app/database.py::Base` import | No internal use or import/dynamic/export consumer; metadata belongs to `app.models`. | Model/migration regression tests retained, no model/schema removed. |
 | `app/limits.py::time` import | No Name use or external attribute/import reference. | Rate/concurrency behavior unchanged. |
 | `app/staging_profiles.py::database` import | No Name use or external attribute/import reference. | Active owned resource-service regressions retained. |
+| `app/private_config.py` | Consumers were removed private entry/CLI and their tests; no normal/native runtime import. | Native exact manifest/TLS/role validation plus Oracle file-secret/renderer tests; private Azure exclusions are no longer a supported target. |
+| `app/private_entry.py` | Only alternative private Dockerfile/test/walkthrough selected it; never current production. | Explicit native release/Oracle wrapper; native resource, legacy-denial and startup-refusal regressions remain. |
+| `app/private_gate.py` | Only private entry/boundary tests consumed it. | Public native authentication/ownership is mandatory; no server-only preview capability is part of selected design. |
+| `tests/test_private_boundary.py` | Private-only config/gate fixture and parameterized cases; no remaining consumer. | Native release/image/renderer, actual Host/SNI proxy and authentication regressions cover selected contract. |
+| `tests/test_private_entry.py` | Three cases exercise deleted private composition. | `test_native_release.py`, staging native/resource/policy/group suites and image-startup refusal retain resource/JWT/MFA/legacy-isolation coverage. |
+| `docs/PRIVATE_RUNTIME.md` | Describes removed alternative; not actual Azure release/rollback instructions. | Native release and Oracle runbooks plus this inventory. |
 
 No authentication, JWT, provider policy, MFA, ownership, migration, numeric data,
 recommendation mathematics or active production code is deleted by these retirements.
-The private gateway core/backend remain temporarily test-referenced until their
-dependent cleanup replaces the abandoned image check; do not execute old walkthroughs.
+The undeployed private gateway/backend/image are now retired after native replacement
+checks. Historical walkthroughs must not be executed; actual provider evidence remains.
 
 ## Deliberately retained / review later
 

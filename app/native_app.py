@@ -19,7 +19,7 @@ PUBLIC = {'/health', '/ready', '/movies/search', '/movies/decades', '/movies/{mo
           '/openapi.json', '/docs', '/docs/oauth2-redirect', '/redoc'}
 
 def compose_native_app(*, prepared_dir, database_url, project_url, publishable_key, audience, origin, title='Movelle native API', preflight_error='Native preflight failed', policy=None):
-    """Explicit trusted composition; release/local/private bootstraps retain separate guards."""
+    """Explicit trusted composition; release/local bootstraps retain separate guards."""
     def keyless_artwork(app):
         app.state.artwork = artwork.ArtworkStore(app.state.catalog)
     application = create_app(prepared_dir=prepared_dir, database_url=database_url,
