@@ -73,8 +73,10 @@ def compose_deletion_candidate(*, signing_key, reviewed=False, **config):
     app.router.routes = [r for r in app.routes if getattr(r, 'path', None) not in
                         {'/openapi.json', '/docs', '/docs/oauth2-redirect', '/redoc'}]
     holder['app'] = app
+    app.state.lifecycle_enabled = True
+    resource_sessions = lambda: Session(app.state.engine, info={'lifecycle_enabled': True})
     app.include_router(account_settings_router(project_url=config['project_url'], audience=config['audience'],
-        publishable_key=config['publishable_key'], session_factory=sessions, origin=config['origin'], policy=policy))
+        publishable_key=config['publishable_key'], session_factory=resource_sessions, origin=config['origin'], policy=policy))
     app.include_router(deletion_router(store, authorizer, config['origin']))
     inherited = app.router.lifespan_context
     @asynccontextmanager

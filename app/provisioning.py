@@ -23,6 +23,9 @@ def unavailable():
 
 
 def _lookup(session, subject):
+    if session.info.get('lifecycle_enabled'):
+        from app.deletion_guard import guard_subject
+        guard_subject(session, subject)
     row = session.execute(select(UserIdentity.user_id, UserIdentity.username, User.id)
                           .outerjoin(User, User.id == UserIdentity.user_id)
                           .where(UserIdentity.supabase_subject == subject)).one_or_none()

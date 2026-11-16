@@ -16,9 +16,12 @@ def _denied():
 
 
 @contextmanager
-def _storage(session):
+def _storage(session, principal=None):
     try:
         with session.no_autoflush:
+            if session.info.get('lifecycle_enabled'):
+                from app.deletion_guard import guard_subject
+                guard_subject(session, principal.subject)
             yield
     except SQLAlchemyError:
         raise HTTPException(503, "Resource service unavailable",
@@ -50,7 +53,7 @@ def _scope(principal, owner, target):
 
 def require_profile_owner(session, principal: SupabaseAuthContext, user_id: int) -> int:
     """Private profile/settings/invitation guard; not a reusable write capability."""
-    with _storage(session):
+    with _storage(session, principal):
         found = session.scalar(select(User.id).where(_scope(principal, User.id, user_id)))
         if found is None:
             raise _denied()
@@ -61,7 +64,7 @@ def read_ratings(session, principal: SupabaseAuthContext, user_id: int, *, after
     """Owner-only rating/saved-movie page; metadata remains in the public catalog."""
     if type(after) is not int or not 0 <= after < 2**63 or type(limit) is not int or not 1 <= limit <= 100:
         raise _denied()
-    with _storage(session):
+    with _storage(session, principal):
         rows = session.execute(select(User.id, UserRating.movie_id, UserRating.rating)
             .outerjoin(UserRating, and_(UserRating.user_id == User.id, UserRating.movie_id > after))
             .where(_scope(principal, User.id, user_id)).order_by(UserRating.movie_id).limit(limit)).all()
@@ -76,7 +79,7 @@ def put_rating(session, principal: SupabaseAuthContext, user_id: int, movie_id: 
     if type(rating) not in (int, float) or not 0.5 <= rating <= 5:
         raise _denied()
     value = float(rating)
-    with _storage(session):
+    with _storage(session, principal):
         require_profile_owner(session, principal, user_id)
         # Reuse existing quota serialization. The mutation still rechecks binding
         # atomically; the preceding guard must never authorize an unscoped write.
@@ -94,7 +97,7 @@ def put_rating(session, principal: SupabaseAuthContext, user_id: int, movie_id: 
 
 
 def delete_rating(session, principal: SupabaseAuthContext, user_id: int, movie_id: int) -> None:
-    with _storage(session):
+    with _storage(session, principal):
         found = session.scalar(delete(UserRating).where(_scope(principal, UserRating.user_id, user_id),
             UserRating.movie_id == _id(movie_id)).returning(UserRating.movie_id))
         if found is None:

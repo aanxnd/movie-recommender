@@ -48,7 +48,7 @@ def compose_native_app(*, prepared_dir, database_url, project_url, publishable_k
     application.router.lifespan_context = lifespan
 
     def sessions():
-        return Session(application.state.engine)
+        return Session(application.state.engine, info={'lifecycle_enabled': getattr(application.state, 'lifecycle_enabled', False)})
     authenticate = make_supabase_auth_dependency(project_url=project_url, audience=audience,
         publishable_key=publishable_key, session_factory=sessions, policy=policy)
     application.include_router(profile_router(authenticate))

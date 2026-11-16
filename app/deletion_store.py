@@ -118,6 +118,9 @@ class DeletionStore:
             row['authorization_tag'] = self._tag(row)
             principal.require_fresh()
             session.execute(intents.insert().values(**row))
+            # Revoke sharing/access capabilities at queue commit, before eventual erasure.
+            for capability in (GroupInvitation, Credential):
+                session.execute(delete(capability).where(capability.user_id == identity.user_id))
             self._event(session, request_id, 'requested')
         return request_id
 
