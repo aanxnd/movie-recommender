@@ -47,6 +47,19 @@ jobs:
           PY
       - name: Run complete pytest suite
         run: python -m pytest -q -p no:cacheprovider
+      - name: Build native Oracle image and verify unapproved startup is refused
+        run: |
+          docker build -f deploy/oracle/Dockerfile -t movelle-oracle:ci .
+          python - <<'PY'
+          import subprocess
+          result = subprocess.run(['docker', 'run', '--rm', '--network', 'none', '--read-only',
+              '--cap-drop=ALL', '--security-opt=no-new-privileges', '--pids-limit=128',
+              '--tmpfs', '/tmp:rw,noexec,nosuid,size=64m', 'movelle-oracle:ci'],
+              capture_output=True, text=True, timeout=30)
+          assert result.returncode != 0
+          assert result.stderr.strip() == 'Oracle native startup refused'
+          print('Native Oracle image refused unapproved startup without network')
+          PY
       - name: Build private image and verify unapproved startup is refused
         run: |
           cp deploy/private-stage23/targets.example.json deploy/private-stage23/targets.reviewed.json
