@@ -6,11 +6,11 @@ account, migration, DNS, credential or deployment is approved by this document.
 The objective is public native signup/confirmation/profile/TOTP/ratings/recommendations,
 not local staging as the owner's final experience. Production remains NOT READY.
 
-## Proposed architecture A
+## Owner-selected architecture A — preparation only
 
 ```mermaid
 flowchart LR
-  B[Browser] -->|HTTPS static assets| P[Cloudflare Pages Free]
+  B[Browser] -->|HTTPS static assets| P[Vercel Hobby Free]
   B -->|PKCE / password / TOTP| S[Supabase Auth Free]
   S -->|Native confirmation and recovery| M[Existing conditional Gmail SMTP]
   B -->|Bearer JWT over HTTPS| T[Oracle A1 TLS proxy]
@@ -21,12 +21,11 @@ flowchart LR
   N -.->|Approved encrypted operator backup| O[Existing offline owner storage]
 ```
 
-No Vercel gateway/private gate is required for this public design: API JWT policy
-and resource authorization protect personal operations; anonymous reads stay public.
-Do not expose the legacy server or co-route traffic to it. Pages is static-only;
-do not port NumPy/FastAPI to Workers or put database/admin credentials in Functions.
-Reuse Vercel Hobby instead of Pages only if the owner selects it and confirms
-noncommercial eligibility, quotas and public-protection/promotion settings.
+Vercel serves only the approved native static build; no Vercel gateway or private gate
+is required. API JWT/ownership policy protects personal operations; anonymous reads
+stay public. Do not expose legacy routes or co-route them. Confirm Hobby noncommercial
+eligibility, hard pause/usage behavior, and public-protection/auto-promotion settings.
+Cloudflare Pages remains a free static fallback, not the selected deployment.
 
 ## Resource and no-overage contract (all unverified targets)
 
@@ -36,7 +35,7 @@ noncommercial eligibility, quotas and public-protection/promotion settings.
 | VM | Estimate one 1–2 OCPU/4 GiB+ A1, within total2 OCPU/12 GB. API initial limit2 GiB, one worker, finite PIDs/CPU/file descriptors; reserve RAM for Linux/proxy/readiness child/cache. Linux ARM image/wheel/cold-start/OOM measurements required. No auto replicas. Idle reclaim is accepted only by explicit owner decision; do not generate fake utilization. |
 | Disk | Eligible50GB boot volume is ample estimate; total boot/block≤200GB and backup count≤5. Immutable≈515 MiB reference plus≥2 GiB preparation/extract space, OS/images/rotated logs; measure actual image size and raw preprocessing separately. Never put live ratings solely on ephemeral container storage. |
 | Network | VM ingress443;80 only HTTP-01 challenge/redirect; SSH restricted to approved operator source, no public8000/PostgreSQL. Direct eligible public IP; no managed LB, NAT gateway or paid DNS/flow-log add-on. Verify egress/public-IP meters and account-wide10TB allowance; no PAYG overage. |
-| Static host | Pages **Free**, pages.dev managed HTTPS, static-only;500 builds/month, no paid Workers/R2/analytics. Exact project hostname TBD. No new purchased domain required. |
+| Static host | Existing Vercel **Hobby**, native static build only, vercel.app HTTPS, no paid add-ons/functions; verify noncommercial eligibility, exact usage caps, current protection and automatic promotion before approval. Public hostname TBD. Cloudflare Pages Free is fallback only. |
 | Database | Existing Neon Free, intended target TBD after owner inspection/isolation decision. Check compute/egress/storage/branches across the project, not just current37MB historical storage. Keep5min scale-to-zero; refuse at quotas, never upgrade. Encrypted dumps on approved existing storage, restore rehearsal and retention required. |
 | Auth/email | Supabase Free, intended production project/root TBD; preserve dev separation within two-project allowance. Conditional existing Gmail SMTP only; no paid sender/custom Auth domain/SMS. Confirm email delivery/recovery/rate limits/abuse protection before signup exposure. |
 | CI/registry | Prefer local approved ARM build or standard public-repo Linux CI; no larger/paid ARM runner. [Actions compute][actions] is free on standard public runners; artifacts/caches need separate budget review. [Public packages][packages] are free; verify GHCR visibility/terms or transfer reviewed image offline. No image publication is authorized here. |
@@ -87,9 +86,9 @@ browser/CORS/SDK compatibility, firewall80 and expiry alerts before acceptance.
 IP replacement requires new certificate/manifest/frontend approval. DNS/IP TBD;
 no guessed hostname, self-signed certificate, tunnel or DNS purchase is approved.
 
-Pages serves the existing root callback/SPA; root fallback must not rewrite asset
-misses as JavaScript. Translate current Vercel security headers into reviewed
-static `_headers`: exact `connect-src` API/Auth, required artwork `img-src`, no
+Vercel serves the existing root callback/SPA; fallback must not rewrite missing assets
+as JavaScript. Retain/review existing Vercel security headers: exact `connect-src`
+API/Auth, required artwork `img-src`, no
 framing, nosniff, appropriate referrer policy (prefer no-referrer on callbacks).
 Keep callback URL scrubbing and fixed destination. TLS terminators necessarily
 receive callback queries; review provider log retention/access, disable application
@@ -130,7 +129,7 @@ No caching personal API replies; preserve no-store. Static hashed assets can cac
 |---|---|
 |1 | Owner selects A/free-only downtime policy; privately confirms OCI eligibility/capacity and each existing account's caps. Approve exact origins/projects/DB isolation. No resource creation implied. |
 |2 | Alternate native ARM64 image/Compose packaging with offline pinned32M; Linux RSS/cold/warm/CPU/deadline/OOM/disk measurements and no legacy route/dependency fallback tests. No deployment workflow activation. |
-|3 | Proxy/ACME-IP or existing-DNS TLS, firewall, reboot/renewal/log redaction and liveness configuration; static Pages headers/fallback/build checks. Test account-switch/callback URLs and hostile forwarded headers offline. |
+|3 | Proxy/ACME-IP or existing-DNS TLS, firewall, reboot/renewal/log redaction and liveness configuration; static Vercel headers/fallback/native-build checks. Test account-switch/callback URLs and hostile forwarded headers offline. |
 |4 | Separately authorized schema 4/grants/backup/restore and exact-target rehearsal. Preserve numeric IDs/relationships; no claim/link of legacy profiles. Establish actual Neon duty-cycle/quotas or review Aiven migration as another decision. |
 |5 | Owner-authorized new bounded genuine-provider acceptance: public-origin signup→confirmation→profile→first/backup TOTP→AAL2→ratings/recommendations/groups/logout; settings/recovery replay/account switching and mail placement. Existing10/10 campaign budget cannot be reused. |
 |6 | Resolve [account-operation gates](ACCOUNT_OPERATIONS_READINESS.md) independently. Keep removal/opt-out and deletion disabled until their policy/provider/isolated-worker/DDL/retention gates pass; do not advertise them as live. |
