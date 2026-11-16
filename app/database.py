@@ -17,7 +17,7 @@ from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import TimeoutError as DatabaseTimeout
 
-from app.models import Base, Movie, User, UserRating, RateBucket
+from app.models import Movie, User, UserRating, RateBucket
 
 
 DEFAULT_DATABASE_PATH = Path(__file__).resolve().parents[1] / "data" / "application.db"
