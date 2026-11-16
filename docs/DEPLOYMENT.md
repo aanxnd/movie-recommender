@@ -1,4 +1,8 @@
-# Controlled deployment and rollback
+# Existing Azure deployment and rollback
+
+This procedure preserves the current Azure deployment until owner-approved cutover.
+Selected future preparation is [Oracle/Compose](ORACLE_RUNBOOK.md) with
+[Vercel native packaging](VERCEL_NATIVE_RELEASE.md); neither is deployed here.
 
 Account-removal execution has additional [unresolved gates](ACCOUNT_OPERATIONS_READINESS.md):
 review-only journal DDL, all-serving-revision lifecycle fencing, worker/key/grant
@@ -17,9 +21,9 @@ The current owner goal and release blockers are in
 [production launch readiness](PRODUCTION_LAUNCH_READINESS.md). Local/private tests
 and cosmetic account-screen PRs authorize no live configuration change or rollout.
 
-Private Stage23 uses the separate [owner-only runbook](PRIVATE_STAGE23_RUNBOOK.md),
-native entry and isolated source bundle. Do not dispatch the production workflow
-or use the live targets below for it. Preparation/CI is not deployment approval.
+The private Stage23 proposal is [retired history](evidence/RETIRED_PRIVATE_PREVIEW.md);
+do not recreate its resources or dispatch this production workflow as an Oracle
+rollout. Preparation/CI is not deployment approval.
 
 No production rollout, secret update, push, or cloud mutation was performed during implementation. These are operator steps. The existing API is `movie-recommender-api` in resource group `movie-recommender-rg`, in Express environment `managedEnvironment-movierecommende-9747`. This environment does not support Container Apps Jobs, so the protected GitHub-hosted runner executes migrations directly from the tested release image. No Azure migration job is required.
 
