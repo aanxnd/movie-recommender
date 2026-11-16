@@ -21,6 +21,18 @@ No ignored secrets, local staging data, legal attribution or hosted records are 
 | `frontend/src/private-runtime.js` | Only private main and two wrapper tests referenced it. | `native-runtime.js` preserves exact origin/project pins and session fences. |
 | `frontend/src/private-package.test.js` | One case concerns deleted packaging and private-Azure-only constraints. | `native-package.test.js` protects exclusive paths, no server markers and exact CSP/static bundle; native-release/renderer tests retain exact-target refusal. Private branch exclusions are obsolete for production preparation. |
 | `frontend/src/private-runtime.test.js` | Two cases cover deleted wrapper, not independent policy. | `native-runtime.test.js`, `staging-runtime.test.js`, callback/session/isolation suites retain malformed config, URL scrubbing, no provider I/O and legacy-storage/account fences. |
+| `frontend/private/gateway.mjs` | Only its test consumed it after bundle retirement; never a live Vercel API path. | Native API authorization and actual Oracle Host/SNI proxy checks; no server capability advertised. |
+| `frontend/src/private-gateway.test.js` | Six cases concern deleted gateway-only capability/route semantics. | Native auth/resource/group/body/rate tests and Oracle TLS/Host/SNI/body/redirect/log tests retain relevant protections. |
+| `app/private_manage.py` | Only private CLI/walkthrough and tests; no current Azure startup/workflow reference. | `deploy/oracle/manage.py` retains separate-role/exact-target/generic-error checks; active `app.manage` preserved. |
+| `tests/test_private_manage.py` | Seven cases target deleted private CLI. | Eleven native operator cases retain idempotence/target/role/TLS/command guards plus malformed-file checks. |
+| `deploy/private-stage23/Dockerfile` | Undeployed alternative; only old image CI/walkthrough referenced it. | New native image/read-only no-network startup-refusal CI; root Azure Dockerfile remains. |
+| `deploy/private-stage23/Dockerfile.dockerignore` | Applied only to removed alternative Dockerfile. | New runtime-only image context; existing Azure context retained. |
+| `deploy/private-stage23/containerapp.example.yaml` | Private placeholder, never applied by production workflow. | Proposed Oracle Compose; current Azure production release/rollback unchanged. |
+| `deploy/private-stage23/targets.example.json` | Only abandoned private tooling/CI consumed it. | Native unapproved target template and exact native/Oracle validators. |
+| `docs/PRIVATE_GATEWAY.md` | Instructions for removed undeployed gateway. | Current Vercel/Oracle runbooks; actual provider evidence remains separate. |
+| `app/database.py::Base` import | No internal use or import/dynamic/export consumer; metadata belongs to `app.models`. | Model/migration regression tests retained, no model/schema removed. |
+| `app/limits.py::time` import | No Name use or external attribute/import reference. | Rate/concurrency behavior unchanged. |
+| `app/staging_profiles.py::database` import | No Name use or external attribute/import reference. | Active owned resource-service regressions retained. |
 
 No authentication, JWT, provider policy, MFA, ownership, migration, numeric data,
 recommendation mathematics or active production code is deleted by these retirements.

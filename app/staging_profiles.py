@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app import database, group_authorization, limits, resource_authorization as owners
+from app import group_authorization, limits, resource_authorization as owners
 from app.main import IdParameter, Limit, get_session, saved_movie
 from app.models import UserRating
 from app.schemas import InvitationResponse, RatingLookup, RatingRequest, RatingResponse, RatingsPage, UserResponse

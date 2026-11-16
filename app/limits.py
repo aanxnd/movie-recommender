@@ -2,7 +2,6 @@
 
 import asyncio
 import hashlib
-import time
 
 from fastapi import HTTPException
 from sqlalchemy import case, delete, text
