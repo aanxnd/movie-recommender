@@ -1,4 +1,4 @@
-/** Future reviewed server-only lifecycle boundary, not an implemented endpoint.
+/** Review-only default contract. Concrete gated deletion uses deletion-adapter.js and the server candidate; this default never executes.
  * requestId is an idempotency identifier, never ownership or reauthentication proof.
  * The server derives subject/identity, verifies security policy and coordinates both stores.
  * @typedef {Readonly<{status:'unavailable'|'reauthentication-required'|'mfa-required'|'pending'|'disabled'|'deleted'}>} LifecycleOutcome

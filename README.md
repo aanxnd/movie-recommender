@@ -1,5 +1,10 @@
 # Movelle
 
+Native account-removal work now has [execution-disabled candidates and release gates](docs/ACCOUNT_OPERATIONS_READINESS.md):
+fresh-challenge factor opt-out, server-authorized deletion, signed coordination,
+worker reconciliation and transactional privacy fencing. No current entry enables
+them; no hosted journal, key, account mutation or production activation occurred.
+
 A portfolio movie recommender: React/Vite/Tailwind on Vercel, FastAPI on Azure Container Apps, Neon PostgreSQL for application profiles, and read-only prepared MovieLens 32M reference arrays. Local development uses SQLite. GHCR and GitHub Actions provide manually controlled releases with Azure OIDC.
 
 The scoring mathematics remains unchanged. Production boundaries now require anonymous profile credentials, explicit group invitations, bounded workloads, and versioned migrations. See [deployment and rollback](docs/DEPLOYMENT.md), [audit resolution](docs/AUDIT_RESOLUTION.md), and [recommendation evidence](docs/RECOMMENDATIONS.md).

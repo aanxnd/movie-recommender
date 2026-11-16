@@ -22,7 +22,10 @@ def test_stalled_readiness_is_killed_and_reaped(tmp_path, monkeypatch, phase):
         from app import database, readiness
         def stall(phase):
             if phase == {phase!r}:
-                Path({str(entered)!r}).write_text(phase)
+                marker = Path({str(entered)!r})
+                temporary = marker.with_name(marker.name + '.tmp')
+                temporary.write_text(phase)
+                temporary.replace(marker)  # Existence must mean the signal is fully written.
                 time.sleep(60)
         class Connection:
             def __enter__(self):

@@ -1,5 +1,11 @@
 # Coordinated account deletion — EXECUTION DISABLED
 
+The [authorization](DELETION_AUTHORIZATION.md), [worker](DELETION_WORKER.md) and
+[transactional privacy fence](DELETION_RESOURCE_FENCING.md) are now concrete
+dependent candidates. Queue commit revokes invitations/credentials before eventual
+erasure; other account data remains until provider absence is authoritative. Every
+current entry still leaves execution disabled. See [current readiness](ACCOUNT_OPERATIONS_READINESS.md).
+
 This is preparation for reviewed lifecycle execution, not an enabled endpoint or
 migration. `deletion_store.metadata` is separate from application Base/migrations;
 only isolated SQLite/PostgreSQL fixtures install it. Live schema remains 4.

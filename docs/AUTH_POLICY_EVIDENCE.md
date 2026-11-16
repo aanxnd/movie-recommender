@@ -59,6 +59,14 @@ to production routes; protected resources still need their own authorization.
 
 ## Integration and launch gates
 
+Current account-removal candidates are described in
+[account operations readiness](ACCOUNT_OPERATIONS_READINESS.md). They remain
+unselected: no live schema, provider/admin key or production route changes. The
+explicit deletion candidate overlays an application lifecycle block and requires
+server password proof plus fresh owned native TOTP for enrolled users. Its state is
+application deletion coordination, not an Auth-database observer, independent email
+provenance ledger or replacement session service. Standard session limitations remain.
+
 The explicit [native release composition](NATIVE_RELEASE.md) now assembles these
 policies independently of the legacy production entry. Owned username updates use
 schema4 revisions; enrolled sensitive password/email operations require AAL2 and an

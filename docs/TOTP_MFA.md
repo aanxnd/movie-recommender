@@ -32,6 +32,13 @@ provider-response loss and non-atomic freshness limitations documented in the
 
 ## Sources and remaining acceptance
 
+The new [fresh-challenge removal candidate](FACTOR_REMOVAL.md) is implemented but
+unselected. Its explicit opt-out consent permits zero remaining factors, followed
+by sign-out; it does not supply atomic backup retention. The existing `remove`
+method and all current runtime bootstraps remain unavailable. Listing, replacement
+enrollment and verification are unchanged. Review [current gates](ACCOUNT_OPERATIONS_READINESS.md)
+before enabling any native DELETE; no hosted mutation budget remains.
+
 [Native TOTP guide](https://supabase.com/docs/guides/auth/auth-mfa/totp),
 [MFA overview](https://supabase.com/docs/guides/auth/auth-mfa),
 [listFactors](https://supabase.com/docs/reference/javascript/auth-mfa-listfactors),

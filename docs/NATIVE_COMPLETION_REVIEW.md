@@ -1,6 +1,6 @@
 # Native completion review — NOT READY FOR DEPLOYMENT
 
-Review order: PR98 (schema4 revision) → PR99 (owned username API) → PR100 (backend
+Historical merged baseline: PR98 (schema4 revision) → PR99 (owned username API) → PR100 (backend
 release entry) → PR101 (frontend release entry) → PR102 (AAL2-sensitive password
 proof) → this readiness reconciliation. Rebase child diffs after squash merges;
 never merge the whole accumulated stack as a single >500-line PR. No PR merges,
@@ -26,31 +26,18 @@ Starlette test-client deprecation and staging chunk-size warnings remain visible
 
 ## Still unavailable; proposed review boundaries only
 
-**Verified-factor removal / optional opt-out is not implemented.** Pinned
-[GoTrue DELETE](https://github.com/supabase/auth/blob/v2.197.0/internal/api/mfa.go)
-requires stored-session AAL2 for a verified factor, deletes that factor and
-downgrades affected sessions. It offers no expected-inventory revision or atomic
-"retain one" operation. A future supported opt-out flow should explicitly disclose
-that every removal can leave zero factors, require signed current AAL2, bind the
-exact subject/session/factor, avoid retries, refresh/reinspect after deletion and
-report unknown/partial outcomes. It must replace the old final-factor-retention
-invariant explicitly in the reviewed contract, rather than pretending client counts
-provide it. Independent backup enrollment and all-lost lockout remain unchanged.
-The current UI/services still send no DELETE, including during recovery.
-
-**Account deletion is not implemented.** Official
-[admin deleteUser](https://supabase.com/docs/reference/javascript/auth-admin-deleteuser)
-requires a privileged server credential; no public user deletion API was established.
-Approval of account management does not make Neon and Supabase one transaction.
-Before a separate implementation: review a server-only privilege boundary, exact
-owner/assurance checks, retention/erasure semantics and a durable deletion-intent
-state that blocks access before irreversible provider deletion. Audit and reconcile
-partial failures idempotently; never silently restore access, recreate/link an
-identity or delete Neon first. No broad key is requested, stored or activated here.
+**Current update:** [factor removal](FACTOR_REMOVAL.md) and coordinated deletion
+now have concrete, execution-disabled candidates. See the [current account-operations
+assessment](ACCOUNT_OPERATIONS_READINESS.md) for the new review stack, exact
+boundaries and operational decisions. Replacement cleanup still lacks atomic
+retain-one protection; explicit possible-zero-factor opt-out must be reviewed.
+The deletion candidate uses server password/TOTP proof, signed intents, a separate
+provider worker and transaction-level privacy fencing. Current application entries
+select none of these operations. No privileged credential or DDL was activated.
 
 ## Next gates
 
-Review the dormant stack and the two unfinished operation designs above. Then
+Review the new account-operations stack and its unresolved execution gates. Then
 approve exact resource/origin pins, schema4 rehearsal/rollback and a verifiable
 CA$0 no-overage architecture. Student credits/free quotas alone are insufficient.
 Obtain a new explicit email/factor/account test budget and safe independent
