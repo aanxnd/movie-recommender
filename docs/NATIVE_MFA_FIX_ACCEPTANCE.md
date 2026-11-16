@@ -5,7 +5,7 @@
 The owner approved PR88's native omission contract and acknowledged silent provider
 response loss/non-atomic reads. PR89 implements it without production activation.
 This report distinguishes real Supabase evidence from offline tests. The
-[private deployment plan](PRIVATE_STAGE23_DEPLOYMENT_PLAN.md) is preparation only;
+[retired private proposal](evidence/RETIRED_PRIVATE_PREVIEW.md) is historical evidence only;
 Azure incremental $0 cost has not been established.
 
 ## Review stack and unchanged boundaries

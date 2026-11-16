@@ -24,12 +24,12 @@ cannot change these decisions. No code reads this file to select an auth provide
 | MFA-sensitive password/email updates | **Dormant implementation**: isolated fresh password proof preserves primary AAL2. | Review the native continuation and obtain genuine hosted nonce/settings/email acceptance; AAL1 is still denied. |
 | Redirects / email | Development root `http://127.0.0.1:5173/`; preview/production origins unapproved. Gmail production suitability open. | Exact owner-approved origins/redirects plus delivery, spam placement, sender limits and $0 abuse acceptance. |
 | Data/schema / rollback | Repository schema 4; no hosted version inspected. Earlier deployment evidence describes schema 2. | Verify current production privately, rehearse additive migration and secure schema-compatible rollback. No drops/backfill/reset. |
-| Pre-Prompt-24 staging | **Local and bounded real-provider acceptance recorded; no private cloud deployment. Prompt24 not started.** | Review private PRs91–94 and [execution gates](PRIVATE_STAGE23_RUNBOOK.md); separately approve cost/targets/hosted tests. |
+| Pre-Prompt-24 staging | **Local and bounded provider acceptance recorded; no private cloud deployment. Prompt24 not started.** | Private proposal [retired](evidence/RETIRED_PRIVATE_PREVIEW.md); Oracle/Vercel preparation needs separate cost/targets/hosted acceptance. |
 | Full assessment/audit | Full NIST SP 800-63B-4 assessment and original 16-stage professional audit remain required. | Document controls, evidence and gaps; no compliance claim from SDK AAL/offline tests. |
 | Prompt 26 activation | **Not authorized**. | Explicit owner release/configuration/activation approval after all prior gates; no automatic merge/deploy. |
 
 See [post-approval MFA acceptance](NATIVE_MFA_FIX_ACCEPTANCE.md) and the
-[unapproved private deployment plan](PRIVATE_STAGE23_DEPLOYMENT_PLAN.md) for current evidence and cost/isolation gates.
+[current Oracle preparation](ORACLE_RUNBOOK.md) for cost/isolation gates; [retired proposal evidence](evidence/RETIRED_PRIVATE_PREVIEW.md) is historical only.
 
 Overall decision: **NOT READY / DO NOT CUT OVER**. An unavailable feature must remain
 unavailable; it must not silently restore legacy credentials after Supabase rejection.

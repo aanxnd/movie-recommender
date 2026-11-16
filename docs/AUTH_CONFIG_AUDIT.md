@@ -11,7 +11,7 @@ Bounded Stage 23 development-project testing is now owner-authorized; current
 [acceptance results](STAGING_SUPABASE_ACCEPTANCE.md) include real signup, confirmed sessions and
 historical omitted-factor denial. PRs87–90 are merged; the approved correction and
 [bounded native MFA/application journey](NATIVE_MFA_FIX_ACCEPTANCE.md) passed.
-Private preparation follows the [review-only runbook](PRIVATE_STAGE23_RUNBOOK.md).
+Current preparation follows the [Oracle runbook](ORACLE_RUNBOOK.md) and [Vercel native guide](VERCEL_NATIVE_RELEASE.md).
 Production activation and hosted configuration changes remain unapproved.
 
 ## Evidence boundaries

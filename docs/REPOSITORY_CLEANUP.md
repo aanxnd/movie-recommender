@@ -39,6 +39,9 @@ No ignored secrets, local staging data, legal attribution or hosted records are 
 | `tests/test_private_boundary.py` | Private-only config/gate fixture and parameterized cases; no remaining consumer. | Native release/image/renderer, actual Host/SNI proxy and authentication regressions cover selected contract. |
 | `tests/test_private_entry.py` | Three cases exercise deleted private composition. | `test_native_release.py`, staging native/resource/policy/group suites and image-startup refusal retain resource/JWT/MFA/legacy-isolation coverage. |
 | `docs/PRIVATE_RUNTIME.md` | Describes removed alternative; not actual Azure release/rollback instructions. | Native release and Oracle runbooks plus this inventory. |
+| `docs/PRIVATE_STAGE23_DEPLOYMENT_PLAN.md` | Superseded unexecuted private Azure plan; stale resource/create instructions. | Unique owner resource/cost/no-execution evidence consolidated in `evidence/RETIRED_PRIVATE_PREVIEW.md`; current Oracle/Vercel preparation replaces instructions. |
+| `docs/PRIVATE_STAGE23_RUNBOOK.md` | Commands target removed private tooling and uncreated resources. | Same retained history; guarded native schema/Oracle/Vercel runbooks replace actual procedures. |
+| `docs/NATIVE_COMPLETION_REVIEW.md` | Repeats merged PR98–103 status/readiness with old test totals; no unique hosted result. | Native status/baseline counts retained in consolidated history; current release/account readiness remains authoritative. |
 
 No authentication, JWT, provider policy, MFA, ownership, migration, numeric data,
 recommendation mathematics or active production code is deleted by these retirements.
