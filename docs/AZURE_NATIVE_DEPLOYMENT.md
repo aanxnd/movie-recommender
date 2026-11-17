@@ -42,6 +42,13 @@ One worker,1vCPU/2GiB is the initial target, not a capacity guarantee. Image pul
 hash verification, mmap loading and Neon cold connection contribute to latency.
 Actual AMD64 startup/RSS, readiness, image-pull latency, concurrency10, OOM and
 scale-zero/wake acceptance must be distinguished from local fixture evidence.
+Local Docker AMD64 evidence: real32M release built successfully; uncompressed image
+size1,186,311,597bytes (registry transfer size unmeasured). A one-worker1CPU/2GiB
+network-disabled SQLite fixture reached health/search in11.083s with285,712KiB peak
+RSS and rejected a legacy bearer. Separate32,000,204-rating recommendation probe
+returned10 results in2.69s with523,756KiB peak RSS. mmap pages are demand-loaded:
+startup RSS is not working-set capacity. These samples exclude registry pull and
+hosted Neon/TLS latency and do not establish concurrency10 or cold-wake acceptance.
 Existing DB pool pre-ping,2 connections/no overflow,3s pool and5s connect limits
 handle stale idle connections; failed/in-flight transactions are not silently replayed.
 The inherited startup checks schema4 and idempotently registers reference movie IDs
@@ -58,3 +65,7 @@ No paid upgrades, Marketplace products or new infrastructure. A stopped app does
 not wake on HTTP: explicit owner-approved restart is a later action, then HTTP
 scale-zero/wake must be tested. No external uptime pings or periodic DB readiness
 polling should keep it warm. Production remains dormant/stopped during preparation.
+Existing SDK refresh targets Supabase; authenticated browser session-generation
+changes can legitimately recheck the Azure profile. No Azure keepalive is added.
+Test idle scale-zero with tabs closed/logged out and account for real browser/abuse
+traffic; do not remove security checks to manufacture a zero-usage result.
