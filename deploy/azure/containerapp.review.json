@@ -1,0 +1,33 @@
+{
+  "name": "movie-recommender-api",
+  "location": "canadacentral",
+  "properties": {
+    "configuration": {
+      "activeRevisionsMode": "Single",
+      "ingress": {"external": true, "targetPort": 8000, "allowInsecure": false, "transport": "auto"}
+    },
+    "template": {
+      "containers": [{
+        "name": "OWNER_MUST_CONFIRM_EXISTING_CONTAINER_NAME",
+        "image": "OWNER_APPROVED_NATIVE_GHCR_DIGEST_REQUIRED",
+        "resources": {"cpu": 1, "memory": "2Gi"},
+        "env": [
+          {"name": "APP_ENV", "value": "production"},
+          {"name": "PORT", "value": "8000"},
+          {"name": "MOVELLE_NATIVE_MODE", "value": "native-release"},
+          {"name": "MOVELLE_NATIVE_PREPARED_DIR", "value": "/backend/data/reference/ml-32m-v1"},
+          {"name": "MOVELLE_NATIVE_TARGETS_JSON", "value": "OWNER_APPROVED_NONSECRET_TARGETS_JSON_REQUIRED"},
+          {"name": "CORS_ALLOWED_ORIGINS", "value": "OWNER_APPROVED_FRONTEND_ORIGIN_REQUIRED"},
+          {"name": "MOVELLE_NATIVE_DATABASE_URL", "secretRef": "movelle-native-database"},
+          {"name": "MOVELLE_NATIVE_PUBLISHABLE_KEY", "secretRef": "movelle-native-publishable-key"}
+        ],
+        "probes": [
+          {"type": "Startup", "httpGet": {"path": "/health", "port": 8000}, "periodSeconds": 10, "timeoutSeconds": 2, "failureThreshold": 30},
+          {"type": "Liveness", "httpGet": {"path": "/health", "port": 8000}, "periodSeconds": 60, "timeoutSeconds": 2, "failureThreshold": 3},
+          {"type": "Readiness", "httpGet": {"path": "/health", "port": 8000}, "periodSeconds": 30, "timeoutSeconds": 2, "failureThreshold": 3}
+        ]
+      }],
+      "scale": {"minReplicas": 0, "maxReplicas": 1, "rules": [{"name": "http-scaler", "http": {"metadata": {"concurrentRequests": "10"}}}]}
+    }
+  }
+}
