@@ -25,7 +25,7 @@ No merge/deployment or production activation follows from these checks.
 - `python scripts/check_oracle_proxy.py` uses a fictional certificate and new UUID
   loopback-only container; checks Compose parsing, TLS, Host/SNI refusal, body cap,
   fixed redirect and log isolation, and removes only its own fixture.
-- Reference: `python deploy/oracle/reference.py --prepared EXISTING_DIRECTORY`
+- Reference: `python -m app.reference --prepared EXISTING_DIRECTORY`
   verifies the exact32M manifest and arrays/license without writes/downloads. Optional
   packaging uses NEW output, verifies archive contents independently and authorizes
   no publication. Repeat in the pinned runtime to compare deterministic hashes.

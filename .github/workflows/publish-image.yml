@@ -17,6 +17,8 @@ jobs:
     uses: ./.github/workflows/tests.yml
 
   publish:
+    # Owner-directed Azure re-preparation: never publish/deploy the legacy image.
+    if: ${{ false }}
     needs: verify
     runs-on: ubuntu-latest
     permissions:
@@ -54,6 +56,7 @@ jobs:
           python scripts/smoke_container.py --image "$IMAGE" --prepared data/prepared/smoke
 
   deploy:
+    if: ${{ false }}
     needs: publish
     runs-on: ubuntu-latest
     environment: production

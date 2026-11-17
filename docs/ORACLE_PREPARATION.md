@@ -27,7 +27,7 @@ Provide the verified versioned directory via read-only mount. Ordinary restarts
 do not download, preprocess or write reference data. User records remain in Neon.
 
 Operator-only local packaging (no publication):
-`python deploy/oracle/reference.py --prepared EXISTING_DIRECTORY --output NEW_ARCHIVE.tar.gz`.
+`python -m app.reference --prepared EXISTING_DIRECTORY --output NEW_ARCHIVE.tar.gz`.
 The archive has sorted files/fixed metadata/gzip time, exclusive output and a source
 recheck. Incomplete output is untrusted; verify extracted data before selecting it.
 Keep GroupLens attribution. Public redistribution permission remains unresolved;

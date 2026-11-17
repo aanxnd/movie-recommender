@@ -9,7 +9,8 @@ import sys
 
 import pytest
 
-from deploy.oracle import entry, reference
+from deploy.oracle import entry
+from app import reference
 from test_historical import artifacts
 from test_native_release import config
 
@@ -56,7 +57,7 @@ def test_reference_script_imports_in_the_flat_container_layout(artifacts, tmp_pa
     flat = tmp_path / 'container'
     shutil.copytree('app', flat / 'app', ignore=shutil.ignore_patterns('__pycache__'))
     script = flat / 'oracle-reference.py'
-    shutil.copyfile('deploy/oracle/reference.py', script)
+    shutil.copyfile('app/reference.py', script)
     result = subprocess.run([sys.executable, str(script), '--prepared', str(artifacts)],
                             cwd=flat, capture_output=True, text=True, timeout=30)
     assert result.returncode != 0  # Small cannot pass real production pin.
