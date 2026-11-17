@@ -12,24 +12,33 @@ def test_release_is_manual_verified_serialized_and_digest_based():
     assert 'cancel-in-progress: false' in release
     assert 'git ls-remote origin refs/heads/main' in release
     assert 'movie-recommender@${{' in release
-    assert release.index('Migrate using') < release.index('Deploy tested')
+    preflight_name = 'Read-only native preflight'
+    assert release.index(preflight_name) < release.index('Deploy tested')
     assert 'az containerapp job' not in release and 'MIGRATION_JOB' not in release
     assert 'environment: production' in release
-    assert 'DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}' in release
+    assert 'MOVELLE_NATIVE_DATABASE_URL: ${{ secrets.NATIVE_RUNTIME_DATABASE_URL }}' in release
     assert 'APP_ENV: production' in release
     assert 'CORS_ALLOWED_ORIGINS: ${{ vars.CORS_ALLOWED_ORIGINS }}' in release
-    assert 'run: bash scripts/migrate_release.sh' in release
+    assert 'scripts/migrate_release.sh' not in release and '-m app.native_preflight' in release
     assert 'packages: read' in release
-    assert release.index('Reject stale release') < release.index('Migrate using') < release.index('uses: azure/login@')
+    assert release.index('Reject stale release') < release.index(preflight_name) < release.index('uses: azure/login@')
     assert 'continue-on-error' not in release and 'always()' not in release
-    migration = re.search(r'      - name: Migrate using.*?(?=\n      - )', release, re.S).group()
-    assert release.count('secrets.PRODUCTION_DATABASE_URL') == 1
-    assert 'secrets.PRODUCTION_DATABASE_URL' in migration
-    assert 'timeout-minutes: 7' in migration
-    assert release.index('Reject stale release') < release.rindex('uses: docker/login-action@') < release.index('Migrate using')
+    preflight = re.search(r'      - name: Read-only native preflight.*?(?=\n      - )', release, re.S).group()
+    assert release.count('secrets.NATIVE_RUNTIME_DATABASE_URL') == 1
+    assert 'secrets.NATIVE_RUNTIME_DATABASE_URL' in preflight
+    assert 'timeout-minutes: 7' in preflight and 'timeout --kill-after=10s 300s' in preflight
+    assert 'trap ' in preflight and 'docker rm --force "$name"' in preflight
+    assert '-e MOVELLE_NATIVE_DATABASE_URL' in preflight  # Names only, no secret values in argv.
+    assert release.index('Reject stale release') < release.rindex('uses: docker/login-action@') < release.index(preflight_name)
     assert 'digest: ${{ steps.image.outputs.digest }}' in release
     assert 'IMAGE: ghcr.io/aanxnd/movie-recommender@${{ steps.image.outputs.digest }}' in release
-    assert 'python scripts/smoke_container.py --image "$IMAGE" --prepared data/prepared/smoke' in release
+    assert 'file: deploy/azure/Dockerfile' in release and 'platforms: linux/amd64' in release
+    assert 'build-contexts: reference=data/prepared/native-release' in release
+    assert 'ensure_prepared(path, RELEASE_URL, RELEASE_SHA256)' in release
+    assert '-m app.reference --prepared /backend/data/reference/ml-32m-v1' in release
+    assert "['python', '-m', 'app.azure_release']" in release
+    assert release.count('if: ${{ false }}') == 2  # Publication and deployment stay paused.
+    assert release.count('environment: production') == 2
     assert 'IMAGE: ghcr.io/aanxnd/movie-recommender@${{ needs.publish.outputs.digest }}' in release
     assert 'imageToDeploy: ${{ env.IMAGE }}' in release
     assert ':latest' not in release
