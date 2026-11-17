@@ -7,12 +7,14 @@ routers, provisioning and owned username settings. It carries body/rate/CPU/DB
 limits, sanitized errors, no-store responses and exact-origin CORS (including
 PATCH). Documentation endpoints are removed. There is no private gate dependency,
 legacy credential issuance/fallback, automatic linking or startup migration.
-Local/private entry guards and their gate remain intact.
+The undeployed private gateway was retired; no private-gate fallback exists.
+The prepared Azure image uses `app.azure_release` to verify baked32M first.
 
 ## Configuration and execution gates
 
 Nothing is approved by the example manifest. After separate owner target/cost/
-release approval, supply a reviewed manifest in `MOVELLE_NATIVE_TARGETS_FILE`:
+release approval, supply exactly one reviewed manifest via `MOVELLE_NATIVE_TARGETS_FILE`
+or bounded `MOVELLE_NATIVE_TARGETS_JSON` (Azure environment configuration):
 `approved:true`, exact HTTPS `frontend_origin`, exact `supabase_url` root, Neon
 `database_host` and actual `database_name`. No guessed public domains are provided.
 Set `APP_ENV=production`, `MOVELLE_NATIVE_MODE=native-release`, exact matching
@@ -26,12 +28,13 @@ Auth is pinned ES256/issuer/JWKS and audience `authenticated`, with fresh provid
 current-email/factor evidence and numeric resource ownership. It retains standard
 bounded token validity, not immediate session revocation.
 
-Before any execution: prove CA$0 incremental capacity/no-overage; privately inspect
+Before any execution: obtain Microsoft confirmation of spending-limit/out-of-pocket
+protection and explicit restart approval; privately inspect
 live schema, rehearse the additive schema-4 migration/backup/restore; review runtime
 DB grants; approve exact frontend/API origins and matching Supabase root redirects;
 review TLS and platform log redaction; complete hosted acceptance under a new budget.
-Use the existing pinned image/dependency recipe and explicit alternate command;
-do not change production CMD, Azure workflow or Vercel project as part of review.
+Use the prepared pinned AMD64 Azure image and explicit alternate command; the
+legacy release workflow is paused. No Vercel setting or production CMD is changed.
 Rollback must use a schema-4-compatible reviewed artifact with the same target pins.
 Never revert to legacy credentials for native users or route traffic to both modes.
 Native code/config availability is not activation approval. Full NIST/16-stage
