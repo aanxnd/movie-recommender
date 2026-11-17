@@ -1,5 +1,9 @@
 # Repository cleanup inventory — Oracle preparation, no production retirement
 
+Historical PR111–123 inventory. The November16 Azure decision retains these safe
+cleanups; it does not revive the undeployed private gateway. Current deployment
+guidance is [Azure preparation](AZURE_NATIVE_DEPLOYMENT.md), not Oracle provisioning.
+
 Baseline: main `f054300` plus owner-selected PR111. Audit covers tracked application,
 frontend, tests/browser fixtures, scripts, locks, workflows, deployment and Markdown.
 Import/name scans were followed by exact import/dynamic-import/subprocess/CLI,
@@ -23,7 +27,7 @@ No ignored secrets, local staging data, legal attribution or hosted records are 
 | `frontend/src/private-runtime.test.js` | Two cases cover deleted wrapper, not independent policy. | `native-runtime.test.js`, `staging-runtime.test.js`, callback/session/isolation suites retain malformed config, URL scrubbing, no provider I/O and legacy-storage/account fences. |
 | `frontend/private/gateway.mjs` | Only its test consumed it after bundle retirement; never a live Vercel API path. | Native API authorization and actual Oracle Host/SNI proxy checks; no server capability advertised. |
 | `frontend/src/private-gateway.test.js` | Thirty cases (six direct plus24 parameterized) concern deleted gateway-only capability/route semantics. | Native auth/resource/group/body/rate tests and Oracle TLS/Host/SNI/body/redirect/log tests retain relevant protections. |
-| `app/private_manage.py` | Only private CLI/walkthrough and tests; no current Azure startup/workflow reference. | `deploy/oracle/manage.py` retains separate-role/exact-target/generic-error checks; active `app.manage` preserved. |
+| `app/private_manage.py` | Only private CLI/walkthrough and tests; no current Azure startup/workflow reference. | `app.native_schema` retains separate-role/exact-target/generic-error checks; active legacy `app.manage` preserved. |
 | `tests/test_private_manage.py` | Seven cases target deleted private CLI. | Eleven native operator cases retain idempotence/target/role/TLS/command guards plus malformed-file checks. |
 | `deploy/private-stage23/Dockerfile` | Undeployed alternative; only old image CI/walkthrough referenced it. | New native image/read-only no-network startup-refusal CI; root Azure Dockerfile remains. |
 | `deploy/private-stage23/Dockerfile.dockerignore` | Applied only to removed alternative Dockerfile. | New runtime-only image context; existing Azure context retained. |
@@ -53,7 +57,7 @@ checks. Historical walkthroughs must not be executed; actual provider evidence r
 
 - Root Dockerfile, Azure controlled-release workflow/manifests, migration shell,
   `app.runtime/main/security/manage`: existing deployment, data compatibility and
-  rotation/rollback. Retirement requires actual approved Oracle cutover first.
+  rotation/rollback. Retirement requires actual approved native cutover first.
 - Native composition imports `staging_profiles`, `staging_recommendations` and
   shared fixtures: names are historical; implementations are active security code.
 - Local staging launchers/DB guards, fictional Auth, browser demos and race tests:
