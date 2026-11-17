@@ -1,5 +1,9 @@
 # Oracle native preparation — no execution authorization
 
+**Historical Oracle preparation, superseded November16,2026.** Azure is again
+selected and stays stopped. See [Azure image/config](AZURE_NATIVE_DEPLOYMENT.md).
+Shared verification moved to `app.reference`; tested ARM compatibility remains useful.
+
 Selected: existing Vercel Hobby, non-paid Oracle A1, Neon Free, Supabase Free,
 Docker Compose. Depends on owner-corrected PR111 `38f49c7`; no Cloudflare move.
 Current Azure/legacy deployment and rollback remain active dependencies until
