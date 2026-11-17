@@ -46,6 +46,24 @@ Environment requirements (no actual values in this repository):
 | Frontend native build | same target manifest + public key, `npm run prepare:native`; no DB secrets |
 | Operator migration | separately reviewed `movelle_native_migrator`; never runtime credentials or startup DDL |
 
+The provider-neutral operator is `python -m app.native_schema check` or `migrate`,
+included in the exact native image but never selected by its startup command.
+After separate DDL approval, mount private regular files read-only at
+`/run/secrets/native_database_url`, `native_publishable_key`, `native_migration_url`;
+pass only nonsecret native mode/CORS/target JSON. Do not pass ambient runtime DB/key
+environment values to this file-only operator. It requires the separate migrator
+role, exact matching host/database/verified TLS and rejects reset/legacy claiming.
+This reuses the reviewed native operator, not the paused legacy migration workflow.
+The prepared workflow now selects the AMD64 Azure Dockerfile/reference context,
+checks its published digest and runs read-only `app.native_preflight` before Azure
+login/update. It performs no automatic DDL. Both publish/deploy remain `if:false`:
+removing those holds requires a separately reviewed, explicitly approved change.
+Existing protected `production` environment/review/OIDC/stale-SHA safeguards remain.
+Future protected GitHub secrets are `NATIVE_RUNTIME_DATABASE_URL` and
+`NATIVE_PUBLISHABLE_KEY`; variables are matching `MOVELLE_NATIVE_TARGETS_JSON` and
+`CORS_ALLOWED_ORIGINS`. Configure privately only after approval; no actual values
+exist in these changes. Registry publication also requires GroupLens owner approval.
+
 No PG overrides, proxy trust, legacy DB fallback, deletion worker or extra process.
 The backend FQDN in the worksheet validator comes from existing Vercel configuration;
 the owner must confirm it remains assigned to this exact app before building public
