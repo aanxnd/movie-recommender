@@ -1,8 +1,10 @@
-# Existing Azure deployment and rollback
+# Legacy Azure deployment and rollback history — WORKFLOW PAUSED
 
-This procedure preserves the current Azure deployment until owner-approved cutover.
-Selected future preparation is [Oracle/Compose](ORACLE_RUNBOOK.md) with
-[Vercel native packaging](VERCEL_NATIVE_RELEASE.md); neither is deployed here.
+Azure is again selected, but the app must remain manually stopped. Current native
+instructions are [Azure preparation](AZURE_NATIVE_DEPLOYMENT.md) and the
+[activation checklist](AZURE_ACTIVATION_RUNBOOK.md). The legacy publish/deploy jobs
+are explicitly paused. Everything below preserves historical schema2/3 release,
+OIDC/rotation and rollback evidence; do not execute it as a schema4 native rollout.
 
 Account-removal execution has additional [unresolved gates](ACCOUNT_OPERATIONS_READINESS.md):
 review-only journal DDL, all-serving-revision lifecycle fencing, worker/key/grant
@@ -22,7 +24,7 @@ The current owner goal and release blockers are in
 and cosmetic account-screen PRs authorize no live configuration change or rollout.
 
 The private Stage23 proposal is [retired history](evidence/RETIRED_PRIVATE_PREVIEW.md);
-do not recreate its resources or dispatch this production workflow as an Oracle
+do not recreate its resources or dispatch the paused legacy workflow as a native
 rollout. Preparation/CI is not deployment approval.
 
 No production rollout, secret update, push, or cloud mutation was performed during implementation. These are operator steps. The existing API is `movie-recommender-api` in resource group `movie-recommender-rg`, in Express environment `managedEnvironment-movierecommende-9747`. This environment does not support Container Apps Jobs, so the protected GitHub-hosted runner executes migrations directly from the tested release image. No Azure migration job is required.

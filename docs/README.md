@@ -4,13 +4,13 @@
 
 | Question | Primary documentation |
 |---|---|
-| Overview, development and application architecture | [Project README](../README.md); current deployed Azure versus selected future native Oracle is explicitly distinguished. |
+| Overview, development and application architecture | [Project README](../README.md); stopped legacy Azure versus prepared native Azure is explicitly distinguished. |
 | Authentication/authorization | [Current contract](AUTH_ARCHITECTURE.md), [policy evidence](AUTH_POLICY_EVIDENCE.md), [ownership/groups](RESOURCE_AUTHORIZATION.md). |
 | Database, migrations and rollback compatibility | [Database guide](DATABASE.md), [profile revisions](PROFILE_REVISION.md). |
-| Selected deployment preparation | [Oracle/Compose runbook](ORACLE_RUNBOOK.md), [Vercel native release](VERCEL_NATIVE_RELEASE.md), [native entry contract](NATIVE_RELEASE.md). |
-| Existing production release/rollback | [Azure procedure](DEPLOYMENT.md), retained until approved Oracle cutover; not a native deployment shortcut. |
+| Selected deployment preparation | [Azure image/config](AZURE_NATIVE_DEPLOYMENT.md), [activation checklist](AZURE_ACTIVATION_RUNBOOK.md), [Vercel native release](VERCEL_NATIVE_RELEASE.md). |
+| Existing production release/rollback | [Legacy Azure history](DEPLOYMENT.md), retained for data/security compatibility; its release workflow is paused. Native rollback must match schema4. |
 | Security limitations and operational decisions | [Configuration facts/gaps](AUTH_CONFIG_AUDIT.md), [account-operation gates](ACCOUNT_OPERATIONS_READINESS.md). Full NIST assessment/16-stage audit remain separately required. |
-| Testing | [Current verification commands](ORACLE_CLEANUP_VALIDATION.md), [local native fixture](STAGING_INTEGRATION.md). |
+| Testing | [Azure validation](AZURE_NATIVE_DEPLOYMENT.md), retained [offline validation commands](ORACLE_CLEANUP_VALIDATION.md), [local native fixture](STAGING_INTEGRATION.md). |
 | Production status | [Launch readiness](PRODUCTION_LAUNCH_READINESS.md), [cutover checklist](AUTH_CUTOVER_READINESS.md). Neither implies activation approval. |
 
 Feature-specific documents (signup/session/password/email/TOTP/provisioning/settings,
@@ -35,3 +35,5 @@ as `staging`/`legacy` do not make shared code or meaningful tests disposable.
 
 Consult current-head CI and readiness first. Historical successful counts, proposed
 configuration and merged code do not establish hosted settings, CA$0 or release safety.
+Oracle preparation/research is historical after the November16 Azure decision;
+its useful packaging/ARM/security evidence remains, not an active hosting instruction.

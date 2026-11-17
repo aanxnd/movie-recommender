@@ -1,5 +1,9 @@
 # Oracle/Vercel runbook — PREPARATION ONLY, execution not authorized
 
+**SUPERSEDED:** Oracle is no longer selected as of November16,2026. Retain this
+tested proposal as historical evidence; do not provision/deploy it. Current
+[Azure instructions](AZURE_ACTIVATION_RUNBOOK.md) require keeping the app stopped.
+
 Authoritative future Oracle procedure; current Azure procedure remains DEPLOYMENT.md
 until cutover. Dependencies: PR111 selection → native image → this Compose proposal.
 No hostname/IP, VM, account, credential, schema, certificate or promotion is approved.
@@ -95,10 +99,11 @@ No new email/factor/account mutation budget exists (10/10 used).
 
 ## Separate operator schema tool (NOT APPROVED FOR EXECUTION)
 
-`python deploy/oracle/manage.py check` or `migrate` is an explicit operator action,
+`python -m app.native_schema check` or `migrate` is an explicit operator action,
 using the reviewed native manifest and `/run/secrets` runtime inputs plus a separate
 `native_migration_url` file. It requires `movelle_native_migrator` and exactly the
 same host/database/TLS options as runtime; no reset, legacy recovery or claiming.
-The tool is not copied into the runtime image or mounted/executed by Compose.
+The shared module is now copied with app code, but never invoked by startup;
+its separate migration credential is not mounted by Compose or the Azure runtime.
 Use only a locked operator Python environment after backup/target/grant/migration
 approval. No hosted DDL or migration credential was created; tests inject SQLite.

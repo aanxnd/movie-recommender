@@ -1,5 +1,9 @@
 # Oracle preparation and cleanup validation
 
+Historical Oracle/cleanup evidence after the November16 Azure decision. Preserve
+its tests/commands as applicable; current image/config/activation instructions are
+in [Azure preparation](AZURE_NATIVE_DEPLOYMENT.md). Oracle deployment is not selected.
+
 Review order: owner-corrected PR111 → PR112 image/reference → PR113 Compose/proxy
 → PR114 native Vercel → PR115 private bundle retirement → PR116 native operator
 → PR117 private gateway/image/CLI retirement → PR118 private backend retirement

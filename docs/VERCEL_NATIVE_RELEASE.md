@@ -37,10 +37,10 @@ Before any future release, the owner must:
    Do not assume Standard Protection protects or exposes every alias; inspect the
    actual scope, retain preview protection, and approve public access separately.
 5. Test HTTPS/CORS, headers, callback/recovery, sessions, ownership/MFA, mobile and
-   loading/error states against the native backend; never mix old/native traffic.
+   loading/error states against the native Azure backend; never mix old/native traffic.
    Budget10/10 is exhausted: hosted signup/email/factor mutations require new approval.
 6. Promote paired reviewed API/frontend artifacts only after all release gates.
    Roll back only to a compatible native/schema4 pair; no legacy credential fallback.
 
 Offline bundle tests prove packaging/configuration properties, not hosted Vercel
-protection, callback settings, mail delivery, A1 performance, CA$0 or production readiness.
+protection, callback settings, mail delivery, Azure cold wakes/billing or production readiness.

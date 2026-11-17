@@ -1,12 +1,13 @@
 # Authentication architecture contract — current native design
 
-Selected preparation: Vercel Hobby + non-paid Oracle A1 + Neon Free + Supabase
-Free + Docker Compose, strictly CA$0 incremental spending, no credits/paid fallback.
-PR91–110 are merged; merged code is not deployment or hosted-feature approval.
-Current deployed/default entries remain legacy Azure/Vercel until approved cutover.
-Explicit native entry/build are `app.native_release` and `build:native`; future
-Oracle/Vercel packaging is in [Oracle runbook](ORACLE_RUNBOOK.md) and
-[Vercel guide](VERCEL_NATIVE_RELEASE.md). Local fixtures remain for engineering.
+Selected preparation: existing Vercel, Azure Container Apps Express/Consumption,
+Neon and Supabase. Azure remains manually stopped. No out-of-pocket charges:
+student-credit use needs separately approved activation after Microsoft confirms
+this subscription's protection. No paid upgrade, Marketplace or new infrastructure.
+PR91–123 are merged; code is not deployment or hosted-feature approval.
+Default selectors remain legacy until approved coordinated cutover. Native Azure
+uses `app.azure_release` → `app.native_release` and `build:native`; see the
+[Azure runbook](AZURE_ACTIVATION_RUNBOOK.md) and [Vercel guide](VERCEL_NATIVE_RELEASE.md).
 Prompts 1–23 are historical foundations; Prompt24/final audit/public activation
 remain on hold. The owner maintains the fixed roadmap/original16-stage audit separately.
 
@@ -71,7 +72,7 @@ Backend policy remains authoritative after frontend callback or SDK success.
 ## Release gates and required evidence
 
 Exact origins/project/key/Neon pins, schema4/grants/backup/restore, native-only
-cutover/rollback, ARM capacity/CA$0, SMTP/abuse, session/MFA/password/email races,
+cutover/rollback, AMD64 capacity/billing protection, SMTP/abuse, session/MFA/password/email races,
 provider outages, removal/deletion and licensing remain [production gates](PRODUCTION_LAUNCH_READINESS.md).
 The existing10/10 hosted mutation budget is exhausted; offline fictional tests do
 not authorize sending emails, enrolling/removing factors or deleting accounts.

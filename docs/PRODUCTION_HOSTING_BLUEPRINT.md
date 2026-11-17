@@ -1,5 +1,9 @@
 # Proposed production hosting blueprint — NOT execution approval
 
+**HISTORICAL Oracle selection, superseded November16,2026.** Current selection is
+existing Azure/Vercel/Neon/Supabase; Azure stays stopped. Follow
+[Azure preparation](AZURE_NATIVE_DEPLOYMENT.md), not the old deployment steps below.
+
 2026-11-15; source baseline `f054300` (merged PR91–110). Read the measured
 [evaluation and source register](ZERO_COST_HOSTING_EVALUATION.md) first. No target,
 account, migration, DNS, credential or deployment is approved by this document.

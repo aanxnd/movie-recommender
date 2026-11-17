@@ -4,11 +4,10 @@ from pathlib import Path
 import stat
 import sys
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from sqlalchemy.engine import make_url
 from app import database
 from app.migrations import check_schema, migrate
-from deploy.oracle.entry import runtime_environment
+from app.native_secrets import runtime_environment
 
 
 def initialize(command, env, secret_root=Path('/run/secrets')):

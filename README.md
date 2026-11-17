@@ -3,11 +3,10 @@
 A portfolio movie recommender using React/Vite/Tailwind, FastAPI, Neon PostgreSQL
 and read-only prepared MovieLens 32M arrays. Recommendation mathematics is unchanged.
 
-**Existing deployment:** Vercel and the Azure legacy API remain unchanged until
-approved cutover. Keep their credential, migration, rotation and rollback safeguards.
-**Selected preparation:** retain Vercel Hobby; move only the native backend to a
-non-paid Oracle A1 VM using Docker Compose, Neon Free and Supabase Free Auth.
-No VM, hosted configuration, migration or production authentication is activated.
+**Selected deployment:** existing Vercel, Azure Container Apps Express/Consumption,
+Neon and Supabase. Azure is manually stopped and must stay stopped until separately
+approved. Oracle is no longer selected. Preserve existing credential, migration,
+rotation and rollback safeguards; no hosted configuration or auth is activated.
 
 The separate native build/entry implement Supabase email/password/confirmation,
 SDK sessions, optional TOTP with an independent backup, clean numeric-profile
@@ -18,11 +17,11 @@ Factor removal/opt-out and coordinated deletion have execution-disabled candidat
 
 Start with the [documentation map](docs/README.md),
 [current authentication contract](docs/AUTH_ARCHITECTURE.md),
-[database/migrations](docs/DATABASE.md), [Oracle preparation](docs/ORACLE_RUNBOOK.md)
+[database/migrations](docs/DATABASE.md), [native Azure preparation](docs/AZURE_NATIVE_DEPLOYMENT.md)
 and [Vercel native packaging](docs/VERCEL_NATIVE_RELEASE.md).
-[Existing Azure deployment/rollback](docs/DEPLOYMENT.md) is retained, not an Oracle
-shortcut. [Production readiness](docs/PRODUCTION_LAUNCH_READINESS.md) is NOT READY:
-exact targets, strict CA$0, mail/provider acceptance, data/rollback and the full
+[Azure activation checklist](docs/AZURE_ACTIVATION_RUNBOOK.md) is review-only;
+the legacy release workflow is paused. [Production readiness](docs/PRODUCTION_LAUNCH_READINESS.md) is NOT READY:
+Microsoft spending-limit confirmation, exact targets, mail/provider acceptance, data/rollback and the full
 NIST assessment/original 16-stage audit remain open. No compliance claim.
 
 Local SQLite/fictional-provider staging and regression fixtures remain supported
