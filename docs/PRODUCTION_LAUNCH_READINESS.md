@@ -1,15 +1,12 @@
 # Production launch readiness — NOT READY / execution not authorized
 
-Current hosting research and measured sizing are in [the zero-cost evaluation](ZERO_COST_HOSTING_EVALUATION.md)
-and [proposed blueprint](PRODUCTION_HOSTING_BLUEPRINT.md). PR91–110 are merged;
-their dormant code does not satisfy deployment, account-operation or financial gates.
-
-Owner-selected preparation now retains Vercel Hobby with Oracle non-paid A1,
-Neon Free, Supabase Free and Compose; downtime/reclamation accepted. Review the
-[Oracle runbook](ORACLE_RUNBOOK.md), [Vercel bundle](VERCEL_NATIVE_RELEASE.md),
-[cleanup inventory](REPOSITORY_CLEANUP.md) and [validation](ORACLE_CLEANUP_VALIDATION.md).
-Local emulation and native public ARM CI do not establish A1 capacity or hosted
-TLS/DB/mail/provider acceptance. Existing Azure release/rollback remains until cutover.
+Owner decision, November16,2026: use existing Vercel, Azure Container Apps
+Express/Consumption, Neon and Supabase. Azure is manually stopped; keep it stopped.
+Current [Azure image/config](AZURE_NATIVE_DEPLOYMENT.md) and
+[activation checklist](AZURE_ACTIVATION_RUNBOOK.md) replace the historical Oracle
+research/blueprint. PR91–123 are merged, including safe cleanup; neither those
+merges nor local/CI evidence establish hosted configuration, billing or acceptance.
+Preserve native Vercel packaging, security regressions and existing rollback history.
 
 Owner direction, November 15, 2026: deliver the complete production Movelle
 experience; local staging is an engineering fixture, not the final owner acceptance
@@ -43,19 +40,16 @@ cannot establish hosted provider settings, mail delivery or mobile independence.
 
 ## Ranked release blockers
 
-**P0 — CA$0 and execution authority.** Owner-reported Azure charges were CA$1.50
-in November despite amount due0/remaining student credits138.35. Those observations
-are not live billing checks and do not establish zero incremental usage. Vercel
-Hobby and Neon Free capacity are shared/limited; branch count/storage alone are
-insufficient. No cloud query, resource or deployment was performed for this plan.
-
-Public ingress, even denied requests, can consume Azure resources. Credits offset
-invoices; they do not eliminate metered consumption. Confirm compute/memory/request,
-logging, network, registry, Neon CU/egress/storage and frontend/function allowances
-with enforceable no-overage behavior. Alerts/min0/max1 are not hard free-spend caps.
-If no production architecture can establish the strict CA$0 boundary, release stays
-blocked. Investigating a hard-free alternative needs a reviewed design; no resource
-may be created and the request for production is not permission to spend credits.
+**P0 — Billing protection and execution authority.** Owner reports aboutCA$138
+student credit, expiring October4,2027; Microsoft support confirmation remains open.
+No out-of-pocket charges is the governing requirement. No new credit-consuming
+cloud operation occurs during preparation; any future use requires explicit owner
+approval after this exact subscription's spending-limit protection is confirmed.
+Credit balances/amount-due0 are not protection evidence. Min0/max1/concurrency10,
+budget alerts and lower logs reduce consumption; none is a hard spending cap.
+Include Log Analytics, network and Marketplace exceptions; no upgrade/remove-limit
+or new paid infrastructure. Azure remains stopped while this gate is unresolved.
+Vercel/Neon/Supabase eligibility, allowances and public abuse controls remain gates.
 
 **P0 - Review and accept the native release composition.** The separate
 [backend](NATIVE_RELEASE.md) and [frontend](NATIVE_FRONTEND.md) now compose the
@@ -139,6 +133,6 @@ Complete the full NIST SP800-63B-4 controls/evidence/gaps assessment and origina
    targets, then public rollout only if authorized. Owner feedback should concern
    functional/visual defects, not unfinished security controls or missing features.
 
-**Single next owner action:** resolve the strict CA$0 production-hosting gate with
-a verifiable no-overage plan. Without that evidence there is no deployment approval
-to request or execute, regardless of available student credit or cosmetic test passes.
+**Single next owner action:** obtain Microsoft's exact-subscription billing-protection
+answer and review the native Azure PRs. This is not permission to restart, deploy,
+change settings or spend credits; subsequent activation needs explicit approval.
