@@ -18,7 +18,7 @@ Settings do not implement destructive deletion or bypass restricted MFA actions.
 
 Offline SDK/transport and artifact checks are not hosted acceptance. Before any
 release approve exact frontend/API origins, root `frontend_origin + '/'` in
-Supabase redirects, CA$0 hosting, schema-4 migration and the separate native backend
+Supabase redirects, confirmed Azure billing protection, schema-4 migration and the separate native backend
 command. Promote `dist-native` only through a separately reviewed release; do not
 replace Vercel's normal build or use the private preview gate as public auth.
 Revert only to a reviewed native/schema-compatible artifact. Existing hosted budget
