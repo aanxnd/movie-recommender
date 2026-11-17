@@ -3,7 +3,7 @@ from sqlalchemy.engine import make_url
 
 from app import database
 from app.migrations import check_schema
-from deploy.oracle import manage
+from app import native_schema as manage
 from test_oracle_image import secrets
 
 
