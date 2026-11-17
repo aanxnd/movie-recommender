@@ -1,5 +1,9 @@
 # Zero-cost hosting evaluation — decision proposed, deployment NOT approved
 
+**Historical November15 research, superseded by the November16 Azure decision.**
+Preserved sources/sizing are evidence, not current hosting instructions. See
+[Azure activation gates](AZURE_ACTIVATION_RUNBOOK.md); billing confirmation is pending.
+
 Verified 2026-11-15 (America/Toronto), against official public documentation and
 main `f0543000058c9d195c2eb030763f287bcb7ee319` (PR91–110 merged). No infrastructure
 provisioning, production credential access, hosted mutations, deployment or student-credit usage occurred.
