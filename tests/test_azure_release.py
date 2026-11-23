@@ -47,3 +47,21 @@ def test_release_image_carries_only_runtime_and_verified_immutable_reference():
     assert 'RUN python -m app.reference' in raw and 'curl' not in raw
     assert 'migrate' not in raw and 'app.runtime' not in raw
     assert Path('deploy/azure/Dockerfile.dockerignore').read_text().startswith('**\n')
+
+
+def test_native_ca_regression_runs_in_the_image_with_positive_and_missing_stores():
+    image = Path('deploy/azure/Dockerfile').read_text()
+    ci = Path('.github/workflows/tests.yml').read_text()
+    assert 'SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt' in image
+    assert "Path('scripts/check_native_ca.py').read_text()" in ci
+    assert 'SSL_CERT_FILE=/missing-ca-bundle' in ci and 'SSL_CERT_DIR=/missing-ca-directory' in ci
+    assert 'Native CA trust check refused' in ci
+
+
+@pytest.mark.parametrize('old,new', [('sslmode=verify-full', 'sslmode=require'),
+    ('sslrootcert=system', 'sslrootcert=/arbitrary-ca'), ('channel_binding=require', 'channel_binding=prefer')])
+def test_ca_path_fix_does_not_relax_neon_tls(old, new):
+    env, targets = config()
+    env['MOVELLE_NATIVE_DATABASE_URL'] = env['MOVELLE_NATIVE_DATABASE_URL'].replace(old, new)
+    with pytest.raises(ValueError, match='Approved native'):
+        native_release.settings(env, targets)

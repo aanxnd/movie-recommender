@@ -86,8 +86,20 @@ jobs:
           docker build --platform linux/amd64 --target runtime -f deploy/azure/Dockerfile -t movelle-azure:ci .
           python - <<'PY'
           import json, subprocess
+          from pathlib import Path
           meta = json.loads(subprocess.check_output(['docker', 'image', 'inspect', 'movelle-azure:ci']))[0]
           assert meta['Architecture'] == 'amd64' and meta['Config']['User'] == '10001:10001'
+          probe = Path('scripts/check_native_ca.py').read_text()
+          command = ['docker', 'run', '--rm', '-i', '--network', 'none', '--read-only',
+              '--cap-drop=ALL', '--security-opt=no-new-privileges', '--entrypoint', 'python']
+          valid = subprocess.run(command + ['movelle-azure:ci', '-'], input=probe,
+              capture_output=True, text=True, timeout=30)
+          assert valid.returncode == 0, 'Native image CA trust is unavailable'
+          missing = subprocess.run(command + ['-e', 'SSL_CERT_FILE=/missing-ca-bundle',
+              '-e', 'SSL_CERT_DIR=/missing-ca-directory', 'movelle-azure:ci', '-'],
+              input=probe, capture_output=True, text=True, timeout=30)
+          assert missing.returncode != 0 and missing.stderr.strip() == 'Native CA trust check refused'
+          print('Native bundled-libpq CA regression passed, including missing-store rejection')
           result = subprocess.run(['docker', 'run', '--rm', '--network', 'none', '--read-only',
               '--cap-drop=ALL', '--security-opt=no-new-privileges', 'movelle-azure:ci'],
               capture_output=True, text=True, timeout=30)

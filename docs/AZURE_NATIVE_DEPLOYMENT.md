@@ -14,6 +14,18 @@ dependencies plus the exact verified32M reference. UID10001 runs
 `python -m app.azure_release` → `app.native_release`; no legacy routes, downloads,
 startup migrations, Auth admin key, background worker or extra server is added.
 
+The image explicitly sets `SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt`.
+The pinned image already contains this system CA bundle. Psycopg-binary 3.3.6
+uses separate bundled OpenSSL whose compiled default CA paths do not exist in
+the image; Python's working `ssl` trust store alone does not establish libpq trust.
+This selects the existing roots without changing `sslrootcert=system`,
+`sslmode=verify-full` or `channel_binding=require`. See the supported
+[libpq system-store overrides](https://www.postgresql.org/docs/18/libpq-connect.html#LIBPQ-CONNECT-SSLROOTCERT).
+CI checks both TLS libraries offline in the image and rejects missing CA stores.
+The read-only preflight still precedes Azure login; retry requires reviewed code,
+a new corrected immutable image and the existing production approvals. Do not
+rerun the old deployment against its unchanged failing digest or loosen TLS.
+
 Future operator build (LOCAL ONLY; no push/deploy authorization):
 `docker buildx build --platform linux/amd64 --build-context reference=EXISTING_PREPARED_DIRECTORY --load -f deploy/azure/Dockerfile -t movelle-azure:review .`
 The named reference context must contain only the checksum-bound32M inventory.
