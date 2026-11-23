@@ -44,7 +44,8 @@ def test_only_native_template_and_merged_secrets_change(inputs):
     template=patch['properties']['template'];c=template['containers'][0]
     assert c['name']=='movie-recommender-api' and c['image']==image and 'command' not in c
     assert template['scale']['maxReplicas']==1 and template['scale']['cooldownPeriod']==300
-    assert c['resources']=={'cpu':1,'memory':'2Gi','ephemeralStorage':'4Gi'}
+    assert c['resources']=={'cpu':1,'memory':'2Gi'}
+    assert current['properties']['template']['containers'][0]['resources']['ephemeralStorage']=='4Gi'
     assert patch['properties']['configuration']['secrets'][:len(secrets)]==secrets
     assert all('secretRef' in row for row in c['env'] if row['name'] in {'MOVELLE_NATIVE_DATABASE_URL','MOVELLE_NATIVE_PUBLISHABLE_KEY'})
     assert 'Fictional-only' not in json.dumps(template) and 'Fictional-old-only' not in json.dumps(template)

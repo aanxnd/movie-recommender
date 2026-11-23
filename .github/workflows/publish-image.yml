@@ -166,7 +166,7 @@ jobs:
                       args = ['az','rest','--method',method,'--url',url,'--only-show-errors','--output','json']
                       if body is not None:
                           path = Path(directory) / 'request.json'
-                          with path.open('w',opener=lambda p,f: os.open(p,f,0o600)) as out: json.dump(body,out)
+                          with open(path,'w',encoding='utf-8',opener=lambda p,f: os.open(p,f,0o600)) as out: json.dump(body,out)
                           args += ['--body','@'+str(path)]
                       result = subprocess.run(args,capture_output=True,text=True)
                       if result.returncode: raise RuntimeError('Azure request failed')
