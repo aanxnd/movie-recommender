@@ -27,6 +27,19 @@ performed; the workflow must not be retried automatically. See Microsoft's
 Safe phase labels now distinguish resource reads, secret reads and local validation;
 the generic hosted error alone cannot establish the original caller's API permissions.
 
+The next failure, in run45146368745's PATCH phase, reproduced offline as
+`TypeError: Path.open() got an unexpected keyword argument 'opener'`. It occurred
+while preparing the request file, before the Azure CLI PATCH subprocess could run;
+there is no HTTP status or Azure error code for that local exception. Built-in
+`open(path, ..., opener=...)` creates the same private 0600 file correctly. Offline
+tests execute the actual workflow helper with the subprocess mocked, including
+file permissions on Linux, JSON escaping, bodyless reads and non-retried CLI errors.
+Separately, `resources.ephemeralStorage` is read-only in the
+[2025-07-01 schema](https://github.com/Azure/azure-rest-api-specs/blob/main/specification/app/resource-manager/Microsoft.App/ContainerApps/stable/2025-07-01/CommonDefinitions.json).
+Omit it from the write payload without changing CPU/RAM or existing platform-managed
+storage. This schema hygiene issue is not evidence of the original rejection.
+Neither correction authorizes a live PATCH, restart or fourth release.
+
 All Oracle PR111–123 are merged. They added ARM/Compose/TLS preparation and
 retired only an undeployed private Azure proposal. The actual Azure workflow,
 legacy image, OIDC, migration/rollback tools were never deleted. Do not restore

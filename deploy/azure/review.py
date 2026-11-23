@@ -77,6 +77,8 @@ def prepare_native_update(current, existing_secrets, image, env):
     require(len(t['containers']) == 1 and not t.get('initContainers') and not t.get('volumes'))
     container = t['containers'][0]
     require(not container.get('volumeMounts') and container['resources']['cpu'] == 1 and container['resources']['memory'] == '2Gi')
+    # Reported by GET but readOnly in the PATCH schema; storage stays platform-managed.
+    container['resources'].pop('ephemeralStorage', None)
     scale = t['scale']; rules = scale['rules']
     require(scale['minReplicas'] == 0 and scale['maxReplicas'] in {1,3} and len(rules) == 1)
     require(rules[0]['name'] == 'http-scaler' and rules[0]['http']['metadata'] == {'concurrentRequests':'10'})
