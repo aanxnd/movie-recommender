@@ -5,6 +5,7 @@ import { Palette } from 'lucide-react'
 import ThemeDialog from './components/ThemeDialog.jsx'
 import { useTheme } from './use-theme.js'
 import './account-screens.css'
+import { EmailCodeScreen } from './email-code-screen.jsx'
 
 export function AuthFrame({ title, description, children }) {
   const { theme, saved, changeTheme } = useTheme(), [themeOpen, setThemeOpen] = useState(false)
@@ -50,6 +51,7 @@ const errors = {
 
 function CredentialScreen({ signup, actions, onSwitch }) {
   const auth = useAuth(), id = useId(), form = useRef(null), ticket = useRef(0), active = useRef(false)
+  const pendingEmail = useRef('')
   const [busy, setBusy] = useState(false), [status, setStatus] = useState(null)
   useEffect(() => {
     ticket.current++; active.current = false; setBusy(false); setStatus(null); form.current?.reset()
@@ -60,6 +62,7 @@ function CredentialScreen({ signup, actions, onSwitch }) {
     event.preventDefault()
     if (active.current || disabled || !form.current.reportValidity()) return
     const fields = new FormData(form.current), email = fields.get('email'), password = fields.get('password')
+    if (signup) pendingEmail.current = email
     if (signup && password !== fields.get('confirmation')) { setStatus('mismatch'); return }
     active.current = true; const current = ++ticket.current; setBusy(true); setStatus(null)
     // Uncontrolled fields only; passwords are never retained in React state.
@@ -71,11 +74,11 @@ function CredentialScreen({ signup, actions, onSwitch }) {
     } catch { if (ticket.current === current) setStatus('unavailable') }
     finally { if (ticket.current === current) { active.current = false; setBusy(false) } }
   }
+  if (signup && status === 'check-email') return <EmailCodeScreen actions={actions} initialEmail={pendingEmail.current} />
   return <AuthFrame title={signup ? 'Make yourself at home.' : 'Welcome back.'}
     description={signup ? 'A place for your ratings, discoveries and films worth sharing.' : undefined}>
     {auth.status === 'authenticated' || status === 'signed-in' ?
       <AuthNotice>Signed in on this device. Your profile and account access are checked separately.</AuthNotice> :
-      status === 'check-email' ? <AuthNotice>Check your email. If signup can proceed, you will receive a confirmation link. Already have an account? Sign in instead.</AuthNotice> :
       <form ref={form} onSubmit={submit} aria-busy={busy}>
         <div className="auth-field"><label htmlFor={id}>Email address</label>
           <input id={id} name="email" type="email" autoComplete="username" required disabled={disabled} /></div>

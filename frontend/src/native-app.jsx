@@ -9,6 +9,7 @@ import { MfaRecoveryScreen } from './mfa-recovery-screen.jsx'
 import { StagingMovies } from './staging-movies.jsx'
 import { useTheme } from './use-theme.js'
 import { AccountRemovalScreen, FactorRemovalScreen } from './removal-screens.jsx'
+import { EmailCodeScreen } from './email-code-screen.jsx'
 
 export function NativeApp({ runtime }) {
   useTheme()
@@ -29,6 +30,7 @@ function Workspace({ runtime }) {
   const screens = {
     movies: <StagingMovies api={runtime.movies} onProfile={() => go(signedIn ? 'profile' : 'login')} />,
     signup: <SignupScreen actions={runtime.actions} onSwitch={() => go('login')} />,
+    email: <EmailCodeScreen actions={runtime.actions} />,
     login: <LoginScreen actions={runtime.actions} onSwitch={() => go('signup')} />,
     profile: <ProfileSetupScreen service={runtime.profile} />,
     settings: <AccountSettingsScreen account={runtime.account} emailSettings={runtime.email} />,
@@ -49,7 +51,7 @@ function Workspace({ runtime }) {
   const links = signedIn ? { profile: 'Profile setup', settings: 'Settings', password: 'Change password',
     authenticators: 'Authenticators', challenge: 'Verify authenticator', lost: 'Lost device',
     removal: 'Review authenticator removal', deletion: 'Review deletion' } :
-    { signup: 'Sign up', login: 'Sign in', forgot: 'Forgot password', challenge: 'Verify authenticator', lost: 'Lost device' }
+    { signup: 'Sign up', email: 'Verify email', login: 'Sign in', forgot: 'Forgot password', challenge: 'Verify authenticator', lost: 'Lost device' }
   return <><header className="native-header"><a href="/" onClick={event => { event.preventDefault(); go('movies') }}>Movelle</a>
     <nav aria-label="Account navigation"><button onClick={() => go('movies')}>Movies</button>
       {Object.entries(links).map(([key, label]) => <button key={key} aria-current={screen === key ? 'page' : undefined}

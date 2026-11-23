@@ -69,16 +69,17 @@ for (const width of [1440, 390]) test('real movie/profile/rating roundtrip and r
   await expect(page.getByText('Your authorized profile: MovieFan')).toHaveCount(0)
 })
 
-test('native signup callback, optional profile, first TOTP and authenticated movies', async ({ page, request }) => {
+test('native signup email code, optional profile, first TOTP and authenticated movies', async ({ page, request }) => {
   await nav(page, 'Sign up')
   await page.getByLabel('Email address').fill('new@example.invalid')
   await page.getByLabel('Password', { exact: true }).fill('fixture-password')
   await page.getByLabel('Confirm password', { exact: true }).fill('fixture-password')
   await page.locator('form').getByRole('button', { name: 'Create account' }).click()
   await expect(page.getByRole('status').filter({ hasText: 'If signup can proceed' })).toBeVisible()
-  const link = await (await request.get(provider+'/_fixture/link?flow=email/signup')).json()
-  await page.goto('/?code='+link.code)
-  await expect(page.locator('body')).toContainText('does not establish signup confirmation')
+  await expect(page.getByLabel('Six-digit email code')).toBeVisible()
+  await page.getByLabel('Six-digit email code').fill('123456')
+  await page.locator('form').getByRole('button', { name: 'Verify email', exact: true }).click()
+  await expect(page.locator('.staging-bar')).toContainText('Session: authenticated')
   await expect(page).toHaveURL('http://127.0.0.1:5173/')
   await provision(page, 'FirstFactorFan')
   await nav(page, 'Authenticators'); await expect(page.locator('body')).toContainText('No authenticator is enrolled')

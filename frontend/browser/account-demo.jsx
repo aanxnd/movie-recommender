@@ -3,6 +3,7 @@ import React from 'react'
 import { createRoot } from 'react-dom/client'
 import { AuthProvider } from '../src/auth-context.js'
 import { SignupScreen, LoginScreen, VerificationScreen } from '../src/account-screens.jsx'
+import { EmailCodeScreen } from '../src/email-code-screen.jsx'
 import { ProfileSetupScreen } from '../src/profile-setup.jsx'
 import { AccountSettingsScreen } from '../src/account-settings.jsx'
 import { EmailChangeCallbackScreen } from '../src/email-settings-screen.jsx'
@@ -18,9 +19,10 @@ const screen = new URLSearchParams(location.search).get('screen')
 const state = Object.freeze({ status: screen?.startsWith('mfa') || screen?.endsWith('-review') || ['profile', 'new-password', 'change-password', 'reauth', 'settings', 'settings-pending', 'email-callback'].includes(screen) ? 'authenticated' : 'unauthenticated', userId: null, generation: 0 })
 const session = { getSnapshot: () => state, subscribe: () => () => {}, logout: async () => {}, refresh: async () => {} }
 const actions = Object.freeze({ signUp: async () => ({ status: 'check-email' }),
+  verifyEmail: async () => ({ status: 'expired' }), resendConfirmation: async () => ({ status: 'check-email' }),
   signIn: async () => ({ status: 'invalid' }), confirm: async () => ({ status: 'unproven' }) })
 const previews = { 'deletion-review': AccountRemovalScreen, 'factor-review': FactorRemovalScreen, profile: ProfileSetupScreen, login: LoginScreen, verification: VerificationScreen,
-  forgot: ForgotPasswordScreen, recovery: RecoveryCallbackScreen, 'new-password': NewPasswordScreen,
+  'email-code': EmailCodeScreen, forgot: ForgotPasswordScreen, recovery: RecoveryCallbackScreen, 'new-password': NewPasswordScreen,
   'change-password': ChangePasswordScreen, reauth: SensitiveReauthenticationScreen, settings: AccountSettingsScreen,
   'settings-pending': AccountSettingsScreen, 'email-callback': EmailChangeCallbackScreen,
   mfa: MfaScreen, 'mfa-login': MfaLoginScreen, 'mfa-unknown': MfaScreen, 'mfa-error': MfaLoginScreen }

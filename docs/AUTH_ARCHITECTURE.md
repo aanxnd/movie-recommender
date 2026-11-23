@@ -68,6 +68,9 @@ See [policy evidence](AUTH_POLICY_EVIDENCE.md), [configuration/hosted facts](AUT
 Native callback/session/password/email/TOTP modules keep SDK fencing, URL scrubbing,
 fixed redirects and provider-supported challenge/recovery; no stale assurance bypass.
 Backend policy remains authoritative after frontend callback or SDK success.
+Signup now uses explicit [six-digit email codes](EMAIL_CODE_CONFIRMATION.md), not
+consumable email links; coordinated frontend/template rollout and hosted acceptance
+remain required. Recovery/email-change callbacks and verified-factor AAL2 stay separate.
 
 ## Release gates and required evidence
 

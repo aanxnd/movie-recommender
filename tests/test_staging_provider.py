@@ -9,6 +9,19 @@ from fastapi.testclient import TestClient
 from staging_provider import ProviderFixture
 
 
+def test_email_code_is_explicit_single_use_and_scanner_gets_cannot_confirm():
+    p = ProviderFixture()
+    with TestClient(p.app) as client:
+        user = client.post('/auth/v1/signup', json={'email': 'code@example.invalid', 'password': 'fixture'}).json()
+        for agent in ['GoogleImageProxy', 'Microsoft Office/16.0 SafeLinks']:
+            assert client.get('/auth/v1/verify?token=123456&type=email', headers={'User-Agent': agent}).status_code == 403
+            assert p.users[user['id']]['email_confirmed_at'] is None
+        body = {'email': 'code@example.invalid', 'token': '123456', 'type': 'email'}
+        assert client.post('/auth/v1/verify', json={**body, 'email': 'other@example.invalid'}).status_code == 403
+        assert client.post('/auth/v1/verify', json=body).json()['user']['email_confirmed_at']
+        assert client.post('/auth/v1/verify', json=body).status_code == 403
+
+
 def test_fictional_provider_enforces_its_pkce_binding_and_single_use():
     p = ProviderFixture(); verifier = 'fixture-code-verifier'
     challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).decode().rstrip('=')

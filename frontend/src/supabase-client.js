@@ -94,7 +94,7 @@ export function getBrowserSupabaseClient({
               !target.pathname.startsWith('/auth/v1/')) throw unavailable()
           const mfa = /^\/auth\/v1\/factors(?:\/[0-9a-f-]+(?:\/(?:challenge|verify))?)?$/i.test(target.pathname)
           if ((mfa && ['POST', 'DELETE'].includes(init?.method)) ||
-              ['/auth/v1/signup', '/auth/v1/recover', '/auth/v1/reauthenticate'].includes(target.pathname) ||
+              ['/auth/v1/signup', '/auth/v1/recover', '/auth/v1/reauthenticate', '/auth/v1/verify', '/auth/v1/resend'].includes(target.pathname) ||
               (target.pathname === '/auth/v1/user' && init?.method === 'PUT') || (target.pathname === '/auth/v1/token' &&
               ['password', 'pkce'].includes(target.searchParams.get('grant_type')))) {
             assertCredentialCurrent(record)
@@ -108,6 +108,12 @@ export function getBrowserSupabaseClient({
           const body = await bounded(response.arrayBuffer(), signal)
           if (signal.aborted) throw unavailable()
           assertCredentialCurrent(record)
+          if (response.ok && record.action?.email && target.pathname === '/auth/v1/verify') {
+            const payload = JSON.parse(new TextDecoder().decode(body)), user = payload.user
+            const confirmed = typeof user?.email_confirmed_at === 'string' ? Date.parse(user.email_confirmed_at) : NaN
+            if (typeof user?.email !== 'string' || user.email.toLowerCase() !== record.action.email ||
+                !Number.isFinite(confirmed) || confirmed > Date.now() || !payload.access_token) throw unavailable()
+          }
           if (response.ok && record.action?.subject && (target.pathname.endsWith('/token') ||
               target.pathname.endsWith('/user') || target.pathname.endsWith('/verify'))) {
             const payload = JSON.parse(new TextDecoder().decode(body))

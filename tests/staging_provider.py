@@ -32,6 +32,7 @@ class ProviderFixture:
     def reset(self):
         self.users, self.passwords, self.refreshes, self.links, self.challenges = {}, {}, {}, {}, {}
         self.events, self.outage = [], False
+        self.email_codes = {}  # Synthetic codes only; no hosted messages.
         # Freeze only this simulator's OTP vector, so a browser roundtrip cannot
         # fail at a wall-clock step boundary. JWT/challenge expiry still use real
         # time. This establishes no hosted Supabase OTP-window tolerance guarantee.
@@ -86,7 +87,19 @@ class ProviderFixture:
                 identifier = next((i for i, u in self.users.items() if u['email'] == body.get('email')), None)
                 if identifier is None and path == 'signup': identifier = self.add_user(body['email'], body['password'])
                 if identifier: self.link(identifier, 'email/signup' if path == 'signup' else 'recovery', body)
+                if identifier and path == 'signup': self.email_codes[body['email']] = ('123456', time.time()+60)
                 return self.users[identifier] if path == 'signup' and identifier else {}
+            if path == 'resend':
+                if body.get('email') in self.email_codes: self.email_codes[body['email']] = ('123456', time.time()+60)
+                return {}
+            if path == 'verify':
+                expected = self.email_codes.get(body.get('email'))
+                if request.method != 'POST' or body.get('type') != 'email' or not expected or expected[0] != body.get('token') or expected[1] <= time.time():
+                    return self.error('otp_expired', 403)
+                self.email_codes.pop(body['email'])
+                uid = next(i for i, u in self.users.items() if u['email'] == body['email'])
+                self.users[uid]['email_confirmed_at'] = '2026-01-01T00:00:00Z'
+                return self.token(uid, method='otp')
             if path == 'token':
                 grant = request.query_params.get('grant_type')
                 if grant == 'pkce':

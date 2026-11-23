@@ -1,5 +1,9 @@
 # Prompt 12: dormant native signup confirmation
 
+**Superseded signup UX:** use [email code confirmation](EMAIL_CODE_CONFIRMATION.md).
+The PKCE notes below retain callback compatibility/history, particularly for recovery;
+do not apply their link-template instructions to the new signup-code rollout.
+
 `frontend/src/signup-confirmation.js` is a headless helper, not a route or session
 provider. The current SPA uses in-memory tabs and serves `/`; production startup
 does not import the helper. No public signup, backend cutover or provisioning is
