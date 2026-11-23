@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 import re
 import sys
+from copy import deepcopy
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from sqlalchemy import URL
@@ -53,6 +54,60 @@ def validate(document):
         require(p['httpGet'] == {'path': '/health', 'port': 8000})
         require(10 <= p['periodSeconds'] <= 60 and p['timeoutSeconds'] == 2)
         require(p['failureThreshold'] == (30 if p['type'] == 'Startup' else 3))
+
+
+def prepare_native_update(current, existing_secrets, image, env):
+    """Pure preparation only. Caller must obtain final approval before PATCH/start."""
+    resource = ('/subscriptions/b118c1af-4183-49d6-bb49-1b531355fa3f/resourceGroups/'
+                'movie-recommender-rg/providers/Microsoft.App/containerApps/movie-recommender-api')
+    require(current['id'].lower() == resource.lower() and current['location'].lower() == 'canadacentral')
+    p = current['properties']; c = p['configuration']; t = deepcopy(p['template'])
+    expected_environment = resource.rsplit('/containerApps/',1)[0] + '/managedEnvironments/managedEnvironment-movierecommende-9747'
+    require((p.get('environmentId') or p.get('managedEnvironmentId','')).lower() == expected_environment.lower())
+    require(p['runningStatus'] == 'Stopped' and p['provisioningState'] == 'Succeeded')
+    require(c['activeRevisionsMode'] == 'Single' and c['ingress']['fqdn'] == API.removeprefix('https://'))
+    require(c['ingress']['external'] is True and c['ingress']['allowInsecure'] is False and c['ingress']['targetPort'] == 8000)
+    require(len(t['containers']) == 1 and not t.get('initContainers') and not t.get('volumes'))
+    container = t['containers'][0]
+    require(not container.get('volumeMounts') and container['resources']['cpu'] == 1 and container['resources']['memory'] == '2Gi')
+    scale = t['scale']; rules = scale['rules']
+    require(scale['minReplicas'] == 0 and scale['maxReplicas'] in {1,3} and len(rules) == 1)
+    require(rules[0]['name'] == 'http-scaler' and rules[0]['http']['metadata'] == {'concurrentRequests':'10'})
+    require(set(rules[0]) <= {'name','http'} and not rules[0]['http'].get('auth'))
+    raw = env['MOVELLE_NATIVE_TARGETS_JSON']; require(len(raw) <= 8192)
+    targets = json.loads(raw,object_pairs_hook=_unique_object)
+    require(targets['api_origin'] == API and targets['supabase_url'] == 'https://jsbulnrcxtvslvvxjizq.supabase.co')
+    require(targets['database_host'] == 'ep-falling-pine-b45yu0ao.c-6.us-east-2.aws.neon.tech' and targets['database_name'] == 'neondb')
+    values = {'APP_ENV':'production','PORT':'8000','MOVELLE_NATIVE_MODE':'native-release',
+              'MOVELLE_NATIVE_PREPARED_DIR':'/backend/data/reference/ml-32m-v1',
+              'MOVELLE_NATIVE_TARGETS_JSON':raw,'CORS_ALLOWED_ORIGINS':env['CORS_ALLOWED_ORIGINS']}
+    settings(dict(values,MOVELLE_NATIVE_DATABASE_URL=env['MOVELLE_NATIVE_DATABASE_URL'],
+                  MOVELLE_NATIVE_PUBLISHABLE_KEY=env['MOVELLE_NATIVE_PUBLISHABLE_KEY']),targets)
+    container['image'] = image
+    for key in ['command','args']: container.pop(key,None)
+    t.pop('revisionSuffix',None)
+    container['env'] = [dict(name=k,value=v) for k,v in values.items()] + [
+        {'name':'MOVELLE_NATIVE_DATABASE_URL','secretRef':'movelle-native-database'},
+        {'name':'MOVELLE_NATIVE_PUBLISHABLE_KEY','secretRef':'movelle-native-publishable-key'}]
+    container['probes'] = [{'type':kind,'httpGet':{'path':'/health','port':8000},'periodSeconds':period,
+                           'timeoutSeconds':2,'failureThreshold':failures} for kind,period,failures in [
+                               ('Startup',10,30),('Liveness',60,3),('Readiness',30,3)]]
+    scale['maxReplicas'] = 1
+    # Existing validator checks the exact approved fields; unchanged platform defaults survive.
+    selected = deepcopy(t)
+    selected['scale'] = {k:scale[k] for k in ['minReplicas','maxReplicas','rules']}
+    selected['containers'][0]['resources'] = {'cpu':1,'memory':'2Gi'}
+    validate({'name':current['name'],'location':current['location'],'properties':{'configuration':c,'template':selected}})
+    names = [s['name'] for s in existing_secrets]
+    require(len(set(names)) == len(names) and set(names) == {s['name'] for s in c.get('secrets',[])})
+    for secret in existing_secrets:
+        require(set(secret) <= {'name','value','identity','keyVaultUrl'} and (secret.get('value') or secret.get('keyVaultUrl')))
+    merged = {s['name']:deepcopy(s) for s in existing_secrets}
+    for name,value in [('movelle-native-database',env['MOVELLE_NATIVE_DATABASE_URL']),
+                       ('movelle-native-publishable-key',env['MOVELLE_NATIVE_PUBLISHABLE_KEY'])]:
+        merged[name] = {'name':name,'value':value}
+    # JSON Merge Patch changes only the native template and merged secret list.
+    return {'location':current['location'],'properties':{'configuration':{'secrets':list(merged.values())},'template':t}}
 
 
 if __name__ == '__main__':

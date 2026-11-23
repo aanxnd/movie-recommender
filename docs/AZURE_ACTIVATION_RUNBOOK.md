@@ -1,7 +1,8 @@
-# Azure activation checklist — NOT APPROVED FOR EXECUTION
+# Azure controlled activation checklist
 
-The app `movie-recommender-api` must remain **manually stopped**. This document
-does not authorize any cloud command, restart, secret update, migration or promotion.
+The app `movie-recommender-api` stays **manually stopped** until the release PR is
+merged by the owner and the protected production jobs are approved. The November 23
+owner approval covers controlled research testing only; public promotion is excluded.
 Read [image/config contract](AZURE_NATIVE_DEPLOYMENT.md) first.
 
 ## Current audit and intended shape
@@ -56,13 +57,17 @@ role, exact matching host/database/verified TLS and rejects reset/legacy claimin
 This reuses the reviewed native operator, not the paused legacy migration workflow.
 The prepared workflow now selects the AMD64 Azure Dockerfile/reference context,
 checks its published digest and runs read-only `app.native_preflight` before Azure
-login/update. It performs no automatic DDL. Both publish/deploy remain `if:false`:
-removing those holds requires a separately reviewed, explicitly approved change.
+login/update. It performs no automatic DDL. Publish/deploy require main, the
+default-false `confirm_native_activation` manual input, passing CI and existing
+protected production reviews. Never dispatch before the owner merges this release
+PR and the exact provider configuration is ready.
 Existing protected `production` environment/review/OIDC/stale-SHA safeguards remain.
 Future protected GitHub secrets are `NATIVE_RUNTIME_DATABASE_URL` and
 `NATIVE_PUBLISHABLE_KEY`; variables are matching `MOVELLE_NATIVE_TARGETS_JSON` and
 `CORS_ALLOWED_ORIGINS`. Configure privately only after approval; no actual values
-exist in these changes. Registry publication also requires GroupLens owner approval.
+exist in these changes. Retain the full 32M license/citation and noncommercial/no-endorsement notices.
+The dataset-specific terms permit the approved research redistribution without
+an additional GroupLens email. Other/commercial scopes require separate review.
 
 No PG overrides, proxy trust, legacy DB fallback, deletion worker or extra process.
 The backend FQDN in the worksheet validator comes from existing Vercel configuration;
@@ -98,8 +103,9 @@ token destinations. Confirm frontend origin separately; no guessed Vercel domain
    writes/provisioning must not be blindly replayed.
 7. Under a newly approved hosted mutation budget, verify native signup→confirmation
    →profile→optional TOTP/AAL2→ratings/recommendations/groups, wrong-account denials,
-   logout/account switching, password callbacks and failure states. Existing10/10
-   Auth email/factor reservations are exhausted. Removal/deletion remain gated.
+   logout/account switching, password callbacks and failure states. The newly approved budget is
+   1 new account/profile, 1 TOTP factor, 3 ratings and at most 4 authentication
+   emails. Removal/deletion remain gated.
 8. Verify idle replicas reach0, then actual HTTP wakes the app; repeated safe GET
    after scale-up succeeds, stale Neon connections recover and no data is lost.
    Do not confuse manually stopped with automatically scaled-to-zero.

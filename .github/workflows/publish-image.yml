@@ -1,7 +1,13 @@
-name: Controlled native Azure release (paused)
+name: Controlled native Azure release
 
 on:
   workflow_dispatch:
+    inputs:
+      confirm_native_activation:
+        description: Final owner-approved controlled activation; production reviews still required
+        type: boolean
+        required: true
+        default: false
 
 permissions:
   contents: read
@@ -18,7 +24,7 @@ jobs:
 
   publish:
     # Owner-directed Azure re-preparation: never publish/deploy the legacy image.
-    if: ${{ false }}
+    if: ${{ github.ref == 'refs/heads/main' && inputs.confirm_native_activation == true }}
     needs: verify
     environment: production
     runs-on: ubuntu-latest
@@ -62,6 +68,13 @@ jobs:
           tags: ghcr.io/aanxnd/movie-recommender:${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
           provenance: true
           sbom: true
+          labels: |
+            org.opencontainers.image.description=Movelle noncommercial educational/research testing image. MovieLens32M terms and citation are retained in /backend/data/reference/ml-32m-v1/README.txt. Neither the University of Minnesota nor the GroupLens Research Group endorses Movelle. No monetization, advertising, subscriptions, commercial data use or commercial redistribution are authorized for this deployment.
+            io.movelle.movielens.license=LicenseRef-MovieLens-32M
+            io.movelle.movielens.terms=/backend/data/reference/ml-32m-v1/README.txt
+            io.movelle.movielens.citation=https://doi.org/10.1145/2827872
+            io.movelle.no-endorsement=Neither the University of Minnesota nor the GroupLens Research Group endorses Movelle.
+            io.movelle.usage.scope=Noncommercial educational/research testing only; no monetization, advertising, subscriptions, commercial data use or commercial redistribution are authorized.
       - name: Verify exact published image
         env:
           IMAGE: ghcr.io/aanxnd/movie-recommender@${{ steps.image.outputs.digest }}
@@ -78,7 +91,7 @@ jobs:
           PY
 
   deploy:
-    if: ${{ false }}
+    if: ${{ github.ref == 'refs/heads/main' && inputs.confirm_native_activation == true }}
     needs: publish
     runs-on: ubuntu-latest
     environment: production
@@ -124,9 +137,76 @@ jobs:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      - name: Deploy tested immutable image
-        uses: azure/container-apps-deploy-action@8dff69dac3367c32ceb2690d8f13adbeab462703 # v2
+      # Explicit manual confirmation and protected production reviews are required.
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
-          containerAppName: movie-recommender-api
-          resourceGroup: movie-recommender-rg
-          imageToDeploy: ${{ env.IMAGE }}
+          python-version: '3.14'
+      - run: |
+          python -m pip install --require-hashes --only-binary=:all: -r requirements.txt
+      - name: Deploy tested immutable image - approved native configuration and start
+        env:
+          MOVELLE_NATIVE_TARGETS_JSON: ${{ vars.MOVELLE_NATIVE_TARGETS_JSON }}
+          CORS_ALLOWED_ORIGINS: ${{ vars.CORS_ALLOWED_ORIGINS }}
+          MOVELLE_NATIVE_DATABASE_URL: ${{ secrets.NATIVE_RUNTIME_DATABASE_URL }}
+          MOVELLE_NATIVE_PUBLISHABLE_KEY: ${{ secrets.NATIVE_PUBLISHABLE_KEY }}
+        run: |
+          python - <<'PY'
+          import json, os, re, subprocess, tempfile, time
+          from pathlib import Path
+          from deploy.azure.review import prepare_native_update
+          scope = '/subscriptions/b118c1af-4183-49d6-bb49-1b531355fa3f/resourceGroups/movie-recommender-rg/providers/Microsoft.App/containerApps/movie-recommender-api'
+          base = 'https://management.azure.com' + scope
+          phase = 'read-only preparation'
+          try:
+              def check(value):
+                  if not value: raise ValueError('Native rollout verification failed')
+              with tempfile.TemporaryDirectory(prefix='movelle-native-') as directory:
+                  def request(method, suffix='', body=None):
+                      url = base + suffix + '?api-version=2025-07-01'
+                      args = ['az','rest','--method',method,'--url',url,'--only-show-errors','--output','json']
+                      if body is not None:
+                          path = Path(directory) / 'request.json'
+                          with path.open('w',opener=lambda p,f: os.open(p,f,0o600)) as out: json.dump(body,out)
+                          args += ['--body','@'+str(path)]
+                      result = subprocess.run(args,capture_output=True,text=True)
+                      if result.returncode: raise RuntimeError('Azure request failed')
+                      return json.loads(result.stdout) if result.stdout.strip() else {}
+                  current = request('get')
+                  existing = request('post','/listSecrets')['value']
+                  patch = prepare_native_update(current,existing,os.environ['IMAGE'],os.environ)
+                  # A stopped app may still have an active legacy revision. Never wake it.
+                  revisions = request('get','/revisions')['value']
+                  old_image = current['properties']['template']['containers'][0]['image']
+                  active = [r for r in revisions if r['properties']['active']]
+                  for revision in active:
+                      name = revision['name']
+                      check(re.fullmatch(r'movie-recommender-api--[a-z0-9-]{1,63}',name))
+                      check(revision['id'].lower() == (scope+'/revisions/'+name).lower())
+                      containers = revision['properties']['template']['containers']
+                      check(len(containers) == 1 and containers[0]['image'] == old_image)
+                      check(old_image != os.environ['IMAGE'])
+                  phase = 'approved retirement of stopped legacy revisions'
+                  for revision in active: request('post','/revisions/'+revision['name']+'/deactivate')
+                  # Refusal/uncertainty blocks PATCH/start; never change revision mode as a workaround.
+                  check(not any(r['properties']['active'] for r in request('get','/revisions')['value']))
+                  phase = 'approved native configuration PATCH'
+                  request('patch',body=patch)
+                  phase = 'bounded native revision verification'
+                  for attempt in range(120):
+                      current = request('get'); p = current['properties']
+                      if p.get('provisioningState') == 'Failed': raise RuntimeError('Provisioning failed')
+                      if p.get('provisioningState') == 'Succeeded': break
+                      time.sleep(2)
+                  else: raise RuntimeError('Provisioning remained uncertain')
+                  container = p['template']['containers'][0]
+                  check(container['image'] == os.environ['IMAGE'] and p['template']['scale']['maxReplicas'] == 1)
+                  actual = {r['name']:{k:v for k,v in r.items() if v is not None} for r in container['env']}
+                  wanted = {r['name']:r for r in patch['properties']['template']['containers'][0]['env']}
+                  check(actual == wanted)
+                  phase = 'explicit native start'
+                  if p['runningStatus'] == 'Stopped': request('post','/start')
+                  elif p['runningStatus'] != 'Running': raise RuntimeError('Unexpected running state')
+              print('Native configuration verified; controlled startup requested; perform bounded acceptance before frontend promotion')
+          except Exception:
+              raise SystemExit('Native deployment stopped during '+phase+'; inspect state; no automatic retry or restore') from None
+          PY
