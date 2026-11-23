@@ -24,7 +24,7 @@ def test_release_is_manual_verified_serialized_and_digest_based():
     assert release.index('Reject stale release') < release.index(preflight_name) < release.index('uses: azure/login@')
     assert 'continue-on-error' not in release and 'always()' not in release
     preflight = re.search(r'      - name: Read-only native preflight.*?(?=\n      - )', release, re.S).group()
-    assert release.count('secrets.NATIVE_RUNTIME_DATABASE_URL') == 1
+    assert release.count('secrets.NATIVE_RUNTIME_DATABASE_URL') == 2
     assert 'secrets.NATIVE_RUNTIME_DATABASE_URL' in preflight
     assert 'timeout-minutes: 7' in preflight and 'timeout --kill-after=10s 300s' in preflight
     assert 'trap ' in preflight and 'docker rm --force "$name"' in preflight
@@ -37,10 +37,18 @@ def test_release_is_manual_verified_serialized_and_digest_based():
     assert 'ensure_prepared(path, RELEASE_URL, RELEASE_SHA256)' in release
     assert '-m app.reference --prepared /backend/data/reference/ml-32m-v1' in release
     assert "['python', '-m', 'app.azure_release']" in release
-    assert release.count('if: ${{ false }}') == 2  # Publication and deployment stay paused.
+    if release.count('if: ${{ false }}') != 2:
+        assert "confirm_native_activation:" in release and "default: false" in release
+        assert release.count("github.ref == 'refs/heads/main' && inputs.confirm_native_activation == true") == 2
+        assert "type: boolean" in release
+
     assert release.count('environment: production') == 2
     assert 'IMAGE: ghcr.io/aanxnd/movie-recommender@${{ needs.publish.outputs.digest }}' in release
-    assert 'imageToDeploy: ${{ env.IMAGE }}' in release
+    update = re.search(r'      - name: Deploy tested.*', release, re.S).group()
+    assert 'secrets.NATIVE_RUNTIME_DATABASE_URL' in update
+    assert 'capture_output=True' in update and "'@'+str(path)" in update
+    assert "request('patch',body=patch)" in update and "request('post','/start')" in update
+    assert update.index("+'/deactivate'") < update.index("request('patch',body=patch)") < update.index("request('post','/start')")
     assert ':latest' not in release
     for text in (ci, release):
         for action in re.findall(r'uses: ([^\s]+)', text):
