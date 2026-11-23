@@ -17,8 +17,14 @@ def require(condition):
     if not condition: raise ValueError
 
 
+def _canonical_location(value):
+    """Only the pinned region's programmatic name and display name are accepted."""
+    require(isinstance(value, str) and value.lower() in {'canadacentral', 'canada central'})
+    return 'canadacentral'
+
+
 def validate(document):
-    require(document['name'] == 'movie-recommender-api' and document['location'] == 'canadacentral')
+    require(document['name'] == 'movie-recommender-api' and _canonical_location(document['location']) == 'canadacentral')
     config, template = (document['properties'][key] for key in ['configuration', 'template'])
     require(config['activeRevisionsMode'] == 'Single')
     ingress = config['ingress']
@@ -60,7 +66,8 @@ def prepare_native_update(current, existing_secrets, image, env):
     """Pure preparation only. Caller must obtain final approval before PATCH/start."""
     resource = ('/subscriptions/b118c1af-4183-49d6-bb49-1b531355fa3f/resourceGroups/'
                 'movie-recommender-rg/providers/Microsoft.App/containerApps/movie-recommender-api')
-    require(current['id'].lower() == resource.lower() and current['location'].lower() == 'canadacentral')
+    require(current['id'].lower() == resource.lower())
+    location = _canonical_location(current['location'])
     p = current['properties']; c = p['configuration']; t = deepcopy(p['template'])
     expected_environment = resource.rsplit('/containerApps/',1)[0] + '/managedEnvironments/managedEnvironment-movierecommende-9747'
     require((p.get('environmentId') or p.get('managedEnvironmentId','')).lower() == expected_environment.lower())
@@ -97,7 +104,7 @@ def prepare_native_update(current, existing_secrets, image, env):
     selected = deepcopy(t)
     selected['scale'] = {k:scale[k] for k in ['minReplicas','maxReplicas','rules']}
     selected['containers'][0]['resources'] = {'cpu':1,'memory':'2Gi'}
-    validate({'name':current['name'],'location':current['location'],'properties':{'configuration':c,'template':selected}})
+    validate({'name':current['name'],'location':location,'properties':{'configuration':c,'template':selected}})
     names = [s['name'] for s in existing_secrets]
     require(len(set(names)) == len(names) and set(names) == {s['name'] for s in c.get('secrets',[])})
     for secret in existing_secrets:
@@ -107,7 +114,7 @@ def prepare_native_update(current, existing_secrets, image, env):
                        ('movelle-native-publishable-key',env['MOVELLE_NATIVE_PUBLISHABLE_KEY'])]:
         merged[name] = {'name':name,'value':value}
     # JSON Merge Patch changes only the native template and merged secret list.
-    return {'location':current['location'],'properties':{'configuration':{'secrets':list(merged.values())},'template':t}}
+    return {'location':location,'properties':{'configuration':{'secrets':list(merged.values())},'template':t}}
 
 
 if __name__ == '__main__':

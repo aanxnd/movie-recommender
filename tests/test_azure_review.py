@@ -30,6 +30,21 @@ def test_review_only_accepts_the_pinned_native_configuration(document):
     with pytest.raises(Exception): review.validate(json.loads(Path('deploy/azure/containerapp.review.json').read_text()))
 
 
+@pytest.mark.parametrize('location', ['canadacentral', 'Canada Central', 'CANADA CENTRAL'])
+def test_review_accepts_only_the_pinned_region_forms(document, location):
+    document['location'] = location
+    before = copy.deepcopy(document)
+    review.validate(document)
+    assert document == before
+
+
+@pytest.mark.parametrize('location', ['canadaeast', 'Canada East', 'Canada Central/', ' canada central',
+    'Canada\tCentral', 'Canada\u00a0Central', '', None, 0, [], {}])
+def test_review_refuses_foreign_or_malformed_regions(document, location):
+    document['location'] = location
+    with pytest.raises(ValueError): review.validate(document)
+
+
 @pytest.mark.parametrize('attack', ['app', 'region', 'revision', 'http', 'replicas', 'scaler',
     'image', 'command', 'sidecar', 'memory', 'secret', 'duplicate', 'origin', 'probe', 'storage'])
 def test_bad_scope_cost_or_security_inputs_are_refused(document, attack):
