@@ -14,6 +14,19 @@ digest-pinned GHCR and Log Analytics. No cloud API was used to verify these fact
 Prepared target changes only max3→1 plus reviewed native image/config/probes.
 Keep min0,concurrency10,Single,existing TLS ingress/environment/identities.
 
+November 23 owner-supplied read-only API evidence confirmed the app remains
+Stopped/Succeeded with those limits and three existing secrets with values present. Azure
+returned the region display name `Canada Central`; the rollout previously compared
+it only with `canadacentral` and failed its first scope check. Both documented
+forms now map explicitly to `canadacentral`; other/malformed regions still fail.
+The offline response-shape regression uses fictional secret values and verifies
+that existing secrets and platform-reported 4Gi ephemeral storage survive preparation.
+This is not hosted rollout acceptance. No revision retirement, PATCH or start was
+performed; the workflow must not be retried automatically. See Microsoft's
+[region names](https://learn.microsoft.com/en-us/azure/reliability/regions-list).
+Safe phase labels now distinguish resource reads, secret reads and local validation;
+the generic hosted error alone cannot establish the original caller's API permissions.
+
 All Oracle PR111–123 are merged. They added ARM/Compose/TLS preparation and
 retired only an undeployed private Azure proposal. The actual Azure workflow,
 legacy image, OIDC, migration/rollback tools were never deleted. Do not restore

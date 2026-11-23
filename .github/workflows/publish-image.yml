@@ -171,10 +171,14 @@ jobs:
                       result = subprocess.run(args,capture_output=True,text=True)
                       if result.returncode: raise RuntimeError('Azure request failed')
                       return json.loads(result.stdout) if result.stdout.strip() else {}
+                  phase = 'read current Azure resource'
                   current = request('get')
+                  phase = 'read existing Azure secrets'
                   existing = request('post','/listSecrets')['value']
+                  phase = 'validate approved native configuration'
                   patch = prepare_native_update(current,existing,os.environ['IMAGE'],os.environ)
                   # A stopped app may still have an active legacy revision. Never wake it.
+                  phase = 'read and validate legacy revision inventory'
                   revisions = request('get','/revisions')['value']
                   old_image = current['properties']['template']['containers'][0]['image']
                   active = [r for r in revisions if r['properties']['active']]

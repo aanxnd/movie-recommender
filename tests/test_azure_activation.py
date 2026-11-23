@@ -1,4 +1,4 @@
-"""Fictional Azure snapshots only. Never calls Azure or any application database."""
+"""Owner-reported Azure response shape, fictional secrets; no cloud/database calls."""
 from copy import deepcopy
 import json
 from pathlib import Path
@@ -12,20 +12,26 @@ from deploy.azure import review
 def inputs():
     resource='/subscriptions/b118c1af-4183-49d6-bb49-1b531355fa3f/resourceGroups/movie-recommender-rg/providers/Microsoft.App/containerApps/movie-recommender-api'
     current=json.loads(Path('deploy/azure/containerapp.review.json').read_text())
-    current['id']=resource;p=current['properties'];p.update(runningStatus='Stopped',provisioningState='Succeeded',environmentId=resource.rsplit('/containerApps/',1)[0]+'/managedEnvironments/managedEnvironment-movierecommende-9747')
+    current['id']=resource.replace('/containerApps/', '/containerapps/');current['location']='Canada Central'
+    p=current['properties'];p.update(runningStatus='Stopped',provisioningState='Succeeded',environmentId=resource.rsplit('/containerApps/',1)[0]+'/managedEnvironments/managedEnvironment-movierecommende-9747')
+    p['managedEnvironmentId']=p['environmentId']
     current['identity']={'type':'SystemAssigned','principalId':'fictional'}
-    p['configuration']['secrets']=[{'name':'old-secret'}];p['configuration']['registries']=[{'server':'existing.invalid'}]
+    names=['database-url','trakt-client-id','fanart-api-key']
+    p['configuration']['secrets']=[{'name':name} for name in names];p['configuration']['registries']=[{'server':'existing.invalid'}]
     p['configuration']['ingress']['fqdn']=review.API.removeprefix('https://')
     p['template']['scale']['maxReplicas']=3;p['template']['scale']['cooldownPeriod']=300
-    container=p['template']['containers'][0];container['name']='existing-container';container['image']='existing-legacy-image'
-    container['command']=['python','-m','app.runtime'];container['env']=[{'name':'LEGACY','secretRef':'old-secret'}]
+    container=p['template']['containers'][0];container['name']='movie-recommender-api'
+    container['image']='ghcr.io/aanxnd/movie-recommender@sha256:4ff585b42f92266741cce4efb711ecd0ed64806b157554c5cbc661e80bf140eb'
+    container['resources']['ephemeralStorage']='4Gi'
+    container['command']=['python','-m','app.runtime'];container['env']=[{'name':'LEGACY','secretRef':'database-url'}]
     targets={'approved':True,'frontend_origin':'https://fixture.example','api_origin':review.API,
              'supabase_url':'https://jsbulnrcxtvslvvxjizq.supabase.co',
              'database_host':'ep-falling-pine-b45yu0ao.c-6.us-east-2.aws.neon.tech','database_name':'neondb'}
     url=URL.create('postgresql',username='movelle_native',password='Fictional-only',host=targets['database_host'],database='neondb',query={'sslmode':'verify-full','sslrootcert':'system','channel_binding':'require'})
     env={'MOVELLE_NATIVE_TARGETS_JSON':json.dumps(targets),'CORS_ALLOWED_ORIGINS':targets['frontend_origin'],
          'MOVELLE_NATIVE_DATABASE_URL':url.render_as_string(hide_password=False),'MOVELLE_NATIVE_PUBLISHABLE_KEY':'sb_publishable_fictional'}
-    return current,[{'name':'old-secret','value':'Fictional-old-only'}],'ghcr.io/aanxnd/movie-recommender@sha256:'+'a'*64,env
+    secrets=[{'name':name,'value':'Fictional-old-only'} for name in sorted(names)]
+    return current,secrets,'ghcr.io/aanxnd/movie-recommender@sha256:'+'a'*64,env
 
 
 def test_only_native_template_and_merged_secrets_change(inputs):
@@ -36,11 +42,29 @@ def test_only_native_template_and_merged_secrets_change(inputs):
     assert set(patch['properties']['configuration'])=={'secrets'}
     assert patch['properties']['configuration']['secrets'][0]==secrets[0]
     template=patch['properties']['template'];c=template['containers'][0]
-    assert c['name']=='existing-container' and c['image']==image and 'command' not in c
+    assert c['name']=='movie-recommender-api' and c['image']==image and 'command' not in c
     assert template['scale']['maxReplicas']==1 and template['scale']['cooldownPeriod']==300
+    assert c['resources']=={'cpu':1,'memory':'2Gi','ephemeralStorage':'4Gi'}
+    assert patch['properties']['configuration']['secrets'][:len(secrets)]==secrets
     assert all('secretRef' in row for row in c['env'] if row['name'] in {'MOVELLE_NATIVE_DATABASE_URL','MOVELLE_NATIVE_PUBLISHABLE_KEY'})
     assert 'Fictional-only' not in json.dumps(template) and 'Fictional-old-only' not in json.dumps(template)
     assert all(row['name']!='LEGACY' for row in c['env'])
+
+
+@pytest.mark.parametrize('location', ['canadacentral', 'Canada Central', 'CANADA CENTRAL'])
+def test_approved_region_forms_produce_canonical_patch_without_mutating_input(inputs, location):
+    current, *_ = inputs
+    current['location'] = location
+    before = deepcopy(inputs)
+    assert review.prepare_native_update(*inputs)['location'] == 'canadacentral'
+    assert inputs == before
+
+
+@pytest.mark.parametrize('location', ['canadaeast', 'Canada East', 'Canada Central/', ' canada central',
+    'Canada\tCentral', 'Canada\u00a0Central', '', None, 0, [], {}])
+def test_foreign_or_malformed_region_is_rejected(inputs, location):
+    inputs[0]['location'] = location
+    with pytest.raises(ValueError): review.prepare_native_update(*inputs)
 
 
 @pytest.mark.parametrize('attack',['subscription','environment','running','provisioning','fqdn','http','replicas',
@@ -83,3 +107,6 @@ def test_workflow_requires_explicit_activation_and_retains_protection_contract()
     assert 'migrate' not in raw and 'neon_superuser' not in raw
     assert raw.index("+'/deactivate'") < raw.index("request('patch',body=patch)") < raw.index("request('post','/start')")
     assert "check(not any(r['properties']['active']" in raw and "containers[0]['image'] == old_image" in raw
+    for phase in ['read current Azure resource', 'read existing Azure secrets',
+                  'validate approved native configuration', 'read and validate legacy revision inventory']:
+        assert raw.index("phase = '" + phase + "'") < raw.index("+'/deactivate'")
