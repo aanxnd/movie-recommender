@@ -35,7 +35,8 @@ test('signup labels, password controls, matching validation and native email val
   assert.equal(calls, 0)
   f.input('email', 'offline@example.invalid'); await f.submit()
   assert.equal(calls, 1); assert.match(f.text(), /If signup can proceed/)
-  assert.equal(document.querySelector('form'), null)
+  assert.ok(document.querySelector('[name="code"]'))
+  assert.equal(document.querySelector('[name="password"]'), null)
   assert.doesNotMatch(document.body.innerHTML, /synthetic-private|email verified|signup confirmed/i)
 })
 
@@ -48,7 +49,7 @@ test('double submit is blocked and passwords clear before the request settles', 
   assert.equal(document.querySelector('[name="confirmation"]').value, '')
   assert.equal(document.querySelector('[type="submit"]').disabled, true)
   await act(async () => { request.resolve({ status: 'check-email' }); await tick() })
-  assert.match(f.text(), /Check your email/)
+  assert.match(f.text(), /Check your inbox/)
 })
 
 for (const status of ['invalid', 'rate-limited', 'unavailable', 'cancelled', 'busy', 'private-provider-error']) {
